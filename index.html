@@ -2975,14 +2975,14 @@ function buildQuickBlockHTML(type, col) {
   col = col || '#c060ff';
   if (type === 'divider') return '<hr style="border:none;border-top:2px solid ' + col + ';margin:20px 0;">';
   if (type === 'btn') {
-    var url = prompt('URL du bouton :') || 'https://www.clairvoyancemedium.com/';
+    var url = prompt('URL du bouton :') || 'https://www.clairvoyancemedium.com/Voyance-par-telephone-30-minutes-cbaaaaaoa.asp';
     var label = prompt('Texte du bouton :') || 'Consulter maintenant';
     return '<div style="text-align:center;margin:20px 0;"><a href="' + url + '" target="_blank" style="display:inline-block;background:' + col + ';color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;">' + label + '</a></div>';
   }
   if (type === 'signature') {
     return '<div style="margin-top:30px;padding-top:15px;border-top:2px solid ' + col + ';font-family:Arial,sans-serif;font-size:13px;color:#555;">' +
-      '<strong style="color:#333;font-size:15px;">Frédéric</strong><br>' +
-      '<span style="color:' + col + ';font-weight:600;">Cabinet ClairvoyanceMedium.com</span><br><br>' +
+      '<strong style="color:#333;font-size:15px;">Frederick</strong><br>' +
+      '<span style="color:' + col + ';font-weight:600;">Cabinet ClairVoyanceMedium.com</span><br><br>' +
       '📧 <a href="mailto:contact.clairvoyancemedium@gmail.com" style="color:' + col + ';text-decoration:none;">contact.clairvoyancemedium@gmail.com</a><br>' +
       '📞 <a href="tel:+33695468923" style="color:' + col + ';text-decoration:none;">06 95 46 89 23</a><br>' +
       '🌐 <a href="https://www.clairvoyancemedium.com/" target="_blank" style="color:' + col + ';font-weight:700;text-decoration:none;">www.clairvoyancemedium.com</a>' +
