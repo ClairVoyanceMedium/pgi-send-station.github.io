@@ -6,12 +6,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#8B0000">,
+<meta name="theme-color" content="#8B0000">
 <title>PGI Send Station</title>
 <!-- Favicon -->
-<link rel="icon" type="image/png" href="https://clairvoyancemedium.github.io/pgi-send-station.github.io/favicon%20pgi%20send%20station.png?v=2">
-<link rel="shortcut icon" href="https://clairvoyancemedium.github.io/pgi-send-station.github.io/favicon%20pgi%20send%20station.png?v=2">
-<link rel="apple-touch-icon" href="https://clairvoyancemedium.github.io/pgi-send-station.github.io/favicon%20pgi%20send%20station.png?v=2">
+<link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
+<link rel="apple-touch-icon" sizes="180x180" href="https://i.imgur.com/GmyGlKk.webp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&family=Exo+2:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
@@ -695,7 +694,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
 <!-- TOPBAR -->
 <div id="topbar">
   <!-- LOGO NÉON ANNÉES 80 — police Righteous, glow bleu ciel -->
-  <div class="logo">PGI<span class="logo-dot"></span> Send Station</div>
+  <div class="logo">PGI<span class="logo-dot"></span>Send Station</div>
   <nav class="top-nav" id="desktop-nav">
     <button class="tnav" id="dn-dashboard" onclick="showView('dashboard')">Dashboard</button>
     <button class="tnav" id="dn-email" onclick="showView('email')">Email</button>
@@ -1185,7 +1184,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
       </div>
 
       <div class="fc" style="margin-bottom:10px">
-        <label class="fl">Numéros — Collez des milliers de numéros de téléphone d'un coup</label>
+        <label class="fl">Numéros — Collez des milliers d'un coup</label>
         <textarea class="fta" id="qs-sms-to" style="min-height:80px"
           placeholder="+33600000001&#10;+33600000002, +33600000003&#10;06 00 00 00 04&#10;&#10;→ Formats acceptés : +33, 06, 07, international&#10;→ Séparateurs : saut de ligne, virgule, point-virgule"
           oninput="updateQSSMSToCnt()"></textarea>
@@ -2982,10 +2981,10 @@ function buildQuickBlockHTML(type, col) {
   }
   if (type === 'signature') {
     return '<div style="margin-top:30px;padding-top:15px;border-top:2px solid ' + col + ';font-family:Arial,sans-serif;font-size:13px;color:#555;">' +
-      '<strong style="color:#333;font-size:15px;">Frederick +25 ans d'expérience • Voyance par téléphone • Voyance par flash direct • Voyance pure • Rituels amour et purification</strong><br>' +
+      '<strong style="color:#333;font-size:15px;">Frédéric</strong><br>' +
       '<span style="color:' + col + ';font-weight:600;">Cabinet ClairvoyanceMedium.com</span><br><br>' +
       '📧 <a href="mailto:contact.clairvoyancemedium@gmail.com" style="color:' + col + ';text-decoration:none;">contact.clairvoyancemedium@gmail.com</a><br>' +
-      '📞 <a href="tel:+33695468923" style="color:' + col + ';text-decoration:none;">06 95 46 89 23 • 24/7</a><br>' +
+      '📞 <a href="tel:+33695468923" style="color:' + col + ';text-decoration:none;">06 95 46 89 23</a><br>' +
       '🌐 <a href="https://www.clairvoyancemedium.com/" target="_blank" style="color:' + col + ';font-weight:700;text-decoration:none;">www.clairvoyancemedium.com</a>' +
       '</div>';
   }
