@@ -4497,7 +4497,7 @@ async function _uploadAndInsertVideo(input, editorFn) {
 }
 
 function iRVideo() {
-  const input = prompt('URL YouTube, Vimeo, Dailymotion ou URL directe (.mp4)\n\nNote : les vidéos ne s'affichent pas dans les emails — un bouton/vignette cliquable sera inséré.');
+  const input = prompt('URL YouTube, Vimeo, Dailymotion ou URL directe (.mp4)\n\nNote : les vid\u00e9os ne s\'affichent pas dans les emails \u2014 un bouton/vignette cliquable sera ins\u00e9r\u00e9.');
   if (!input) return;
   const r = $('pane-rich'); if (r) r.focus();
   document.execCommand('insertHTML', false, _buildVideoHtml(input));
@@ -4541,7 +4541,7 @@ function iREmoji() {
 
 /* ─── QS VIDEO ──────────────────────────────────────── */
 function insertQSVideo() {
-  const input = prompt('URL YouTube, Vimeo, Dailymotion ou URL directe (.mp4)\n\nUn bouton/vignette cliquable sera inséré (les vidéos ne s'affichent pas directement dans les emails).');
+  const input = prompt('URL YouTube, Vimeo, Dailymotion ou URL directe (.mp4)\n\nUn bouton/vignette cliquable sera ins\u00e9r\u00e9 (les vid\u00e9os ne s\'affichent pas directement dans les emails).');
   if (!input) return;
   execQS('insertHTML', _buildVideoHtml(input));
 }
