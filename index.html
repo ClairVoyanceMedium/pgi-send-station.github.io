@@ -518,6 +518,51 @@ td.mono{font-family:var(--mono);font-size:10px;color:var(--purl);}
 
 /* ============ DASHBOARD ============ */
 #dashboard-view{overflow-y:auto;padding:14px;gap:12px;}
+
+/* ── Floating block toolbar (click/tap on block in editor) ── */
+#pgi-block-toolbar{
+  position:fixed;z-index:9999;
+  display:none;flex-direction:row;gap:2px;align-items:center;
+  background:var(--bg2);border:1px solid var(--pur-b);border-radius:8px;
+  padding:4px 6px;box-shadow:0 4px 20px rgba(0,0,0,.6);
+  pointer-events:auto;
+}
+#pgi-block-toolbar button{
+  background:var(--bg3);border:1px solid var(--b2);border-radius:5px;
+  color:var(--text);cursor:pointer;font-size:13px;padding:4px 8px;line-height:1;
+  transition:background .15s;white-space:nowrap;
+}
+#pgi-block-toolbar button:hover{background:var(--pur-bg);border-color:var(--pur-b);}
+#pgi-block-toolbar .pbt-lnk-row{
+  display:none;flex-direction:row;gap:4px;align-items:center;margin-top:4px;
+  border-top:1px solid var(--b1);padding-top:4px;width:100%;
+}
+#pgi-block-toolbar input{
+  flex:1;background:var(--bg4);border:1px solid var(--b2);border-radius:4px;
+  color:var(--text);font-size:11px;padding:4px 7px;outline:none;min-width:160px;
+}
+
+/* ── Unsubscribers per campaign ── */
+.unsub-camp-row{
+  padding:10px 12px;border-bottom:1px solid var(--b1);cursor:pointer;
+  display:flex;align-items:center;gap:10px;transition:background .15s;
+}
+.unsub-camp-row:hover{background:var(--bg3);}
+.unsub-camp-badge{
+  background:rgba(255,34,68,.1);border:1px solid rgba(255,34,68,.25);
+  color:var(--red);font-family:var(--mono);font-size:11px;font-weight:700;
+  padding:2px 8px;border-radius:4px;flex-shrink:0;
+}
+.unsub-emails-list{
+  display:none;padding:10px 14px;background:var(--bg3);
+  border-bottom:1px solid var(--b1);flex-wrap:wrap;gap:6px;
+}
+.unsub-email-tag{
+  background:rgba(255,34,68,.08);border:1px solid rgba(255,34,68,.2);
+  color:var(--red);font-size:10px;padding:2px 8px;border-radius:3px;
+  font-family:var(--mono);cursor:pointer;
+}
+.unsub-email-tag:hover{background:rgba(255,34,68,.18);}
 .kpi-row{display:grid;gap:8px;margin-bottom:14px;}
 .kpi{background:var(--bg2);border:1px solid var(--b1);border-radius:10px;padding:13px 15px;position:relative;overflow:hidden;}
 .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
@@ -977,6 +1022,35 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
   </div>
 
 </div>
+  <!-- ═══════════════════════════════════════════════════════
+       DÉSABONNÉS PAR CAMPAGNE
+  ════════════════════════════════════════════════════════ -->
+  <div class="sec-box" style="margin-bottom:12px">
+    <div class="sec-ttl" style="color:var(--red)">
+      🚫 Désabonnés par campagne
+      <span id="badge-unsub-total" style="margin-left:6px;background:rgba(255,34,68,.1);border:1px solid rgba(255,34,68,.25);color:var(--red);font-size:9px;padding:1px 7px;border-radius:10px;font-weight:700">0</span>
+      <span style="margin-left:auto;font-size:9px;color:var(--text3);font-weight:400">Cliquer sur une campagne pour voir les emails</span>
+    </div>
+    <div id="unsub-per-camp-list">
+      <div class="empty" style="padding:20px"><p>Aucun désabonné enregistré</p></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Floating block toolbar — repositionné dynamiquement par JS ── -->
+<div id="pgi-block-toolbar">
+  <button id="pbt-up" title="Déplacer vers le haut">↑</button>
+  <button id="pbt-down" title="Déplacer vers le bas">↓</button>
+  <button id="pbt-link" title="Lien sur ce bloc">🔗</button>
+  <button id="pbt-del" title="Supprimer ce bloc" style="color:var(--red)">✕</button>
+  <div class="pbt-lnk-row" id="pbt-lnk-row">
+    <input type="url" id="pbt-link-inp" placeholder="https://...">
+    <button id="pbt-link-ok" title="Appliquer">✓</button>
+    <button id="pbt-link-rm" title="Supprimer le lien" style="color:var(--red)">🚫</button>
+  </div>
+</div>
+
 <!-- ═══ EMAIL CAMPAIGNS ═══ -->
 <div class="view split-layout" id="view-email">
   <div class="side-panel" id="panel-email">
@@ -1105,7 +1179,8 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
           <button class="tb" onclick="insertQSLink()" title="Lien — sélectionnez d'abord le texte">🔗</button>
           <button class="tb" onclick="insertQSTelLink()" title="Lien téléphone tap-to-call">📞</button>
           <button class="tb" onclick="insertQSImgLink()" title="Image cliquable avec lien">🖼🔗</button>
-          <button class="tb" onclick="insertQSVideo()" title="Vidéo YouTube/Vimeo/mp4">▶🎬</button>
+          <button class="tb" onclick="insertQSVideo()" title="Vidéo YouTube/Vimeo/Dailymotion (lien)">▶🎬</button>
+          <label class="tb" style="cursor:pointer" title="Upload vidéo personnelle">📹<input type="file" accept="video/*" style="display:none" onchange="insertQSVideoUpload(this)"></label>
           <button class="tb" onclick="insertQSAudio()" title="Lecteur audio">🎵</button>
           <button class="tb" onclick="insertQSEmoji()" title="Insérer emoji">😊</button>
           <div class="tbs"></div>
@@ -1233,10 +1308,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
       <button class="btn-ico" onclick="saveTpl(true)">💾</button>
       <button class="btn-ico" style="color:var(--red)" onclick="delTpl()">✕</button>
     </div>
-    <div class="te-row">
-      <span class="subj-lbl">Objet</span>
-      <input type="text" id="te-subj" placeholder="Objet de l'email — {{prénom}}, {{nom}}...">
-    </div>
+    <input type="hidden" id="te-subj" value="">
     <div id="vars-row">
       <span class="vl">Insérer :</span>
       <span class="vc" onclick="iVar('{{prénom}}')">👤 Prénom</span>
@@ -1303,7 +1375,8 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
       <div class="tbs"></div>
       <button class="tb" onclick="iRTable()" title="Insérer tableau">⊞</button>
       <button class="tb" onclick="iRHR()" title="Ligne séparatrice">—</button>
-      <button class="tb" onclick="iRVideo()" title="Intégrer vidéo YouTube/Vimeo">▶🎬</button>
+      <button class="tb" onclick="iRVideo()" title="Vidéo YouTube/Vimeo/Dailymotion (lien)">▶🎬</button>
+      <label class="tb" style="cursor:pointer" title="Upload vidéo personnelle">📹<input type="file" accept="video/*" style="display:none" onchange="iRVideoUpload(this)"></label>
       <button class="tb" onclick="iRAudio()" title="Lecteur audio">🎵</button>
       <button class="tb" onclick="iREmoji()" title="Insérer emoji">😊</button>
       <div class="tbs"></div>
@@ -2883,9 +2956,12 @@ function uEditorInsertImgURL(edId, campId) {
   var urlEl = document.getElementById('ib-url-' + (campId||'tpl'));
   var url = urlEl ? urlEl.value.trim() : prompt('URL de l\'image :');
   if (!url) return;
+  var lnk = prompt('Lien sur cette image (optionnel — laissez vide pour aucun) :') || '';
   var ed = document.getElementById(edId); if (!ed) return;
   ed.focus();
-  document.execCommand('insertHTML', false, '<img src="' + url + '" style="max-width:100%;height:auto;border-radius:4px;margin:8px 0;display:block;" alt="image">');
+  var imgHtml = '<img src="' + url + '" style="max-width:100%;height:auto;border-radius:4px;margin:8px 0;display:block;" alt="image">';
+  if (lnk) imgHtml = '<a href="' + lnk + '" target="_blank" style="display:block;border:none;text-decoration:none">' + imgHtml + '</a>';
+  document.execCommand('insertHTML', false, imgHtml);
   if (urlEl) urlEl.value = '';
   if (campId) { var c=S.camps.find(function(x){return x.id==campId;}); if(c) c.campBody=ed.innerHTML; }
   toast('Image insérée ✓', 'success');
@@ -2895,12 +2971,21 @@ function uEditorInsertImgFile(input, edId, campId) {
   var file = input.files[0]; if (!file) return;
   if (file.size > 5*1024*1024) { toast('Image trop lourde (max 5 Mo)', 'error'); return; }
   var reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = async function(e) {
+    var b64data = e.target.result.split(',')[1];
+    toast('Upload image…', 'info');
+    var publicUrl = await uploadImgToWorker(b64data, file.type, file.name);
+    var src = publicUrl || e.target.result;
+    var lnk = prompt('Lien sur cette image (optionnel — laissez vide pour aucun) :') || '';
     var ed = document.getElementById(edId); if (!ed) return;
     ed.focus();
     document.execCommand('insertHTML', false, '<img src="' + e.target.result + '" style="max-width:100%;height:auto;border-radius:4px;margin:8px 0;display:block;" alt="' + file.name + '">');
+    ed.focus();
+    var imgHtml = '<img src="' + src + '" style="max-width:100%;height:auto;border-radius:4px;margin:8px 0;display:block;" alt="' + file.name + '">';
+    if (lnk) imgHtml = '<a href="' + lnk + '" target="_blank" style="display:block;border:none;text-decoration:none">' + imgHtml + '</a>';
+    document.execCommand('insertHTML', false, imgHtml);
     if (campId) { var c=S.camps.find(function(x){return x.id==campId;}); if(c) c.campBody=ed.innerHTML; }
-    toast('Image insérée ✓', 'success');
+    toast(publicUrl ? '✓ Image hébergée Worker' : '⚠ Base64 (Worker non configuré)', publicUrl ? 'success' : 'warn');
   };
   reader.readAsDataURL(file); input.value = '';
 }
@@ -2908,14 +2993,18 @@ function uEditorInsertImgFile(input, edId, campId) {
 function uEditorSaveAndInsertImg(input, edId) {
   var file = input.files[0]; if (!file) return;
   var reader = new FileReader();
-  reader.onload = function(e) {
-    S.imgLib.push({id:Date.now(), src:e.target.result, name:file.name});
+  reader.onload = async function(e) {
+    var b64data = e.target.result.split(',')[1];
+    var publicUrl = await uploadImgToWorker(b64data, file.type, file.name);
+    var src = publicUrl || e.target.result;
+    S.imgLib.push({id:Date.now(), src:src, name:file.name});
     lsS(SK.imgLib, S.imgLib);
     var ed = document.getElementById(edId); if (!ed) return;
     ed.focus();
-    document.execCommand('insertHTML', false, '<img src="' + e.target.result + '" style="max-width:100%;height:auto;border-radius:4px;margin:8px 0;display:block;" alt="' + file.name + '">');
+    var imgHtml = '<img src="' + src + '" style="max-width:100%;height:auto;border-radius:4px;margin:8px 0;display:block;" alt="' + file.name + '">';
+    document.execCommand('insertHTML', false, imgHtml);
     renderImgGal();
-    toast('Image sauvegardée et insérée ✓', 'success');
+    toast(publicUrl ? '✓ Image hébergée et insérée' : '⚠ Base64 (Worker non configuré)', publicUrl ? 'success' : 'warn');
   };
   reader.readAsDataURL(file); input.value = '';
 }
@@ -2975,14 +3064,14 @@ function buildQuickBlockHTML(type, col) {
   col = col || '#c060ff';
   if (type === 'divider') return '<hr style="border:none;border-top:2px solid ' + col + ';margin:20px 0;">';
   if (type === 'btn') {
-    var url = prompt('URL du bouton :') || 'https://www.clairvoyancemedium.com/Voyance-par-telephone-30-minutes-cbaaaaaoa.asp';
+    var url = prompt('URL du bouton :') || 'https://www.clairvoyancemedium.com/';
     var label = prompt('Texte du bouton :') || 'Consulter maintenant';
     return '<div style="text-align:center;margin:20px 0;"><a href="' + url + '" target="_blank" style="display:inline-block;background:' + col + ';color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;">' + label + '</a></div>';
   }
   if (type === 'signature') {
     return '<div style="margin-top:30px;padding-top:15px;border-top:2px solid ' + col + ';font-family:Arial,sans-serif;font-size:13px;color:#555;">' +
-      '<strong style="color:#333;font-size:15px;">Frederick</strong><br>' +
-      '<span style="color:' + col + ';font-weight:600;">Cabinet ClairVoyanceMedium.com</span><br><br>' +
+      '<strong style="color:#333;font-size:15px;">Frédéric</strong><br>' +
+      '<span style="color:' + col + ';font-weight:600;">Cabinet ClairvoyanceMedium.com</span><br><br>' +
       '📧 <a href="mailto:contact.clairvoyancemedium@gmail.com" style="color:' + col + ';text-decoration:none;">contact.clairvoyancemedium@gmail.com</a><br>' +
       '📞 <a href="tel:+33695468923" style="color:' + col + ';text-decoration:none;">06 95 46 89 23</a><br>' +
       '🌐 <a href="https://www.clairvoyancemedium.com/" target="_blank" style="color:' + col + ';font-weight:700;text-decoration:none;">www.clairvoyancemedium.com</a>' +
@@ -3833,7 +3922,10 @@ function insertQSTelLink() {
 
 function insertQSImg() {
   const url = prompt('URL de l\'image :'); if (!url) return;
-  execQS('insertHTML', `<img src="${url}" style="max-width:100%;height:auto;border-radius:4px;margin:6px 0;display:block" alt="image">`);
+  const lnk = prompt('Lien sur cette image (optionnel — laissez vide pour aucun) :') || '';
+  let imgHtml = `<img src="${url}" style="max-width:100%;height:auto;border-radius:4px;margin:6px 0;display:block" alt="image">`;
+  if (lnk) imgHtml = `<a href="${lnk}" target="_blank" style="display:block;border:none;text-decoration:none">${imgHtml}</a>`;
+  execQS('insertHTML', imgHtml);
 }
 
 function insertQSImgLink() {
@@ -3866,10 +3958,16 @@ function insertQSImgFile(input) {
   const file = input.files[0]; if (!file) return;
   if (file.size > 5*1024*1024) { toast('Image trop lourde (max 5 Mo)', 'error'); return; }
   const reader = new FileReader();
-  reader.onload = e => {
-    execQS('insertHTML',
-      `<img src="${e.target.result}" style="max-width:100%;height:auto;border-radius:4px;margin:6px 0;display:block" alt="${file.name}">`);
-    toast('Image insérée ✓', 'success');
+  reader.onload = async e => {
+    const b64data = e.target.result.split(',')[1];
+    toast('Upload image…', 'info');
+    const publicUrl = await uploadImgToWorker(b64data, file.type, file.name);
+    const src = publicUrl || e.target.result;
+    const lnk = prompt('Lien sur cette image (optionnel — laissez vide pour aucun) :') || '';
+    let imgHtml = `<img src="${src}" style="max-width:100%;height:auto;border-radius:4px;margin:6px 0;display:block" alt="${file.name}">`;
+    if (lnk) imgHtml = `<a href="${lnk}" target="_blank" style="display:block;border:none;text-decoration:none">${imgHtml}</a>`;
+    execQS('insertHTML', imgHtml);
+    toast(publicUrl ? '✓ Image hébergée Worker' : '⚠ Base64 (Worker non configuré)', publicUrl ? 'success' : 'warn');
   };
   reader.readAsDataURL(file);
   input.value = '';
@@ -4361,30 +4459,55 @@ function execR(cmd, val = null) {
    Intègre une vidéo YouTube, Vimeo ou URL directe
    Responsive, avec lecteur embarqué HTML5
 ──────────────────────────────────────────────────── */
+/* ─── VIDEO email-safe helper (thumbnail cliquable) ─── */
+function _buildVideoHtml(input) {
+  const ytMatch  = input.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  const vimMatch = input.match(/vimeo\.com\/(\d+)/);
+  const dmMatch  = input.match(/(?:dailymotion\.com\/video\/|dai\.ly\/)([a-zA-Z0-9]+)/);
+  if (ytMatch) {
+    const id = ytMatch[1];
+    const thumb = `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
+    return `<div style="margin:10px 0;text-align:center"><a href="https://www.youtube.com/watch?v=${id}" target="_blank" style="display:inline-block;position:relative;border:none;text-decoration:none;max-width:100%"><img src="${thumb}" alt="Voir la vidéo" style="max-width:100%;border-radius:8px;display:block"><div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:58px;height:58px;background:rgba(255,0,0,.88);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff;pointer-events:none">▶</div></a><div style="font-size:10px;color:#888;margin-top:4px">▶ Cliquez pour voir la vidéo YouTube</div></div>`;
+  } else if (vimMatch) {
+    const id = vimMatch[1];
+    return `<div style="margin:10px 0;text-align:center"><a href="https://vimeo.com/${id}" target="_blank" style="display:inline-block;background:#1ab7ea;color:#fff;padding:14px 24px;border-radius:8px;font-weight:700;font-size:14px;text-decoration:none">▶ Voir la vidéo Vimeo</a></div>`;
+  } else if (dmMatch) {
+    const id = dmMatch[1];
+    return `<div style="margin:10px 0;text-align:center"><a href="https://www.dailymotion.com/video/${id}" target="_blank" style="display:inline-block;background:#0066DC;color:#fff;padding:14px 24px;border-radius:8px;font-weight:700;font-size:14px;text-decoration:none">▶ Voir la vidéo Dailymotion</a></div>`;
+  } else {
+    return `<div style="margin:10px 0;text-align:center"><a href="${input}" target="_blank" style="display:inline-block;background:#c060ff;color:#fff;padding:14px 24px;border-radius:8px;font-weight:700;font-size:14px;text-decoration:none">▶ Voir la vidéo</a></div>`;
+  }
+}
+
+async function _uploadAndInsertVideo(input, editorFn) {
+  const file = input.files[0]; if (!file) return;
+  if (file.size > 20*1024*1024) { toast('Vidéo max 20 Mo — préférez YouTube/Vimeo', 'warn'); return; }
+  toast('Upload vidéo…', 'info');
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const b64data = e.target.result.split(',')[1];
+    const publicUrl = await uploadImgToWorker(b64data, file.type, file.name);
+    if (!publicUrl) { toast('Worker non configuré — utilisez YouTube ou Vimeo', 'error'); return; }
+    const html = `<div style="margin:10px 0;text-align:center"><a href="${publicUrl}" target="_blank" style="display:inline-block;background:#c060ff;color:#fff;padding:14px 24px;border-radius:8px;font-weight:700;font-size:14px;text-decoration:none">▶ Voir la vidéo</a></div>`;
+    editorFn(html);
+    toast('✓ Vidéo hébergée et insérée', 'success');
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
 function iRVideo() {
-  const input = prompt('URL YouTube, Vimeo ou fichier vidéo (.mp4) :');
+  const input = prompt('URL YouTube, Vimeo, Dailymotion ou URL directe (.mp4)\n\nNote : les vidéos ne s'affichent pas dans les emails — un bouton/vignette cliquable sera inséré.');
   if (!input) return;
   const r = $('pane-rich'); if (r) r.focus();
-  let html = '';
-  // YouTube
-  const ytMatch = input.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  const vimeoMatch = input.match(/vimeo\.com\/(\d+)/);
-  if (ytMatch) {
-    html = `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;margin:10px 0;border-radius:8px">
-      <iframe style="position:absolute;top:0;left:0;width:100%;height:100%" src="https://www.youtube.com/embed/${ytMatch[1]}" frameborder="0" allowfullscreen loading="lazy"></iframe>
-    </div>`;
-  } else if (vimeoMatch) {
-    html = `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;margin:10px 0;border-radius:8px">
-      <iframe style="position:absolute;top:0;left:0;width:100%;height:100%" src="https://player.vimeo.com/video/${vimeoMatch[1]}" frameborder="0" allowfullscreen></iframe>
-    </div>`;
-  } else {
-    // Vidéo directe (mp4, webm...)
-    html = `<video controls style="max-width:100%;border-radius:8px;margin:10px 0;display:block">
-      <source src="${input}">
-      Votre navigateur ne supporte pas la lecture vidéo.
-    </video>`;
-  }
-  document.execCommand('insertHTML', false, html);
+  document.execCommand('insertHTML', false, _buildVideoHtml(input));
+}
+
+function iRVideoUpload(input) {
+  _uploadAndInsertVideo(input, function(html) {
+    const r = $('pane-rich'); if (r) r.focus();
+    document.execCommand('insertHTML', false, html);
+  });
 }
 
 /* ─── AUDIO ────────────────────────────────────────────
@@ -4418,14 +4541,13 @@ function iREmoji() {
 
 /* ─── QS VIDEO ──────────────────────────────────────── */
 function insertQSVideo() {
-  const input = prompt('URL YouTube, Vimeo ou vidéo (.mp4) :'); if (!input) return;
-  const ytM = input.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  const vimM = input.match(/vimeo\.com\/(\d+)/);
-  let html = '';
-  if (ytM) html = `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;margin:10px 0;border-radius:8px"><iframe style="position:absolute;top:0;left:0;width:100%;height:100%" src="https://www.youtube.com/embed/${ytM[1]}" frameborder="0" allowfullscreen></iframe></div>`;
-  else if (vimM) html = `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;margin:10px 0;border-radius:8px"><iframe style="position:absolute;top:0;left:0;width:100%;height:100%" src="https://player.vimeo.com/video/${vimM[1]}" frameborder="0" allowfullscreen></iframe></div>`;
-  else html = `<video controls style="max-width:100%;border-radius:8px;margin:10px 0;display:block"><source src="${input}">Vidéo non supportée.</video>`;
-  execQS('insertHTML', html);
+  const input = prompt('URL YouTube, Vimeo, Dailymotion ou URL directe (.mp4)\n\nUn bouton/vignette cliquable sera inséré (les vidéos ne s'affichent pas directement dans les emails).');
+  if (!input) return;
+  execQS('insertHTML', _buildVideoHtml(input));
+}
+
+function insertQSVideoUpload(input) {
+  _uploadAndInsertVideo(input, function(html) { execQS('insertHTML', html); });
 }
 
 function insertQSAudio() {
@@ -4886,6 +5008,7 @@ function renderDashboard() {
   renderPeriodStats();
   renderContactsQuick();
   renderQuotaDash();
+  renderUnsubPerCamp();
 
   // Badge campagnes actives
   const nb = S.camps.filter(c => c.status === 'running').length;
@@ -5423,25 +5546,46 @@ function insertImgURL() {
   var inp = $('img-url-inp');
   var url = inp ? inp.value.trim() : '';
   if (!url) { toast('Entrez une URL image', 'warn'); return; }
+  var lnk = prompt('Lien sur cette image (optionnel — laissez vide pour aucun) :') || '';
   var r = $('pane-rich'); if (r) r.focus();
-  document.execCommand('insertHTML', false,
-    '<img src="' + url + '" style="max-width:100%;height:auto;border-radius:4px;margin:6px 0;display:block;" alt="image">');
+  var imgHtml = '<img src="' + url + '" style="max-width:100%;height:auto;border-radius:4px;margin:6px 0;display:block;" alt="image">';
+  if (lnk) imgHtml = '<a href="' + lnk + '" target="_blank" style="display:block;border:none;text-decoration:none">' + imgHtml + '</a>';
+  document.execCommand('insertHTML', false, imgHtml);
   if (inp) inp.value = '';
   toast('Image insérée ✓', 'success');
 }
+async function uploadImgToWorker(b64data, contentType, fileName) {
+  if (!S.wurl) return null;
+  try {
+    var res = await fetch(S.wurl + '/img-upload', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ data: b64data, contentType: contentType, name: fileName })
+    });
+    if (res.ok) { var j = await res.json(); return j.url || null; }
+  } catch(e) { console.warn('img-upload:', e.message); }
+  return null;
+}
+
 function insertImgFile(input) {
   var file = input.files[0]; if (!file) return;
   if (file.size > 5*1024*1024) { toast('Image trop lourde (max 5 Mo)', 'error'); return; }
   var reader = new FileReader();
-  reader.onload = function(e) {
-    var b64 = e.target.result;
-    S.imgLib.push({id:Date.now(), src:b64, name:file.name});
+  reader.onload = async function(e) {
+    var b64full = e.target.result; // data:image/...;base64,...
+    var b64data = b64full.split(',')[1];
+    toast('Upload image en cours…', 'info');
+    var publicUrl = await uploadImgToWorker(b64data, file.type, file.name);
+    var src = publicUrl || b64full;
+    S.imgLib.push({id:Date.now(), src:src, name:file.name});
     lsS(SK.imgLib, S.imgLib);
     renderImgGal();
+    var lnk = prompt('Lien sur cette image (optionnel — laissez vide pour aucun) :') || '';
+    var imgHtml = '<img src="' + src + '" style="max-width:100%;height:auto;border-radius:4px;margin:6px 0;display:block;" alt="' + file.name + '">';
+    if (lnk) imgHtml = '<a href="' + lnk + '" target="_blank" style="display:block;border:none;text-decoration:none">' + imgHtml + '</a>';
     var r = $('pane-rich'); if (r) r.focus();
-    document.execCommand('insertHTML', false,
-      '<img src="' + b64 + '" style="max-width:100%;height:auto;border-radius:4px;margin:6px 0;display:block;" alt="' + file.name + '">');
-    toast('Image insérée et sauvegardée ✓', 'success');
+    document.execCommand('insertHTML', false, imgHtml);
+    toast(publicUrl ? '✓ Image hébergée sur le Worker et insérée' : '⚠ Worker non dispo — image en base64 (ne s\'affichera pas dans tous les mails)', publicUrl ? 'success' : 'warn');
   };
   reader.readAsDataURL(file);
   input.value = '';
@@ -6261,6 +6405,303 @@ function smsTaInsertText(ta, text) {
   ta.focus();
   ta.dispatchEvent(new Event('input', {bubbles:true}));
 }
+
+/* ═══════════════════════════════════════════════════════
+   DÉSABONNÉS PAR CAMPAGNE — Dashboard
+═══════════════════════════════════════════════════════ */
+function renderUnsubPerCamp() {
+  var el = $('unsub-per-camp-list'); if (!el) return;
+  var badge = $('badge-unsub-total');
+
+  // Collecter tous les désabonnés depuis emailList de chaque campagne + analytics
+  var byCamp = {};
+  S.camps.filter(function(c){ return c.type !== 'sms'; }).forEach(function(c) {
+    var unsubs = [];
+    // Depuis emailList
+    if (c.emailList) {
+      c.emailList.filter(function(e){ return e.unsubscribed || e.status === 'unsubscribed'; }).forEach(function(e) {
+        unsubs.push(e.email);
+      });
+    }
+    // Depuis analytics globaux
+    S.analytics.filter(function(a){ return a.type === 'email' && a.unsubscribed && a.campaign === c.name; }).forEach(function(a) {
+      if (!unsubs.includes(a.email)) unsubs.push(a.email);
+    });
+    if (unsubs.length) byCamp[c.name] = unsubs;
+  });
+  // SMS STOP
+  S.camps.filter(function(c){ return c.type === 'sms'; }).forEach(function(c) {
+    var stops = [];
+    if (c.emailList) {
+      c.emailList.filter(function(e){ return e.unsubscribed || e.status === 'stop'; }).forEach(function(e) {
+        stops.push(e.email);
+      });
+    }
+    S.analytics.filter(function(a){ return a.type === 'sms' && a.unsubscribed && a.campaign === c.name; }).forEach(function(a) {
+      if (!stops.includes(a.email)) stops.push(a.email);
+    });
+    if (stops.length) byCamp['[SMS] ' + c.name] = stops;
+  });
+
+  var camps = Object.keys(byCamp);
+  var total = camps.reduce(function(s, k){ return s + byCamp[k].length; }, 0);
+  if (badge) badge.textContent = total;
+
+  if (!camps.length) {
+    el.innerHTML = '<div class="empty" style="padding:20px"><p>Aucun désabonné enregistré</p></div>';
+    return;
+  }
+
+  el.innerHTML = camps.map(function(campName, i) {
+    var emails = byCamp[campName];
+    var rowId = 'unsub-row-' + i;
+    var listId = 'unsub-list-' + i;
+    return '<div class="unsub-camp-row" onclick="toggleUnsubList(\'' + listId + '\',\'' + rowId + '\')" id="' + rowId + '">' +
+      '<span style="flex:1;font-size:11px;color:var(--text);font-weight:600">' + campName + '</span>' +
+      '<span class="unsub-camp-badge">' + emails.length + ' désabonn' + (emails.length > 1 ? 'és' : 'é') + '</span>' +
+      '<span style="font-size:10px;color:var(--text3);margin-left:8px" id="' + rowId + '-arrow">▶</span>' +
+      '</div>' +
+      '<div class="unsub-emails-list" id="' + listId + '">' +
+      emails.map(function(em) {
+        return '<span class="unsub-email-tag" onclick="event.stopPropagation();navigator.clipboard&&navigator.clipboard.writeText(\'' + em + '\').then(function(){toast(\'✓ Copié\',\'success\')})" title="Cliquer pour copier">' + em + '</span>';
+      }).join('') +
+      '<div style="width:100%;margin-top:8px;font-size:9px;color:var(--text3)">Cliquer sur un email pour le copier</div>' +
+      '</div>';
+  }).join('');
+}
+
+function toggleUnsubList(listId, rowId) {
+  var el = $(listId); if (!el) return;
+  var arrow = $(rowId + '-arrow');
+  var open = el.style.display === 'flex';
+  el.style.display = open ? 'none' : 'flex';
+  if (arrow) arrow.textContent = open ? '▶' : '▼';
+}
+
+/* ═══════════════════════════════════════════════════════
+   FLOATING BLOCK TOOLBAR — éditeurs visuels
+   Clic/tap sur image ou bloc → toolbar flottante
+   Boutons : ↑ monter · ↓ descendre · 🔗 lien · ✕ suppr
+═══════════════════════════════════════════════════════ */
+(function() {
+  var toolbar    = null;
+  var targetEl   = null;  // élément DOM actuellement ciblé
+  var targetEd   = null;  // éditeur contenteditable parent
+
+  function init() {
+    toolbar = document.getElementById('pgi-block-toolbar');
+    if (!toolbar) return;
+
+    document.getElementById('pbt-up').addEventListener('click',    moveUp);
+    document.getElementById('pbt-down').addEventListener('click',  moveDown);
+    document.getElementById('pbt-link').addEventListener('click',  toggleLinkRow);
+    document.getElementById('pbt-del').addEventListener('click',   deleteBlock);
+    document.getElementById('pbt-link-ok').addEventListener('click', applyLink);
+    document.getElementById('pbt-link-rm').addEventListener('click', removeLink);
+
+    // Cacher si clic dehors
+    document.addEventListener('mousedown', function(e) {
+      if (toolbar && !toolbar.contains(e.target) && e.target !== targetEl) {
+        hideToolbar();
+      }
+    });
+    document.addEventListener('touchstart', function(e) {
+      if (toolbar && !toolbar.contains(e.target) && e.target !== targetEl) {
+        hideToolbar();
+      }
+    }, {passive:true});
+  }
+
+  // Détecte clic/tap sur un img ou un bloc de niveau bloc dans un éditeur
+  document.addEventListener('click', function(e) {
+    var editors = document.querySelectorAll('[contenteditable="true"]');
+    var insideEditor = false;
+    editors.forEach(function(ed) { if (ed.contains(e.target)) insideEditor = true; });
+    if (!insideEditor) return;
+
+    var el = e.target;
+    // Image cliquée directement
+    if (el.tagName === 'IMG') {
+      var ed = getEditorParent(el);
+      if (ed) { showToolbar(el, ed); e.preventDefault(); }
+      return;
+    }
+    // Bloc de niveau bloc (div, p, h1-h6, table, a wrapping img)
+    if (['DIV','P','H1','H2','H3','TABLE','BLOCKQUOTE'].includes(el.tagName)) {
+      var ed2 = getEditorParent(el);
+      if (ed2 && el.parentNode === ed2) { showToolbar(el, ed2); }
+    }
+  }, true);
+
+  // Tap long sur mobile (300ms) sur image
+  var _tapTimer = null;
+  document.addEventListener('touchstart', function(e) {
+    var el = e.target;
+    if (el.tagName !== 'IMG') return;
+    var ed = getEditorParent(el);
+    if (!ed) return;
+    _tapTimer = setTimeout(function() {
+      showToolbar(el, ed);
+      e.preventDefault();
+    }, 300);
+  }, {passive:false});
+  document.addEventListener('touchend', function() {
+    if (_tapTimer) { clearTimeout(_tapTimer); _tapTimer = null; }
+  });
+
+  function getEditorParent(el) {
+    var p = el;
+    while (p) {
+      if (p.contentEditable === 'true') return p;
+      p = p.parentElement;
+    }
+    return null;
+  }
+
+  function showToolbar(el, ed) {
+    if (!toolbar) toolbar = document.getElementById('pgi-block-toolbar');
+    if (!toolbar) return;
+    targetEl = el;
+    targetEd = ed;
+    // Pré-remplir le champ lien si l'élément est déjà un lien ou dans un lien
+    var existingLink = '';
+    var linkParent = el.closest ? el.closest('a') : null;
+    if (linkParent) existingLink = linkParent.getAttribute('href') || '';
+    var inp = document.getElementById('pbt-link-inp');
+    if (inp) inp.value = existingLink;
+    // Cacher la row lien par défaut
+    var lr = document.getElementById('pbt-lnk-row');
+    if (lr) lr.style.display = 'none';
+
+    toolbar.style.display = 'flex';
+    positionToolbar(el);
+  }
+
+  function positionToolbar(el) {
+    if (!toolbar) return;
+    var rect = el.getBoundingClientRect();
+    var tw = toolbar.offsetWidth || 220;
+    var left = Math.min(rect.left, window.innerWidth - tw - 8);
+    var top  = rect.top - toolbar.offsetHeight - 8;
+    if (top < 8) top = rect.bottom + 8;
+    toolbar.style.left = Math.max(4, left) + 'px';
+    toolbar.style.top  = (top + window.scrollY) + 'px';
+  }
+
+  function hideToolbar() {
+    if (!toolbar) return;
+    toolbar.style.display = 'none';
+    targetEl = null; targetEd = null;
+  }
+
+  function getTopBlock(el) {
+    // Remonte jusqu'au fils direct de l'éditeur
+    if (!targetEd || !el) return el;
+    var p = el;
+    while (p && p.parentNode !== targetEd) p = p.parentNode;
+    return p || el;
+  }
+
+  function moveUp() {
+    if (!targetEl || !targetEd) return;
+    var block = getTopBlock(targetEl);
+    if (!block) return;
+    var prev = block.previousElementSibling;
+    if (prev) { targetEd.insertBefore(block, prev); positionToolbar(targetEl); }
+    saveActiveEditorContent();
+  }
+
+  function moveDown() {
+    if (!targetEl || !targetEd) return;
+    var block = getTopBlock(targetEl);
+    if (!block) return;
+    var next = block.nextElementSibling;
+    if (next) { targetEd.insertBefore(next, block); positionToolbar(targetEl); }
+    saveActiveEditorContent();
+  }
+
+  function toggleLinkRow() {
+    var lr = document.getElementById('pbt-lnk-row');
+    if (!lr) return;
+    lr.style.display = lr.style.display === 'flex' ? 'none' : 'flex';
+    if (lr.style.display === 'flex') {
+      positionToolbar(targetEl);
+      var inp = document.getElementById('pbt-link-inp');
+      if (inp) setTimeout(function(){ inp.focus(); }, 50);
+    }
+  }
+
+  function applyLink() {
+    if (!targetEl) return;
+    var inp = document.getElementById('pbt-link-inp');
+    var url = inp ? inp.value.trim() : '';
+    if (!url) { toast('Entrez une URL', 'warn'); return; }
+    // Cherche si déjà dans un <a>
+    var existingA = targetEl.closest ? targetEl.closest('a') : null;
+    if (existingA) {
+      existingA.href = url;
+      existingA.target = '_blank';
+    } else {
+      // Entoure le bloc dans un <a>
+      var block = getTopBlock(targetEl);
+      var a = document.createElement('a');
+      a.href = url; a.target = '_blank';
+      a.style.cssText = 'display:block;border:none;text-decoration:none';
+      block.parentNode.insertBefore(a, block);
+      a.appendChild(block);
+    }
+    saveActiveEditorContent();
+    toast('✓ Lien appliqué', 'success');
+    var lr = document.getElementById('pbt-lnk-row');
+    if (lr) lr.style.display = 'none';
+  }
+
+  function removeLink() {
+    if (!targetEl) return;
+    var existingA = targetEl.closest ? targetEl.closest('a') : null;
+    if (!existingA) { toast('Aucun lien sur ce bloc', 'info'); return; }
+    var parent = existingA.parentNode;
+    while (existingA.firstChild) parent.insertBefore(existingA.firstChild, existingA);
+    parent.removeChild(existingA);
+    saveActiveEditorContent();
+    toast('Lien supprimé', 'info');
+  }
+
+  function deleteBlock() {
+    if (!targetEl || !targetEd) return;
+    var block = getTopBlock(targetEl);
+    if (block && confirm('Supprimer ce bloc ?')) {
+      block.parentNode && block.parentNode.removeChild(block);
+      saveActiveEditorContent();
+      hideToolbar();
+    }
+  }
+
+  function saveActiveEditorContent() {
+    if (!targetEd) return;
+    var edId = targetEd.id;
+    // Template editor
+    if (edId === 'pane-rich') {
+      if (S.activeTpl) saveTpl(false);
+      return;
+    }
+    // QS editor
+    if (edId === 'qs-email-rich') return; // QS reads on send
+    // Campaign editor: camp-rich-XXXX
+    if (edId && edId.indexOf('camp-rich-') === 0) {
+      var campId = parseInt(edId.replace('camp-rich-', ''));
+      var c = S.camps.find(function(x){ return x.id === campId; });
+      if (c) { c.campBody = targetEd.innerHTML; saveCamps(); }
+    }
+  }
+
+  // Init quand DOM prêt
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    setTimeout(init, 300);
+  }
+})();
 
 </script>
 </body>
