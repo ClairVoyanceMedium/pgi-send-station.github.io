@@ -1908,7 +1908,7 @@ const DUR_OPTS = [
 
 // ─── EXAMPLE VARS ───────────────────────────────────────
 const EX = {
-  prénom:'Frédéric', nom:'', email:'contact.clairvoyancemedium@gmail.com',
+  prénom:'Frederick', nom:'', email:'contact.clairvoyancemedium@gmail.com',
   entreprise:'Cabinet ClairvoyanceMedium.com', téléphone:'06 95 46 89 23',
   ville:'Paris', custom1:'VIP', custom2:'',
   date: new Date().toLocaleDateString('fr-FR'),
@@ -3070,7 +3070,7 @@ function buildQuickBlockHTML(type, col) {
   }
   if (type === 'signature') {
     return '<div style="margin-top:30px;padding-top:15px;border-top:2px solid ' + col + ';font-family:Arial,sans-serif;font-size:13px;color:#555;">' +
-      '<strong style="color:#333;font-size:15px;">Frédéric</strong><br>' +
+      '<strong style="color:#333;font-size:15px;">Frederick</strong><br>' +
       '<span style="color:' + col + ';font-weight:600;">Cabinet ClairvoyanceMedium.com</span><br><br>' +
       '📧 <a href="mailto:contact.clairvoyancemedium@gmail.com" style="color:' + col + ';text-decoration:none;">contact.clairvoyancemedium@gmail.com</a><br>' +
       '📞 <a href="tel:+33695468923" style="color:' + col + ';text-decoration:none;">06 95 46 89 23</a><br>' +
@@ -5824,7 +5824,7 @@ function campInsertBlock(id, type) {
     html = '<div style="text-align:center;margin:20px 0;"><a href="' + url + '" target="_blank" style="display:inline-block;background:' + color + ';color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;">' + label + '</a></div>';
   } else if (type === 'signature') {
     html = '<div style="margin-top:30px;padding-top:15px;border-top:1px solid ' + color + ';font-family:Arial,sans-serif;font-size:13px;color:#555;">' +
-      '<strong style="color:#333;">Frédéric</strong><br>Cabinet ClairvoyanceMedium.com<br>' +
+      '<strong style="color:#333;">Frederick</strong><br>Cabinet ClairvoyanceMedium.com<br>' +
       '<a href="mailto:contact.clairvoyancemedium@gmail.com" style="color:' + color + ';">contact.clairvoyancemedium@gmail.com</a><br>' +
       '<a href="tel:+33695468923" style="color:' + color + ';">📞 06 95 46 89 23</a><br>' +
       '<a href="https://www.clairvoyancemedium.com/" target="_blank" style="color:' + color + ';font-weight:700;">🌐 www.clairvoyancemedium.com</a></div>';
@@ -6092,67 +6092,73 @@ function showColorPalette(btn, editorId, cmd) {
    On ajoute un listener pour les ouvrir avec Ctrl+Clic ou double-clic
 ================================================================ */
 function enableEditorLinks() {
-  // ── CSS : liens dans éditeur = curseur pointeur + style visible
+  // ── CSS : liens dans éditeur visibles mais non intrusifs
   var style = document.createElement('style');
   style.textContent =
-    '[contenteditable] a { cursor: pointer !important; color: #c060ff !important; text-decoration: underline !important; }' +
-    '[contenteditable] a:hover { opacity: 0.8; }';
+    '[contenteditable] a { color: #c060ff !important; text-decoration: underline !important; }' +
+    '[contenteditable] a:hover { opacity: 0.85; }' +
+    '[contenteditable] a img { pointer-events: none; }'; // empêche l'image dans un <a> de capturer les events séparément
   document.head.appendChild(style);
 
-  // ── CLIC SIMPLE sur un lien dans un éditeur = ouvrir le lien
-  // Technique : on intercepte mousedown, on mémorise la cible,
-  // et au mouseup si la souris n'a pas bougé = c'est un clic sur le lien
-  var _mouseDownTarget = null;
-  var _mouseDownTime = 0;
-
-  document.addEventListener('mousedown', function(e) {
-    var a = e.target.closest('a[href]');
-    if (!a) { _mouseDownTarget = null; return; }
-    var editor = a.closest('[contenteditable="true"]');
-    if (!editor) { _mouseDownTarget = null; return; }
-    _mouseDownTarget = a;
-    _mouseDownTime = Date.now();
-  });
-
-  document.addEventListener('mouseup', function(e) {
-    var a = e.target.closest('a[href]');
-    if (!a || a !== _mouseDownTarget) return;
-    var editor = a.closest('[contenteditable="true"]');
-    if (!editor) return;
-    // Si le clic dure moins de 500ms = ouverture du lien
-    if (Date.now() - _mouseDownTime < 500) {
-      e.preventDefault();
-      e.stopPropagation();
-      var url = a.getAttribute('href');
-      if (url && url !== '#') {
-        window.open(url, '_blank', 'noopener,noreferrer');
-      }
-    }
-    _mouseDownTarget = null;
-  });
-
-  // ── MOBILE : touch sur un lien = ouvrir
-  document.addEventListener('touchend', function(e) {
+  // ── DESKTOP : Ctrl+clic (ou Cmd+clic Mac) pour ouvrir un lien dans l'éditeur
+  // Clic simple = juste positionner le curseur, rien d'autre
+  document.addEventListener('click', function(e) {
+    if (!e.ctrlKey && !e.metaKey) return; // uniquement Ctrl/Cmd+clic
     var a = e.target.closest('a[href]');
     if (!a) return;
     var editor = a.closest('[contenteditable="true"]');
     if (!editor) return;
+    e.preventDefault();
     var url = a.getAttribute('href');
-    if (url && url !== '#') {
-      e.preventDefault();
-      window.open(url, '_blank', 'noopener,noreferrer');
-    }
-  }, { passive: false });
+    if (url && url !== '#') window.open(url, '_blank', 'noopener,noreferrer');
+  });
 
-  // ── Tooltip informatif au survol
+  // ── MOBILE : appui long 700ms pour ouvrir — tap court = édition normale
+  var _touchTarget = null;
+  var _touchTimer  = null;
+  var _touchMoved  = false;
+
+  document.addEventListener('touchstart', function(e) {
+    var a = e.target.closest('a[href]');
+    if (!a) return;
+    var editor = a.closest('[contenteditable="true"]');
+    if (!editor) return;
+    _touchTarget = a;
+    _touchMoved  = false;
+    clearTimeout(_touchTimer);
+    _touchTimer = setTimeout(function() {
+      if (_touchMoved || !_touchTarget) return;
+      // Appui long confirmé → ouvrir le lien
+      var url = _touchTarget.getAttribute('href');
+      if (url && url !== '#') {
+        // Feedback vibration si disponible
+        if (navigator.vibrate) navigator.vibrate(40);
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+      _touchTarget = null;
+    }, 700);
+  }, { passive: true });
+
+  document.addEventListener('touchmove', function() {
+    _touchMoved = true;
+    clearTimeout(_touchTimer);
+    _touchTarget = null;
+  }, { passive: true });
+
+  document.addEventListener('touchend', function() {
+    // Ne rien faire — le tap court laisse le navigateur positionner le curseur normalement
+    clearTimeout(_touchTimer);
+    _touchTarget = null;
+  }, { passive: true });
+
+  // ── Tooltip desktop au survol
   document.addEventListener('mouseover', function(e) {
     var a = e.target.closest('a[href]');
     if (!a) return;
     var editor = a.closest('[contenteditable="true"]');
     if (!editor) return;
     var href = a.getAttribute('href') || '';
-    a.title = '🔗 ' + href;
-    a.style.cursor = 'pointer';
+    a.title = '🔗 Ctrl+Clic pour ouvrir : ' + href;
   });
 }
 
@@ -6542,12 +6548,14 @@ function toggleUnsubList(listId, rowId) {
     if (!ed) return;
     _tapTimer = setTimeout(function() {
       showToolbar(el, ed);
-      e.preventDefault();
-    }, 300);
-  }, {passive:false});
+    }, 700); // 700ms = cohérent avec enableEditorLinks
+  }, {passive:true});
+  document.addEventListener('touchmove', function() {
+    if (_tapTimer) { clearTimeout(_tapTimer); _tapTimer = null; }
+  }, {passive:true});
   document.addEventListener('touchend', function() {
     if (_tapTimer) { clearTimeout(_tapTimer); _tapTimer = null; }
-  });
+  }, {passive:true});
 
   function getEditorParent(el) {
     var p = el;
