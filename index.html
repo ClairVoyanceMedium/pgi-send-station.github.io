@@ -697,7 +697,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
   html,body,#app,.view,.detail-area,.split-layout{overflow-x:hidden !important;max-width:100vw !important;}
   .te-row,.img-bar,#te-toolbar,.editor-toolbar,[class*="toolbar"]{overflow-x:auto;max-width:100%;}
   /* Templates : le panneau liste est accessible via bouton dédié */
-  #panel-templates.mob-open{
+  #panel-templates.mob-open,#panel-lists.mob-open{
     display:flex !important;
     position:fixed;top:52px;left:0;right:0;bottom:calc(58px + var(--sb));
     width:100% !important;z-index:50;border-right:none;
@@ -773,8 +773,8 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
       <span id="sync-status-lbl" style="color:var(--text3);">Synchronisation avec le Worker...</span>
     </div>
     <button class="btn-sm" onclick="forceSyncNow()" style="white-space:nowrap;">🔄 Sync</button>
-    <button class="btn-sm" onclick="resetDashboard()" style="white-space:nowrap;background:rgba(255,34,68,.1);border-color:rgba(255,34,68,.3);color:var(--red);">🗑 Reset stats</button>
-    <button class="btn-sm" onclick="resetAllCamps()" style="white-space:nowrap;background:rgba(255,122,0,.1);border-color:rgba(255,122,0,.3);color:var(--ora);">⚠ Reset tout</button>
+    <button class="btn-sm" onclick="resetDashboard()" style="white-space:nowrap;background:rgba(255,34,68,.1);border-color:rgba(255,34,68,.3);color:var(--red);">🗑 Reset local</button>
+    <button class="btn-sm" onclick="resetDashboardAndWorker()" style="white-space:nowrap;background:rgba(255,122,0,.1);border-color:rgba(255,122,0,.3);color:var(--ora);">🗑 Reset total</button>
     <span id="sync-last-lbl" style="font-size:9px;color:var(--text3);"></span>
   </div>
 
@@ -1424,11 +1424,13 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
   <div class="side-panel" id="panel-lists">
     <div class="ph">
       <span class="ph-lbl pur">Listes</span>
-      <button class="btn-sm" onclick="showModal('modal-list')">+ Créer</button>
+      <button class="btn-sm" onclick="newSimpleList()">+ Créer</button>
+      <button class="btn-ico" id="close-lists-panel" onclick="toggleMob('panel-lists','fab-lists')" style="display:none;padding:5px 9px;font-size:14px;color:var(--text2);" title="Fermer">✕</button>
     </div>
     <div style="flex:1;overflow-y:auto" id="lists-scroll"></div>
-    <div class="pfooter"><button class="btn-p" onclick="showModal('modal-list')">+ Nouvelle liste</button></div>
+    <div class="pfooter"><button class="btn-p" onclick="newSimpleList()">+ Nouvelle liste</button></div>
   </div>
+  <button class="mob-fab" id="fab-lists" onclick="toggleMob('panel-lists','fab-lists')" style="display:none;border-color:rgba(0,232,255,.3);color:var(--cyan);">📋 Mes listes</button>
   <div id="contacts-main" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
     <div id="cbar">
       <input type="text" class="srch" id="c-srch" placeholder="Rechercher email, nom..." oninput="renderContacts()">
@@ -1784,21 +1786,53 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
 </div>
 
 <div class="overlay" id="modal-list" onclick="closeOvr(event,'modal-list')">
-  <div class="modal">
+  <div class="modal" style="max-width:520px" onclick="event.stopPropagation()">
     <div class="mh"></div>
-    <div class="mt" style="color:var(--purl)">📋 Créer une liste</div>
-    <div class="fg"><div class="fc"><label class="fl">Nom de la liste</label><input class="fi" id="list-name-inp" placeholder="Prospects Mai 2025"></div></div>
-    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px" id="lc-picker">
-      <div data-c="#c060ff" style="width:26px;height:26px;border-radius:50%;background:#c060ff;cursor:pointer;border:2px solid #fff;box-shadow:0 0 8px #c060ff" onclick="selLC(this)"></div>
-      <div data-c="#00e8ff" style="width:26px;height:26px;border-radius:50%;background:#00e8ff;cursor:pointer;border:2px solid transparent" onclick="selLC(this)"></div>
-      <div data-c="#ffe600" style="width:26px;height:26px;border-radius:50%;background:#ffe600;cursor:pointer;border:2px solid transparent" onclick="selLC(this)"></div>
-      <div data-c="#ff7a00" style="width:26px;height:26px;border-radius:50%;background:#ff7a00;cursor:pointer;border:2px solid transparent" onclick="selLC(this)"></div>
-      <div data-c="#00ff88" style="width:26px;height:26px;border-radius:50%;background:#00ff88;cursor:pointer;border:2px solid transparent" onclick="selLC(this)"></div>
-      <div data-c="#ff2d78" style="width:26px;height:26px;border-radius:50%;background:#ff2d78;cursor:pointer;border:2px solid transparent" onclick="selLC(this)"></div>
+    <div class="mt" style="color:var(--purl)">📋 Créer une liste d'emails</div>
+    <div class="fg">
+      <div class="fc" style="margin-bottom:10px">
+        <label class="fl">Nom de la liste</label>
+        <input class="fi" id="list-name-inp" placeholder="Ex: Clients VIP — Été 2025" oninput="mlvCount&&mlvCount()">
+      </div>
+      <div class="fc" style="margin-bottom:10px">
+        <label class="fl">Couleur</label>
+        <div style="display:flex;gap:7px;flex-wrap:wrap" id="lc-picker">
+          <div data-c="#c060ff" style="width:26px;height:26px;border-radius:50%;background:#c060ff;cursor:pointer;border:2px solid #fff;box-shadow:0 0 8px #c060ff" onclick="selLC(this)"></div>
+          <div data-c="#00e8ff" style="width:26px;height:26px;border-radius:50%;background:#00e8ff;cursor:pointer;border:2px solid transparent" onclick="selLC(this)"></div>
+          <div data-c="#ffe600" style="width:26px;height:26px;border-radius:50%;background:#ffe600;cursor:pointer;border:2px solid transparent" onclick="selLC(this)"></div>
+          <div data-c="#ff7a00" style="width:26px;height:26px;border-radius:50%;background:#ff7a00;cursor:pointer;border:2px solid transparent" onclick="selLC(this)"></div>
+          <div data-c="#00ff88" style="width:26px;height:26px;border-radius:50%;background:#00ff88;cursor:pointer;border:2px solid transparent" onclick="selLC(this)"></div>
+          <div data-c="#ff2d78" style="width:26px;height:26px;border-radius:50%;background:#ff2d78;cursor:pointer;border:2px solid transparent" onclick="selLC(this)"></div>
+        </div>
+      </div>
+      <div class="fc">
+        <label class="fl">Emails (optionnel — un par ligne)</label>
+        <textarea class="fta" id="list-emails-inp" style="min-height:100px;font-family:var(--mono);font-size:11px" placeholder="jean@gmail.com&#10;marie@outlook.fr&#10;pierre@yahoo.com&#10;&#10;→ Tu peux aussi les ajouter plus tard" oninput="countListModalEmails()"></textarea>
+        <div id="list-emails-cnt" style="font-size:9px;color:var(--text3);margin-top:3px">0 email(s) détecté(s)</div>
+      </div>
     </div>
     <div class="mbtns">
       <button class="btn-s" style="flex:1" onclick="closeModal('modal-list')">Annuler</button>
-      <button class="btn-p" style="flex:2" onclick="createList()">Créer</button>
+      <button class="btn-p" style="flex:2" onclick="createList()">Créer la liste</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal vue liste email-only -->
+<div class="overlay" id="modal-list-view" onclick="closeOvr(event,'modal-list-view')">
+  <div class="modal" style="max-width:560px;max-height:80vh" onclick="event.stopPropagation()">
+    <div class="mh"></div>
+    <div class="mt" id="mlv-title" style="color:var(--purl)">📋 Liste</div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      <span id="mlv-count" style="font-size:10px;color:var(--text2)"></span>
+      <button class="btn-sm" onclick="exportListEmails()" style="margin-left:auto">⬇ Exporter .txt</button>
+      <button class="btn-sm" style="background:rgba(255,34,68,.1);border-color:rgba(255,34,68,.3);color:var(--red)" onclick="clearListEmails()">🗑 Vider</button>
+    </div>
+    <textarea class="fta" id="mlv-emails" style="min-height:200px;font-family:var(--mono);font-size:11px;resize:vertical" placeholder="Collez des emails ici — un par ligne" oninput="mlvCount()"></textarea>
+    <div id="mlv-cnt" style="font-size:9px;color:var(--text3);margin:4px 0 8px"></div>
+    <div class="mbtns">
+      <button class="btn-s" style="flex:1" onclick="closeModal('modal-list-view')">Fermer</button>
+      <button class="btn-p" style="flex:2" onclick="saveListEmails()">💾 Sauvegarder</button>
     </div>
   </div>
 </div>
@@ -2024,6 +2058,7 @@ function checkMobFABs() {
     {fab:'fab-email',     view:'email'},
     {fab:'fab-sms',       view:'sms'},
     {fab:'fab-templates', view:'templates'},
+    {fab:'fab-lists',     view:'contacts'},
   ].forEach(function(item) {
     var el = $(item.fab);
     if (!el) return;
@@ -2044,7 +2079,7 @@ function toggleMob(panelId, fabId) {
   const isOpen = panel.classList.contains('mob-open');
   if (isOpen) {
     panel.classList.remove('mob-open');
-    const labels = {'fab-sms':'☰ Campagnes SMS','fab-email':'☰ Campagnes','fab-templates':'📋 Mes templates'};
+    const labels = {'fab-sms':'☰ Campagnes SMS','fab-email':'☰ Campagnes','fab-templates':'📋 Mes templates','fab-lists':'📋 Mes listes'};
     if (fab) fab.textContent = labels[fabId] || '☰ Menu';
   } else {
     panel.classList.add('mob-open');
@@ -2060,7 +2095,7 @@ function closeMob(panelId, fabId) {
   const panel = $(panelId);
   const fab   = $(fabId);
   if (panel) panel.classList.remove('mob-open');
-  const labels = {'fab-sms':'☰ Campagnes SMS','fab-email':'☰ Campagnes','fab-templates':'📋 Mes templates'};
+  const labels = {'fab-sms':'☰ Campagnes SMS','fab-email':'☰ Campagnes','fab-templates':'📋 Mes templates','fab-lists':'📋 Mes listes'};
   if (fab) fab.textContent = labels[fabId] || '☰ Menu';
   var closeBtn = $('close-tpl-panel'); if (closeBtn) closeBtn.style.display = 'none';
 }
@@ -2539,9 +2574,10 @@ function buildCampForm(c) {
   h += '<div class="el-hd"><span class="el-cnt" id="elcnt-' + c.id + '">' + c.emailList.length.toLocaleString() + ' adresse(s)</span>';
   h += '<div class="el-acts">';
   if (!isSMS) h += '<button class="ela g" onclick="importFromContactList(' + c.id + ')">👥 Depuis contacts</button>';
-  h += '<button class="ela y" onclick="resetSent(' + c.id + ')">↺ Tout recommencer</button>';
-  h += '<button class="ela" style="background:rgba(255,34,68,.09);border-color:rgba(255,34,68,.25);color:var(--red);" onclick="resetCampStats(' + c.id + ')">🗑 Reset stats</button>';
-  h += '<button class="ela" onclick="clearEList(' + c.id + ')">✕ Vider tout</button></div></div>';
+  h += '<button class="ela y" onclick="resetSent(' + c.id + ')">↺ Recommencer</button>';
+  h += '<button class="ela" onclick="clearEList(' + c.id + ')">✕ Vider</button>';
+  h += '<button class="ela" style="margin-left:auto;background:rgba(255,34,68,.09);border-color:rgba(255,34,68,.25);color:var(--red);" onclick="resetCampStats(' + c.id + ')">🗑 Reset stats</button>';
+  h += '</div></div>';
   h += '<div class="el-sc" id="elsc-' + c.id + '"></div>';
   h += '<div class="el-add">';
   h += '<input class="el-inp" id="eli-inp-' + c.id + '" placeholder="' + (isSMS ? '+33600000000' : 'email@exemple.com') + '" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addToEList(' + c.id + ')}">';
@@ -4697,13 +4733,97 @@ setInterval(() => { if (S.activeTpl) saveTpl(false); }, 30000);
 function renderLists() {
   const el = $('lists-scroll');
   if (!el) return;
-  el.innerHTML = S.lists.map(l => `
-    <div class="lp-item ${S.activeList === l.id ? 'sel' : ''}" onclick="setActiveList('${l.id}')">
+  el.innerHTML = S.lists.map(l => {
+    const cnt = l.system ? S.contacts.length : S.contacts.filter(c => c.listIds?.includes(l.id)).length;
+    const emailsCnt = l.emails ? l.emails.length : 0;
+    return `<div class="lp-item ${S.activeList === l.id ? 'sel' : ''}" onclick="setActiveList('${l.id}')">
       <div class="lpdot" style="background:${l.color};box-shadow:0 0 5px ${l.color}"></div>
-      <div class="lpname">${l.name}</div>
-      <div class="lpcnt">${l.system ? S.contacts.length : S.contacts.filter(c => c.listIds?.includes(l.id)).length}</div>
+      <div style="flex:1;min-width:0">
+        <div class="lpname">${l.name}</div>
+        ${emailsCnt > 0 ? `<div style="font-size:9px;color:var(--text3)">${emailsCnt} email(s) sauvegardé(s)</div>` : ''}
+      </div>
+      <div class="lpcnt">${cnt}</div>
+      ${!l.system ? `<button class="lpdel" onclick="event.stopPropagation();openListView('${l.id}')" title="Voir / éditer les emails" style="color:var(--purl);font-size:13px">✎</button>` : ''}
       ${!l.system ? `<button class="lpdel" onclick="event.stopPropagation();delList('${l.id}')">×</button>` : ''}
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+
+/* Ouvrir la vue email-only d'une liste */
+function openListView(listId) {
+  var list = S.lists.find(function(l){ return l.id === listId; });
+  if (!list) return;
+  var titleEl = $('mlv-title');
+  var ta = $('mlv-emails');
+  var cnt = $('mlv-cnt');
+  if (titleEl) titleEl.textContent = '📋 ' + list.name;
+  if (ta) {
+    ta.value = (list.emails || []).join('\n');
+    ta.dataset.listId = listId;
+  }
+  mlvCount();
+  showModal('modal-list-view');
+}
+
+function mlvCount() {
+  var ta = $('mlv-emails');
+  var cnt = $('mlv-cnt');
+  if (!ta || !cnt) return;
+  var emails = ta.value.split(/[\n,;]+/).map(function(x){return x.trim();}).filter(isEmail);
+  cnt.textContent = emails.length.toLocaleString() + ' email(s) valide(s)';
+}
+
+function saveListEmails() {
+  var ta = $('mlv-emails');
+  if (!ta) return;
+  var listId = ta.dataset.listId;
+  var list = S.lists.find(function(l){ return l.id === listId; });
+  if (!list) return;
+  var emails = ta.value.split(/[\n,;]+/).map(function(x){return x.trim().toLowerCase();}).filter(isEmail);
+  // Dédoublonner
+  list.emails = [...new Set(emails)];
+  lsS(SK.lists, S.lists);
+  renderLists();
+  closeModal('modal-list-view');
+  toast('✓ ' + list.emails.length.toLocaleString() + ' emails sauvegardés dans "' + list.name + '"', 'success');
+}
+
+function clearListEmails() {
+  if (!confirm('Vider tous les emails de cette liste ?')) return;
+  var ta = $('mlv-emails');
+  if (ta) { ta.value = ''; mlvCount(); }
+}
+
+function exportListEmails() {
+  var ta = $('mlv-emails');
+  if (!ta || !ta.dataset.listId) return;
+  var list = S.lists.find(function(l){ return l.id === ta.dataset.listId; });
+  if (!list || !list.emails || !list.emails.length) { toast('Aucun email à exporter', 'warn'); return; }
+  var blob = new Blob([list.emails.join('\n')], {type:'text/plain'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = list.name.replace(/[^a-z0-9]/gi,'_') + '.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('✓ Export ' + list.emails.length + ' emails', 'success');
+}
+
+/* Créer une nouvelle liste directement (sans ouvrir modal) */
+function newSimpleList() {
+  // Réinitialiser le modal
+  if ($('list-name-inp')) $('list-name-inp').value = '';
+  if ($('list-emails-inp')) $('list-emails-inp').value = '';
+  if ($('list-emails-cnt')) $('list-emails-cnt').textContent = '0 email(s) détecté(s)';
+  showModal('modal-list');
+}
+
+/* Compter les emails dans le modal création */
+function countListModalEmails() {
+  var ta = $('list-emails-inp');
+  var cnt = $('list-emails-cnt');
+  if (!ta || !cnt) return;
+  var emails = ta.value.split(/[\n,;]+/).map(function(x){return x.trim();}).filter(isEmail);
+  cnt.textContent = emails.length.toLocaleString() + ' email(s) détecté(s)';
 }
 
 function setActiveList(id) { S.activeList = id; renderLists(); renderContacts(); }
@@ -4717,13 +4837,19 @@ function selLC(btn) {
 function createList() {
   const name = $('list-name-inp')?.value.trim();
   if (!name) { toast('Entrez un nom', 'warn'); return; }
-  S.lists.push({id: 'lst_' + Date.now(), name, color: S.selectedLC, system: false});
+  var emailsRaw = $('list-emails-inp') ? $('list-emails-inp').value : '';
+  var emails = emailsRaw.split(/[\n,;]+/).map(function(x){return x.trim().toLowerCase();}).filter(isEmail);
+  var newList = {id: 'lst_' + Date.now(), name, color: S.selectedLC, system: false, emails: [...new Set(emails)]};
+  S.lists.push(newList);
   lsS(SK.lists, S.lists);
   renderLists();
   renderListSelects();
   closeModal('modal-list');
   if ($('list-name-inp')) $('list-name-inp').value = '';
-  toast('"' + name + '" créée ✓', 'success');
+  if ($('list-emails-inp')) $('list-emails-inp').value = '';
+  var msg = '"' + name + '" créée';
+  if (emails.length) msg += ' avec ' + emails.length + ' email(s)';
+  toast(msg + ' ✓', 'success');
 }
 
 function delList(id) {
@@ -6806,16 +6932,66 @@ function toggleUnsubList(listId, rowId) {
 ================================================================ */
 function resetDashboard() {
   if (!confirm('⚠️ Remettre le dashboard à zéro ?\n\nCeci efface tous les analytics (ouvertures, historique emails/SMS).\nLes campagnes et contacts ne sont PAS supprimés.')) return;
+  // Stopper la sync auto pendant le reset pour éviter rechargement immédiat
+  if (_syncInterval) { clearInterval(_syncInterval); _syncInterval = null; }
+
   S.analytics = [];
   lsS(SK.analytics, S.analytics);
   S.camps.forEach(function(camp) {
     camp.sent = 0; camp.opened = 0; camp.errors = 0; camp.unsubscribed = 0;
-    camp.emailList.forEach(function(e) { if (e.status === 'sent' || e.status === 'opened') e.status = 'pending'; });
+    camp.dailySent = 0;
+    camp.emailList.forEach(function(e) {
+      if (e.status === 'sent' || e.status === 'opened' || e.status === 'error') e.status = 'pending';
+      e.opened = false; e.unsubscribed = false;
+    });
   });
   lsS(SK.camps, S.camps);
   renderDashboard();
   updateStats();
-  toast('✓ Dashboard remis à zéro', 'success');
+  toast('✓ Dashboard remis à zéro — sync suspendue 2 min', 'success');
+
+  // Relancer la sync après 2 minutes (pour que Worker ait eu le temps d'être reset aussi si besoin)
+  setTimeout(function() {
+    if (!_syncInterval && S.wurl) {
+      _syncInterval = setInterval(syncFromWorker, 30000);
+    }
+  }, 120000);
+}
+
+async function resetDashboardAndWorker() {
+  if (!confirm('⚠️ RESET COMPLET dashboard + Worker ?\n\nTous les analytics locaux ET ceux du Worker Cloudflare seront effacés.\nIrréversible.')) return;
+  if (_syncInterval) { clearInterval(_syncInterval); _syncInterval = null; }
+
+  // Reset local
+  S.analytics = [];
+  lsS(SK.analytics, S.analytics);
+  S.camps.forEach(function(camp) {
+    camp.sent = 0; camp.opened = 0; camp.errors = 0; camp.unsubscribed = 0;
+    camp.dailySent = 0;
+    camp.emailList.forEach(function(e) {
+      if (e.status !== 'pending') e.status = 'pending';
+      e.opened = false; e.unsubscribed = false;
+    });
+  });
+  lsS(SK.camps, S.camps);
+
+  // Reset Worker analytics via endpoint
+  if (S.wurl) {
+    try {
+      await fetch(S.wurl + '/analytics/reset', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
+      toast('✓ Reset complet local + Worker effectué', 'success');
+    } catch(e) {
+      toast('✓ Reset local effectué (Worker inaccessible)', 'warn');
+    }
+  } else {
+    toast('✓ Reset local effectué (pas de Worker configuré)', 'success');
+  }
+
+  renderDashboard();
+  updateStats();
+  setTimeout(function() {
+    if (!_syncInterval && S.wurl) _syncInterval = setInterval(syncFromWorker, 30000);
+  }, 5000);
 }
 
 function resetCampStats(id) {
@@ -6834,9 +7010,10 @@ function resetCampStats(id) {
 
 function resetAllCamps() {
   if (!confirm('⚠️ ATTENTION — Remettre TOUTES les campagnes à zéro ?\n\nTous les compteurs et historiques d\'envoi seront effacés.\nLes campagnes repasseront en brouillon.\n\nCette action est irréversible.')) return;
+  if (_syncInterval) { clearInterval(_syncInterval); _syncInterval = null; }
   S.camps.forEach(function(camp) {
     camp.sent = 0; camp.opened = 0; camp.errors = 0; camp.unsubscribed = 0;
-    camp.status = 'draft';
+    camp.dailySent = 0; camp.status = 'draft';
     camp.emailList.forEach(function(e) { e.status = 'pending'; e.opened = false; e.unsubscribed = false; });
   });
   S.analytics = [];
@@ -6844,7 +7021,10 @@ function resetAllCamps() {
   lsS(SK.camps, S.camps);
   renderCampList('email'); renderCampList('sms');
   renderDashboard(); updateStats();
-  toast('✓ Toutes les campagnes remises à zéro', 'success');
+  toast('✓ Toutes les campagnes remises à zéro — sync suspendue 2 min', 'success');
+  setTimeout(function() {
+    if (!_syncInterval && S.wurl) _syncInterval = setInterval(syncFromWorker, 30000);
+  }, 120000);
 }
 
 function resetContacts() {
