@@ -775,6 +775,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
     <button class="btn-sm" onclick="forceSyncNow()" style="white-space:nowrap;">🔄 Sync</button>
     <button class="btn-sm" onclick="resetDashboard()" style="white-space:nowrap;background:rgba(255,34,68,.1);border-color:rgba(255,34,68,.3);color:var(--red);">🗑 Reset local</button>
     <button class="btn-sm" onclick="resetDashboardAndWorker()" style="white-space:nowrap;background:rgba(255,122,0,.1);border-color:rgba(255,122,0,.3);color:var(--ora);">🗑 Reset total</button>
+    <button class="btn-sm" id="btn-resume-sync" onclick="resumeSyncAfterReset()" style="display:none;white-space:nowrap;background:rgba(0,255,136,.1);border-color:rgba(0,255,136,.3);color:var(--grn);">▶ Relancer sync</button>
     <span id="sync-last-lbl" style="font-size:9px;color:var(--text3);"></span>
   </div>
 
@@ -1216,14 +1217,24 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
         <textarea id="qs-email-body" style="display:none;width:100%;background:var(--bg);border:none;color:#7dd3fc;font-family:var(--mono);font-size:11px;padding:12px;min-height:150px;outline:none;resize:vertical" spellcheck="false" autocomplete="off" placeholder="<!-- Collez votre HTML ici -->&#10;<h1 style='color:#c060ff'>Bonjour {{prénom}}</h1>&#10;<p>Votre message...</p>&#10;<a href='https://monsite.fr'>Cliquez ici</a>"></textarea>
       </div>
 
+      <!-- Sélecteur liste de contacts -->
+      <div class="fc" style="margin-bottom:8px">
+        <label class="fl">Importer depuis une liste de contacts</label>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <select class="fsel" id="qs-list-sel" style="flex:1" onchange="loadQSFromList(this.value)">
+            <option value="">— Choisir une liste —</option>
+          </select>
+          <button class="btn-sm" onclick="loadQSFromList($('qs-list-sel').value)">+ Charger</button>
+        </div>
+      </div>
       <div class="fc" style="margin-bottom:10px">
-        <label class="fl">Destinataires — Collez des milliers d'emails d'un seul coup</label>
+        <label class="fl">Destinataires — Collez des emails ou chargez une liste</label>
         <textarea class="fta" id="qs-email-to" style="min-height:80px"
-          placeholder="jean@email.com&#10;marie@gmail.com, pierre@yahoo.fr&#10;paul@outlook.com&#10;&#10;→ Un email par ligne, ou séparés par virgule/point-virgule&#10;→ Collez autant d'adresses que vous voulez — aucune limite dans l'app"
+          placeholder="jean@email.com&#10;marie@gmail.com, pierre@yahoo.fr&#10;paul@outlook.com&#10;&#10;→ Un email par ligne, ou séparés par virgule/point-virgule&#10;→ Ou choisissez une liste ci-dessus"
           oninput="updateQSEmailCnt()"></textarea>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <label class="btn-sm g" style="cursor:pointer">📁 Import fichier<input type="file" accept=".csv,.txt" style="display:none" onchange="loadQSEmailFile(this)"></label>
+        <label class="btn-sm g" style="cursor:pointer">📁 Fichier<input type="file" accept=".csv,.txt" style="display:none" onchange="loadQSEmailFile(this)"></label>
         <label class="btn-sm g" style="cursor:pointer">📊 Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="loadQSExcelFile(this)"></label>
         <button class="btn-sm" onclick="clearQSEmail()">✕ Vider</button>
         <div id="qs-email-cnt" style="font-family:var(--mono);font-size:10px;color:var(--text3)">0 destinataire(s)</div>
@@ -2536,7 +2547,10 @@ function buildCampForm(c) {
   h += '<div class="prc prc-c"><div class="prv">' + c.emailList.length.toLocaleString() + '</div><div class="prl">CONTACTS</div></div>';
   h += '<div class="prc prc-g"><div class="prv">' + c.sent.toLocaleString() + '</div><div class="prl">ENVOYÉS</div></div>';
   h += '<div class="prc prc-y"><div class="prv">' + (isSMS ? (c.errors||0) : (c.opened||0)) + '</div><div class="prl">' + (isSMS ? 'ERREURS' : 'OUVERTS') + '</div></div>';
-  h += '<div class="prc prc-o"><div class="prv">' + pct + '%</div><div class="prl">AVANCEMENT</div></div>';
+  h += '<div class="prc prc-o" style="position:relative">';
+  h += '<div class="prv">' + pct + '%</div><div class="prl">AVANCEMENT</div>';
+  h += '<button style="position:absolute;top:4px;right:4px;background:rgba(255,34,68,.09);border:1px solid rgba(255,34,68,.25);color:var(--red);border-radius:4px;font-size:9px;padding:2px 5px;cursor:pointer;font-family:var(--sans);font-weight:700;line-height:1" onclick="event.stopPropagation();resetCampStats(' + c.id + ')" title="Remettre les stats à zéro">🗑</button>';
+  h += '</div>';
   h += '</div>';
   h += '<div class="pbar"><div class="pfill" style="width:' + pct + '%;' + (isSMS ? 'background:linear-gradient(90deg,var(--pnk),var(--pur));' : '') + '"></div></div>';
 
@@ -2576,7 +2590,7 @@ function buildCampForm(c) {
   if (!isSMS) h += '<button class="ela g" onclick="importFromContactList(' + c.id + ')">👥 Depuis contacts</button>';
   h += '<button class="ela y" onclick="resetSent(' + c.id + ')">↺ Recommencer</button>';
   h += '<button class="ela" onclick="clearEList(' + c.id + ')">✕ Vider</button>';
-  h += '<button class="ela" style="margin-left:auto;background:rgba(255,34,68,.09);border-color:rgba(255,34,68,.25);color:var(--red);" onclick="resetCampStats(' + c.id + ')">🗑 Reset stats</button>';
+
   h += '</div></div>';
   h += '<div class="el-sc" id="elsc-' + c.id + '"></div>';
   h += '<div class="el-add">';
@@ -4863,9 +4877,41 @@ function delList(id) {
   toast('Liste supprimée', 'info');
 }
 
+function loadQSFromList(listId) {
+  if (!listId) return;
+  var list = S.lists.find(function(l){ return l.id === listId; });
+  if (!list) return;
+  var ta = $('qs-email-to');
+  if (!ta) return;
+
+  var emails = [];
+
+  // 1 — Emails sauvegardés directement dans la liste (email-only)
+  if (list.emails && list.emails.length) {
+    emails = emails.concat(list.emails);
+  }
+
+  // 2 — Contacts liés à cette liste (via listIds)
+  var contactEmails = S.contacts
+    .filter(function(ct){ return ct.listIds && ct.listIds.indexOf(listId) > -1 && ct.email; })
+    .map(function(ct){ return ct.email; });
+  emails = emails.concat(contactEmails);
+
+  // Dédoublonner
+  emails = [...new Set(emails)];
+
+  if (!emails.length) { toast('Liste vide — aucun email trouvé', 'warn'); return; }
+
+  // Ajouter aux destinataires existants sans écraser
+  var existing = ta.value.trim();
+  ta.value = existing ? existing + '\n' + emails.join('\n') : emails.join('\n');
+  updateQSEmailCnt();
+  toast('✓ ' + emails.length.toLocaleString() + ' emails chargés depuis "' + list.name + '"', 'success');
+}
+
 function renderListSelects() {
   const opts = S.lists.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
-  ['csv-list-sel','ac-list'].forEach(id => {
+  ['csv-list-sel','ac-list','qs-list-sel'].forEach(id => {
     const el = $(id);
     if (el) el.innerHTML = '<option value="">— Aucune liste —</option>' + opts;
   });
@@ -5695,7 +5741,7 @@ function makeDraggable(el) {
 }
 
 // Init draggable on all FABs
-['fab-email','fab-sms','fab-templates'].forEach(function(id) {
+['fab-email','fab-sms','fab-templates','fab-lists'].forEach(function(id) {
   var el = $(id);
   if (el) makeDraggable(el);
 });
@@ -6930,6 +6976,15 @@ function toggleUnsubList(listId, rowId) {
 /* ================================================================
    RESET FONCTIONS — avec confirmation obligatoire
 ================================================================ */
+function resumeSyncAfterReset() {
+  if (_syncInterval) clearInterval(_syncInterval);
+  _syncInterval = setInterval(syncFromWorker, 30000);
+  syncFromWorker();
+  var btn = $('btn-resume-sync');
+  if (btn) btn.style.display = 'none';
+  toast('✓ Sync relancée', 'success');
+}
+
 function resetDashboard() {
   if (!confirm('⚠️ Remettre le dashboard à zéro ?\n\nCeci efface tous les analytics (ouvertures, historique emails/SMS).\nLes campagnes et contacts ne sont PAS supprimés.')) return;
   // Stopper la sync auto pendant le reset pour éviter rechargement immédiat
@@ -6948,7 +7003,7 @@ function resetDashboard() {
   lsS(SK.camps, S.camps);
   renderDashboard();
   updateStats();
-  toast('✓ Dashboard remis à zéro — sync suspendue 2 min', 'success');
+  toast('✓ Dashboard remis à zéro', 'success'); var brs=$('btn-resume-sync'); if(brs) brs.style.display='inline-flex';
 
   // Relancer la sync après 2 minutes (pour que Worker ait eu le temps d'être reset aussi si besoin)
   setTimeout(function() {
@@ -6959,39 +7014,51 @@ function resetDashboard() {
 }
 
 async function resetDashboardAndWorker() {
-  if (!confirm('⚠️ RESET COMPLET dashboard + Worker ?\n\nTous les analytics locaux ET ceux du Worker Cloudflare seront effacés.\nIrréversible.')) return;
+  if (!confirm('⚠️ RESET COMPLET dashboard + Worker ?\n\nTous les analytics locaux ET ceux du Worker Cloudflare seront effacés.\nLes compteurs envoyés/ouverts seront remis à zéro.\nIrréversible.')) return;
+
+  // 1 — Stopper la sync DEFINITVEMENT jusqu'à relance manuelle
   if (_syncInterval) { clearInterval(_syncInterval); _syncInterval = null; }
 
-  // Reset local
+  // 2 — Reset local complet
   S.analytics = [];
   lsS(SK.analytics, S.analytics);
   S.camps.forEach(function(camp) {
     camp.sent = 0; camp.opened = 0; camp.errors = 0; camp.unsubscribed = 0;
-    camp.dailySent = 0;
+    camp.dailySent = 0; camp.status = 'draft';
     camp.emailList.forEach(function(e) {
-      if (e.status !== 'pending') e.status = 'pending';
-      e.opened = false; e.unsubscribed = false;
+      e.status = 'pending'; e.opened = false; e.unsubscribed = false;
     });
   });
   lsS(SK.camps, S.camps);
 
-  // Reset Worker analytics via endpoint
+  // 3 — Reset Worker : analytics + tous les compteurs de campagnes
   if (S.wurl) {
     try {
-      await fetch(S.wurl + '/analytics/reset', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
-      toast('✓ Reset complet local + Worker effectué', 'success');
+      // Reset analytics_log
+      await fetch(S.wurl + '/analytics/reset', {
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}'
+      });
+      // Reset compteurs de chaque campagne côté Worker
+      // On renvoie les campagnes avec compteurs à 0 pour écraser le KV
+      await fetch(S.wurl + '/campaigns', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ campaigns: S.camps })
+      });
+      // Relancer les campagnes depuis zéro si on le souhaite
+      toast('✓ Reset total effectué', 'success'); var brs=$('btn-resume-sync'); if(brs) brs.style.display='inline-flex';
     } catch(e) {
-      toast('✓ Reset local effectué (Worker inaccessible)', 'warn');
+      toast('⚠ Reset local OK, Worker inaccessible (' + e.message + ')', 'warn');
     }
   } else {
-    toast('✓ Reset local effectué (pas de Worker configuré)', 'success');
+    toast('✓ Reset local effectué (Worker non configuré)', 'success');
   }
 
-  renderDashboard();
-  updateStats();
-  setTimeout(function() {
-    if (!_syncInterval && S.wurl) _syncInterval = setInterval(syncFromWorker, 30000);
-  }, 5000);
+  renderCampList('email'); renderCampList('sms');
+  renderDashboard(); updateStats();
+
+  // 4 — PAS de relance auto : l'utilisateur relance manuellement via Sync
+  // pour éviter que le Worker réécrase immédiatement
 }
 
 function resetCampStats(id) {
@@ -7021,7 +7088,7 @@ function resetAllCamps() {
   lsS(SK.camps, S.camps);
   renderCampList('email'); renderCampList('sms');
   renderDashboard(); updateStats();
-  toast('✓ Toutes les campagnes remises à zéro — sync suspendue 2 min', 'success');
+  toast('✓ Toutes les campagnes remises à zéro', 'success'); var brs=$('btn-resume-sync'); if(brs) brs.style.display='inline-flex';
   setTimeout(function() {
     if (!_syncInterval && S.wurl) _syncInterval = setInterval(syncFromWorker, 30000);
   }, 120000);
