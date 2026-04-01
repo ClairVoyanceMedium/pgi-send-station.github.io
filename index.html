@@ -772,7 +772,9 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
     <div style="font-size:11px;color:var(--text2);flex:1;">
       <span id="sync-status-lbl" style="color:var(--text3);">Synchronisation avec le Worker...</span>
     </div>
-    <button class="btn-sm" onclick="forceSyncNow()" style="white-space:nowrap;">🔄 Synchroniser maintenant</button>
+    <button class="btn-sm" onclick="forceSyncNow()" style="white-space:nowrap;">🔄 Sync</button>
+    <button class="btn-sm" onclick="resetDashboard()" style="white-space:nowrap;background:rgba(255,34,68,.1);border-color:rgba(255,34,68,.3);color:var(--red);">🗑 Reset stats</button>
+    <button class="btn-sm" onclick="resetAllCamps()" style="white-space:nowrap;background:rgba(255,122,0,.1);border-color:rgba(255,122,0,.3);color:var(--ora);">⚠ Reset tout</button>
     <span id="sync-last-lbl" style="font-size:9px;color:var(--text3);"></span>
   </div>
 
@@ -1431,6 +1433,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
     <div id="cbar">
       <input type="text" class="srch" id="c-srch" placeholder="Rechercher email, nom..." oninput="renderContacts()">
       <button class="btn-ico" onclick="showModal('modal-csv')" style="margin-left:auto">⬆ CSV</button>
+      <button class="btn-ico" onclick="resetContacts()" style="color:var(--red)" title="Supprimer tous les contacts">🗑</button>
       <label class="btn-ico" style="cursor:pointer" title="Excel">📊<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importExcelContacts(this.files[0], S.activeList!=='all'?S.activeList:'')"></label>
       <button class="btn-sm" onclick="showModal('modal-contact')">+ Contact</button>
     </div>
@@ -1877,11 +1880,11 @@ const SK = {
 function getGlobalQuota() {
   const q = QUOTAS[S.prov] || QUOTAS.gmail;
   const activeCamps = S.camps.filter(c => c.status === 'running' && c.type !== 'sms');
+  const todayStr = new Date().toDateString();
   const usedToday = activeCamps.reduce((sum, c) => {
-    // Compte les envois d'aujourd'hui par campagne
-    const todayStr = new Date().toDateString();
-    const todaySent = (c.sentToday || 0);
-    return sum + todaySent;
+    // Compte les envois du jour : dailySent si même jour, sinon 0
+    const sent = (c.dailyDate === todayStr) ? (c.dailySent || c.sent || 0) : (c.sent || 0);
+    return sum + sent;
   }, 0);
   const totalLimit = activeCamps.reduce((sum, c) => sum + (c.dailyLimit || 0), 0);
   const available = Math.max(0, q.day - totalLimit);
@@ -2278,13 +2281,38 @@ async function syncFromWorker() {
     if (analRes.ok) {
       const data2 = await analRes.json();
       if (data2.analytics && Array.isArray(data2.analytics) && data2.analytics.length > 0) {
-        // Fusionner avec les analytics locaux (éviter les doublons par email+date)
-        var existing = new Set(S.analytics.map(function(a){ return a.email + '|' + a.date; }));
-        var newLogs = data2.analytics.filter(function(a){ return !existing.has(a.email + '|' + a.date); });
-        if (newLogs.length > 0) {
-          S.analytics = S.analytics.concat(newLogs);
-          lsS(SK.analytics, S.analytics);
+        var workerLogs = data2.analytics;
+        var changed = false;
+
+        // Remplacer complètement les analytics locaux par ceux du Worker
+        // (le Worker est la source de vérité pour opened/unsubscribed)
+        S.analytics = workerLogs;
+        lsS(SK.analytics, S.analytics);
+        changed = true;
+
+        // Propager le statut "opened" vers les emailList des campagnes locales
+        workerLogs.filter(function(a){ return a.opened && a.type === 'email'; }).forEach(function(a) {
+          S.camps.filter(function(camp){ return camp.type !== 'sms'; }).forEach(function(camp) {
+            var contact = camp.emailList.find(function(e){ return e.email === a.email; });
+            if (contact && contact.status === 'sent') {
+              contact.status = 'opened';
+              contact.opened = true;
+            }
+          });
+        });
+
+        // Propager unsubscribed
+        workerLogs.filter(function(a){ return a.unsubscribed; }).forEach(function(a) {
+          S.camps.forEach(function(camp) {
+            var contact = camp.emailList.find(function(e){ return e.email === a.email; });
+            if (contact) contact.unsubscribed = true;
+          });
+        });
+
+        if (changed) {
+          lsS(SK.camps, S.camps);
           renderDashboard();
+          updateStats();
         }
       }
     }
@@ -2308,7 +2336,8 @@ async function syncFromWorker() {
         statusLbl.innerHTML = '⚡ <strong style="color:var(--yel);">' + activeCamps.length + ' campagne(s) en cours</strong> — Le Worker envoie automatiquement';
         statusLbl.style.color = 'var(--yel)';
       } else {
-        statusLbl.innerHTML = '✅ <strong style="color:var(--grn);">Synchronisé</strong> — Toutes les campagnes sont à jour';
+        var provLbl = (window.QUOTAS && QUOTAS[S.prov]) ? QUOTAS[S.prov].lbl : S.prov;
+        statusLbl.innerHTML = '✅ <strong style="color:var(--grn);">Synchronisé</strong> — Provider : <strong style="color:var(--cyan);">' + provLbl + '</strong>';
         statusLbl.style.color = 'var(--grn)';
       }
     }
@@ -2335,7 +2364,7 @@ function startAutoSync() {
   setTimeout(syncFromWorker, 2000);
   // Puis toutes les 60 secondes
   if (_syncInterval) clearInterval(_syncInterval);
-  _syncInterval = setInterval(syncFromWorker, 60000);
+  _syncInterval = setInterval(syncFromWorker, 30000);
 }
 
 /* Forcer une sync manuelle (bouton dans le dashboard) */
@@ -2511,6 +2540,7 @@ function buildCampForm(c) {
   h += '<div class="el-acts">';
   if (!isSMS) h += '<button class="ela g" onclick="importFromContactList(' + c.id + ')">👥 Depuis contacts</button>';
   h += '<button class="ela y" onclick="resetSent(' + c.id + ')">↺ Tout recommencer</button>';
+  h += '<button class="ela" style="background:rgba(255,34,68,.09);border-color:rgba(255,34,68,.25);color:var(--red);" onclick="resetCampStats(' + c.id + ')">🗑 Reset stats</button>';
   h += '<button class="ela" onclick="clearEList(' + c.id + ')">✕ Vider tout</button></div></div>';
   h += '<div class="el-sc" id="elsc-' + c.id + '"></div>';
   h += '<div class="el-add">';
@@ -5049,9 +5079,14 @@ function renderActiveCamps() {
       <td><span style="font-size:8px;font-weight:800;padding:2px 6px;border-radius:3px;background:${isSMS?'rgba(255,45,120,.1)':'var(--pur-bg)'};color:${isSMS?'var(--pnk)':'var(--purl)'}">${isSMS?'SMS':'EMAIL'}</span></td>
       <td style="font-family:var(--mono);color:var(--grn)">${c.sent.toLocaleString()}</td>
       <td style="font-family:var(--mono)">${c.emailList.length.toLocaleString()}</td>
-      <td style="min-width:120px">${progBar}</td>
+      <td style="min-width:140px">
+        <div style="font-size:9px;font-weight:700;color:var(--grn);margin-bottom:3px">
+          ${c.sent.toLocaleString()}/${c.emailList.length.toLocaleString()} envoi${c.sent>1?'s':''} réussi${c.sent>1?'s':''}
+        </div>
+        ${progBar}
+      </td>
       <td style="font-family:var(--mono);color:var(--yel)">${c.ratePerHour}/h</td>
-      <td style="font-family:var(--mono);color:var(--purl)">${isSMS?'—':(c.opened||0)+' ('+openRate+'%)'}</td>
+      <td style="font-family:var(--mono);color:var(--purl)">${isSMS?'—':(c.opened||0).toLocaleString()+' ('+openRate+'%)'}</td>
       <td style="font-family:var(--mono);color:${c.errors?'var(--red)':'var(--text3)'}">${c.errors||0}</td>
       <td style="font-size:10px;color:var(--text3)">${c.durationInfinite?'∞':c.durationH+'h'}</td>
       <td>
@@ -5147,7 +5182,8 @@ function renderQuotaDash() {
   const det  = $('dash-quota-detail');
   const col  = pct >= 100 ? 'var(--red)' : pct >= 80 ? 'var(--yel)' : 'var(--grn)';
   if (bar) { bar.style.width = pct + '%'; bar.style.background = col; }
-  if (txt) txt.innerHTML = `Provider actuel : <strong style="color:${col}">${S.prov}</strong> — <strong style="color:${col}">${q.committed.toLocaleString()}</strong> engagés / <strong>${q.limit.toLocaleString()}</strong> max/jour — Reste : <strong style="color:var(--grn)">${q.available.toLocaleString()}</strong>`;
+  const provLabel = (window.QUOTAS && QUOTAS[S.prov]) ? QUOTAS[S.prov].lbl : S.prov;
+  if (txt) txt.innerHTML = `Provider : <strong style="color:${col}">${provLabel}</strong> — Utilisés aujourd'hui : <strong style="color:${col}">${q.used.toLocaleString()}</strong> / Engagés : <strong>${q.committed.toLocaleString()}</strong> / Max : <strong>${q.limit.toLocaleString()}</strong>/jour`;
   if (det) det.textContent = activeCamps.map(c => `${c.name} : ${c.dailyLimit.toLocaleString()}/j`).join(' · ');
 }
 
@@ -5172,15 +5208,24 @@ function renderContactsQuick() {
 
 /* ── Sources de données ──────────────────────────────── */
 function getAllEmailLogs() {
-  const logs = [];
+  // Source principale : analytics Worker (opened/unsubscribed fiables)
+  const workerLogs = S.analytics.filter(x => x.type === 'email');
+  const workerKeys = new Set(workerLogs.map(x => x.email + '|' + (x.campaign||'')));
+
+  // Compléter avec emailList locaux pour les envois non encore remontés
+  const localLogs = [];
   S.camps.filter(c => c.type !== 'sms').forEach(c => {
     c.emailList.filter(e => e.status === 'sent' || e.status === 'opened' || e.status === 'error').forEach(e => {
-      logs.push({email:e.email, campaign:c.name, date:e.sentAt||c.startDate||c.created,
-        status:e.status, opened:e.status==='opened', unsubscribed:e.unsubscribed||false});
+      const key = e.email + '|' + c.name;
+      if (!workerKeys.has(key)) {
+        localLogs.push({email:e.email, campaign:c.name, date:e.sentAt||c.startDate||c.created,
+          status:e.status, opened:e.status==='opened'||e.opened||false,
+          unsubscribed:e.unsubscribed||false, type:'email'});
+      }
     });
   });
-  S.analytics.filter(x => x.type === 'email').forEach(x => logs.push(x));
-  return logs.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+  return [...workerLogs, ...localLogs].sort((a,b) => new Date(b.date) - new Date(a.date));
 }
 
 function getAllSMSLogs() {
@@ -5264,7 +5309,8 @@ function renderAnalytics() {
     } else {
       abody.innerHTML = shown.map(l => {
         const stag  = l.status==='error' ? '<span class="tg tg-err">Erreur</span>' : '<span class="tg tg-sent">Envoyé</span>';
-        const otag  = l.opened ? '<span class="tg tg-open">✓ Ouvert</span>' : '<span style="font-size:10px;color:var(--text3)">—</span>';
+        const openLabel = l.opened ? ('✓ Ouvert' + (l.openedAt ? '<br><span style="font-size:9px;color:var(--text3)">' + fDt(l.openedAt) + '</span>' : '')) : '—';
+        const otag  = l.opened ? '<span class="tg tg-open" style="line-height:1.3">' + openLabel + '</span>' : '<span style="font-size:10px;color:var(--text3)">Non lu</span>';
         const utag  = l.unsubscribed ? '<span class="tg tg-unsb">🚫</span>' : '—';
         const time  = l.date ? fDt(l.date) : '—';
         return `<tr>
@@ -6186,22 +6232,59 @@ function importPastedEmails() {
   var ta = $('paste-emails-ta');
   if (!ta || !ta.value.trim()) { toast('Zone vide — collez des emails', 'warn'); return; }
   var listId = S.activeList !== 'all' ? S.activeList : '';
-  var emails = ta.value.split(/[\n,;]+/).map(function(x){return x.trim();}).filter(isEmail);
+  var raw = ta.value;
+  // Parser en worker-like fashion pour ne pas bloquer l'UI
+  var emails = raw.split(/[\n,;\t ]+/).map(function(x){return x.trim().toLowerCase();}).filter(isEmail);
   if (!emails.length) { toast('Aucun email valide détecté', 'error'); return; }
-  var added = 0; var dupes = 0;
+
+  // Dédoublon rapide via Set
+  var existingSet = new Set(S.contacts.map(function(c){return (c.email||'').toLowerCase();}));
+  var toAdd = [];
+  var dupes = 0;
   emails.forEach(function(email) {
-    if (S.contacts.find(function(c){return c.email===email;})) { dupes++; return; }
-    S.contacts.push({
+    if (existingSet.has(email)) { dupes++; return; }
+    existingSet.add(email);
+    toAdd.push({
       prénom:'', nom:'', email:email, téléphone:'', entreprise:'',
       listIds: listId ? [listId] : [],
       status:'active', envois:0, added:new Date().toISOString()
     });
-    added++;
   });
-  saveContacts();
-  ta.value = '';
-  countPastedEmails();
-  toast(added.toLocaleString() + ' contacts ajoutés' + (dupes ? ' · ' + dupes + ' doublons ignorés' : ''), 'success');
+
+  if (!toAdd.length) {
+    toast('Tous les emails sont déjà présents (' + dupes + ' doublons)', 'warn');
+    return;
+  }
+
+  var total = toAdd.length;
+  toast('Import de ' + total.toLocaleString() + ' contacts en cours...', 'info');
+
+  // Chunked insert : 2000 contacts par frame pour ne pas freezer
+  var CHUNK = 2000;
+  var idx = 0;
+  var added = 0;
+  function insertChunk() {
+    var end = Math.min(idx + CHUNK, toAdd.length);
+    for (var i = idx; i < end; i++) {
+      S.contacts.push(toAdd[i]);
+      added++;
+    }
+    idx = end;
+    if (idx < toAdd.length) {
+      var pct = Math.round((idx / toAdd.length) * 100);
+      if ($('paste-contacts-cnt')) $('paste-contacts-cnt').textContent = 'Import : ' + pct + '%';
+      setTimeout(insertChunk, 0);
+    } else {
+      // Sauvegarde une seule fois à la fin
+      lsS(SK.contacts, S.contacts);
+      updateStats();
+      renderContacts();
+      ta.value = '';
+      countPastedEmails();
+      toast(added.toLocaleString() + ' contacts ajoutés' + (dupes ? ' · ' + dupes + ' doublons ignorés' : ''), 'success');
+    }
+  }
+  insertChunk();
 }
 
 /* ================================================================
@@ -6717,6 +6800,60 @@ function toggleUnsubList(listId, rowId) {
   }
 })();
 
+
+/* ================================================================
+   RESET FONCTIONS — avec confirmation obligatoire
+================================================================ */
+function resetDashboard() {
+  if (!confirm('⚠️ Remettre le dashboard à zéro ?\n\nCeci efface tous les analytics (ouvertures, historique emails/SMS).\nLes campagnes et contacts ne sont PAS supprimés.')) return;
+  S.analytics = [];
+  lsS(SK.analytics, S.analytics);
+  S.camps.forEach(function(camp) {
+    camp.sent = 0; camp.opened = 0; camp.errors = 0; camp.unsubscribed = 0;
+    camp.emailList.forEach(function(e) { if (e.status === 'sent' || e.status === 'opened') e.status = 'pending'; });
+  });
+  lsS(SK.camps, S.camps);
+  renderDashboard();
+  updateStats();
+  toast('✓ Dashboard remis à zéro', 'success');
+}
+
+function resetCampStats(id) {
+  var camp = S.camps.find(function(c){ return c.id === id; });
+  if (!camp) return;
+  if (!confirm('⚠️ Remettre à zéro la campagne "' + camp.name + '" ?\n\nEnvoyés, ouverts, erreurs seront remis à 0.\nLes contacts repasseront en "en attente".')) return;
+  camp.sent = 0; camp.opened = 0; camp.errors = 0; camp.unsubscribed = 0;
+  camp.status = 'draft';
+  camp.emailList.forEach(function(e) { e.status = 'pending'; e.opened = false; e.unsubscribed = false; });
+  saveCamps();
+  renderCampList(camp.type);
+  openCamp(id, camp.type);
+  renderDashboard();
+  toast('✓ Campagne "' + camp.name + '" remise à zéro', 'success');
+}
+
+function resetAllCamps() {
+  if (!confirm('⚠️ ATTENTION — Remettre TOUTES les campagnes à zéro ?\n\nTous les compteurs et historiques d\'envoi seront effacés.\nLes campagnes repasseront en brouillon.\n\nCette action est irréversible.')) return;
+  S.camps.forEach(function(camp) {
+    camp.sent = 0; camp.opened = 0; camp.errors = 0; camp.unsubscribed = 0;
+    camp.status = 'draft';
+    camp.emailList.forEach(function(e) { e.status = 'pending'; e.opened = false; e.unsubscribed = false; });
+  });
+  S.analytics = [];
+  lsS(SK.analytics, S.analytics);
+  lsS(SK.camps, S.camps);
+  renderCampList('email'); renderCampList('sms');
+  renderDashboard(); updateStats();
+  toast('✓ Toutes les campagnes remises à zéro', 'success');
+}
+
+function resetContacts() {
+  if (!confirm('⚠️ Supprimer TOUS les contacts ?\n\nCette action est irréversible.')) return;
+  S.contacts = [];
+  lsS(SK.contacts, S.contacts);
+  renderContacts(); updateStats();
+  toast('✓ Tous les contacts supprimés', 'success');
+}
 </script>
 </body>
 </html>
