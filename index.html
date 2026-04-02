@@ -1131,7 +1131,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
       <div class="qs-ttl" style="color:var(--cyan)">📧 Email rapide</div>
       <div class="fg c2">
         <div class="fc"><label class="fl">Sujet</label><input type="text" class="fi" id="qs-email-subj" placeholder="Objet du message..."></div>
-        <div class="fc"><label class="fl">Template (optionnel)</label><select class="fsel" id="qs-email-tpl"><option value="">— Contenu manuel ci-dessous —</option></select></div>
+        <div class="fc"><label class="fl">Template (optionnel)</label><select class="fsel" id="qs-email-tpl" onchange="loadQSTplIntoEditor(this.value)"><option value="">— Contenu manuel ci-dessous —</option></select></div>
       </div>
 
       <!-- Éditeur Envoi Rapide — même niveau que Templates -->
@@ -1276,8 +1276,15 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
 
       <div class="fc" style="margin-bottom:10px">
         <label class="fl">Numéros — Collez des milliers d'un coup</label>
+        <!-- Sélecteur liste SMS -->
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+          <select class="fsel" id="qs-sms-list-sel" style="flex:1" onchange="loadQSSMSFromList(this.value)">
+            <option value="">— Importer depuis une liste —</option>
+          </select>
+          <button class="btn-sm pnk" onclick="loadQSSMSFromList($('qs-sms-list-sel').value)">+ Charger</button>
+        </div>
         <textarea class="fta" id="qs-sms-to" style="min-height:80px"
-          placeholder="+33600000001&#10;+33600000002, +33600000003&#10;06 00 00 00 04&#10;&#10;→ Formats acceptés : +33, 06, 07, international&#10;→ Séparateurs : saut de ligne, virgule, point-virgule"
+          placeholder="+33600000001&#10;+33600000002, +33600000003&#10;06 00 00 00 04&#10;&#10;→ Formats acceptés : +33, 06, 07, international&#10;→ Ou choisissez une liste ci-dessus"
           oninput="updateQSSMSToCnt()"></textarea>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -1833,7 +1840,10 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
 <div class="overlay" id="modal-list-view" onclick="closeOvr(event,'modal-list-view')">
   <div class="modal" style="max-width:560px;max-height:80vh" onclick="event.stopPropagation()">
     <div class="mh"></div>
-    <div class="mt" id="mlv-title" style="color:var(--purl)">📋 Liste</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div class="mt" id="mlv-title" style="color:var(--purl);margin:0">📋 Liste</div>
+      <button onclick="closeModal('modal-list-view')" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:2px 8px;line-height:1" title="Fermer">✕</button>
+    </div>
     <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
       <span id="mlv-count" style="font-size:10px;color:var(--text2)"></span>
       <button class="btn-sm" onclick="exportListEmails()" style="margin-left:auto">⬇ Exporter .txt</button>
@@ -2288,6 +2298,8 @@ async function syncFromWorker() {
           if (wc.opened    !== undefined && wc.opened    > (local.opened||0))    { local.opened    = wc.opened;    updated++; }
           if (wc.errors    !== undefined && wc.errors    > (local.errors||0))    { local.errors    = wc.errors;    updated++; }
           if (wc.unsubscribed !== undefined)                                       { local.unsubscribed = wc.unsubscribed; }
+          // Synchroniser dailySent pour quota correct
+          if (wc.dailySent !== undefined) { local.dailySent = wc.dailySent; local.dailyDate = new Date().toDateString(); updated++; }
           // Statut (running → done, paused, etc.)
           if (wc.status && wc.status !== local.status) {
             local.status = wc.status;
@@ -2299,6 +2311,16 @@ async function syncFromWorker() {
               var lContact = local.emailList.find(function(e){ return e.email === wContact.email; });
               if (lContact && wContact.status && wContact.status !== lContact.status) {
                 lContact.status = wContact.status;
+                // Si ouvert → mettre à jour aussi les analytics locaux
+                if (wContact.status === 'opened') {
+                  for (var ai = S.analytics.length - 1; ai >= 0; ai--) {
+                    if (S.analytics[ai].email === wContact.email && !S.analytics[ai].opened) {
+                      S.analytics[ai].opened = true;
+                      S.analytics[ai].openedAt = S.analytics[ai].openedAt || new Date().toISOString();
+                      break;
+                    }
+                  }
+                }
               }
             });
           }
@@ -3388,31 +3410,53 @@ function addBulkToList(id) {
   if (!ta || !ta.value.trim()) { toast('Zone de collage vide', 'warn'); return; }
   const isSMS = c.type === 'sms';
   const raw = ta.value;
-  // Séparateurs : saut de ligne, virgule, point-virgule, espace
   const items = raw.split(/[\n,;\t]+/).map(x => x.trim()).filter(x => x.length > 3);
-  let added = 0, dupes = 0, invalid = 0;
-  items.forEach(item => {
+  // Set rapide pour dédoublonnage (supporte 100k+)
+  const existingSet = new Set(c.emailList.map(function(x){ return x.email; }));
+  const toAdd = [];
+  let dupes = 0, invalid = 0;
+  items.forEach(function(item) {
     if (isSMS) {
       const clean = cleanPhone(item);
       if (!clean.match(/^(\+|00)?[0-9]{8,15}$/)) { invalid++; return; }
-      if (c.emailList.find(x => x.email === clean)) { dupes++; return; }
-      c.emailList.push({email: clean, status: 'pending'});
-      added++;
+      if (existingSet.has(clean)) { dupes++; return; }
+      existingSet.add(clean);
+      toAdd.push({email: clean, status: 'pending'});
     } else {
       const email = item.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g,'');
       if (!isEmail(email)) { invalid++; return; }
-      if (c.emailList.find(x => x.email === email)) { dupes++; return; }
-      c.emailList.push({email, status: 'pending'});
-      added++;
+      if (existingSet.has(email)) { dupes++; return; }
+      existingSet.add(email);
+      toAdd.push({email: email, status: 'pending'});
     }
   });
   ta.value = '';
   const cntEl = $('bulk-cnt-' + id);
   if (cntEl) cntEl.textContent = '0 adresse(s) détectée(s)';
-  saveCamps();
-  refreshEList(c);
-  toast(`✓ ${added.toLocaleString()} ajouté(s)${dupes?` · ${dupes} doublons ignorés`:''}${invalid?` · ${invalid} invalides`:''}`, 'success');
-  track('bulk_paste', { type: c.type, added, campaign_id: id });
+
+  if (!toAdd.length) {
+    toast('Aucun nouvel élément valide' + (dupes ? ' · ' + dupes + ' doublons' : ''), 'warn');
+    return;
+  }
+
+  // Insertion chunked pour ne pas freezer sur 30k+
+  const CHUNK = 5000;
+  let idx = 0;
+  toast('Import de ' + toAdd.length.toLocaleString() + ' entrée(s)...', 'info');
+  function insertChunk() {
+    var end = Math.min(idx + CHUNK, toAdd.length);
+    for (var i = idx; i < end; i++) c.emailList.push(toAdd[i]);
+    idx = end;
+    if (idx < toAdd.length) {
+      setTimeout(insertChunk, 0);
+    } else {
+      saveCamps();
+      refreshEList(c);
+      toast('✓ ' + toAdd.length.toLocaleString() + ' ajouté(s)' + (dupes?' · '+dupes+' doublons':'') + (invalid?' · '+invalid+' invalides':''), 'success');
+      track('bulk_paste', { type: c.type, added: toAdd.length, campaign_id: id });
+    }
+  }
+  insertChunk();
 }
 
 function clearBulk(id) {
@@ -3499,18 +3543,51 @@ function importFromContactList(id) {
 
 function importListToEList(id, listId) {
   if (!listId) return;
-  const c = S.camps.find(x => x.id === id);
-  if (!c) return;
+  const camp = S.camps.find(x => x.id === id);
+  if (!camp) return;
+
+  const existingSet = new Set(camp.emailList.map(function(e){ return e.email; }));
+  const toAdd = [];
+
+  // 1 — Contacts liés à la liste
   const contacts = listId === 'all' ? S.contacts : S.contacts.filter(x => x.listIds?.includes(listId));
-  let added = 0;
-  contacts.forEach(x => {
-    if (x.email && !c.emailList.find(e => e.email === x.email)) {
-      c.emailList.push({email: x.email, status: 'pending'});
-      added++;
+  contacts.forEach(function(x) {
+    if (x.email && !existingSet.has(x.email)) {
+      existingSet.add(x.email);
+      toAdd.push({email: x.email, status: 'pending'});
     }
   });
-  saveCamps(); refreshEList(c);
-  toast(added + ' importés', 'success');
+
+  // 2 — Emails email-only de la liste (list.emails[])
+  const list = S.lists.find(function(l){ return l.id === listId; });
+  if (list && list.emails && list.emails.length) {
+    list.emails.forEach(function(email) {
+      if (email && !existingSet.has(email)) {
+        existingSet.add(email);
+        toAdd.push({email: email, status: 'pending'});
+      }
+    });
+  }
+
+  if (!toAdd.length) { toast('Aucun email à importer (déjà tous présents)', 'warn'); return; }
+
+  // Insertion chunked pour 33k+
+  const CHUNK = 5000;
+  let idx = 0;
+  toast('Import de ' + toAdd.length.toLocaleString() + ' email(s)...', 'info');
+  function doChunk() {
+    var end = Math.min(idx + CHUNK, toAdd.length);
+    for (var i = idx; i < end; i++) camp.emailList.push(toAdd[i]);
+    idx = end;
+    if (idx < toAdd.length) {
+      setTimeout(doChunk, 0);
+    } else {
+      saveCamps();
+      refreshEList(camp);
+      toast('✓ ' + toAdd.length.toLocaleString() + ' email(s) importés dans la campagne', 'success');
+    }
+  }
+  doChunk();
 }
 
 function importEFile(file, id) {
@@ -3926,6 +4003,10 @@ async function launchCamp(id) {
       webhookBody: S.smsWebhookBody || null
     },
 
+    // Délais anti-bannissement
+    delayMin: c.delayMin || 2,
+    delayMax: c.delayMax || 8,
+
     // URL du Worker lui-même (pour les liens de désinscription)
     _workerOrigin: S.wurl ? S.wurl.replace(/\/+$/, '') : ''
   });
@@ -4126,6 +4207,30 @@ function updateQSTplSelect() {
   if (!sel) return;
   sel.innerHTML = '<option value="">— Contenu manuel ci-dessous —</option>' +
     S.tpls.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+}
+
+function loadQSTplIntoEditor(tplId) {
+  if (!tplId) return;
+  var tpl = S.tpls.find(function(t){ return String(t.id) === String(tplId); });
+  if (!tpl) return;
+  var rich = $('qs-email-rich');
+  var html = $('qs-email-body');
+  if (tpl.mode === 'html') {
+    // Mettre en mode HTML
+    if (html) { html.value = tpl.content || ''; html.style.display = 'block'; }
+    if (rich) rich.style.display = 'none';
+    qsMode = 'html';
+    var btn = $('qs-mode-btn'); if (btn) btn.textContent = '⇄ Basculer vers éditeur visuel';
+    var lbl = $('qs-mode-lbl'); if (lbl) lbl.textContent = 'HTML brut';
+  } else {
+    // Mettre en mode visuel
+    if (rich) { rich.innerHTML = tpl.content || ''; rich.style.display = 'block'; }
+    if (html) html.style.display = 'none';
+    qsMode = 'rich';
+    var btn2 = $('qs-mode-btn'); if (btn2) btn2.textContent = '⇄ Basculer vers HTML brut';
+    var lbl2 = $('qs-mode-lbl'); if (lbl2) lbl2.textContent = 'Éditeur visuel';
+  }
+  toast('✓ Template "' + tpl.name + '" chargé', 'success');
 }
 
 function parseQSEmails(text) {
@@ -4750,15 +4855,13 @@ function renderLists() {
   el.innerHTML = S.lists.map(l => {
     const cnt = l.system ? S.contacts.length : S.contacts.filter(c => c.listIds?.includes(l.id)).length;
     const emailsCnt = l.emails ? l.emails.length : 0;
-    return `<div class="lp-item ${S.activeList === l.id ? 'sel' : ''}" onclick="setActiveList('${l.id}')">
+    return `<div class="lp-item ${S.activeList === l.id ? 'sel' : ''}" onclick="setActiveList('${l.id}');${!l.system ? 'openListView(\'' + l.id + '\')' : ''}">
       <div class="lpdot" style="background:${l.color};box-shadow:0 0 5px ${l.color}"></div>
       <div style="flex:1;min-width:0">
         <div class="lpname">${l.name}</div>
-        ${emailsCnt > 0 ? `<div style="font-size:9px;color:var(--text3)">${emailsCnt} email(s) sauvegardé(s)</div>` : ''}
+        <div style="font-size:9px;color:var(--text3);font-family:var(--mono);font-weight:700;color:var(--purl)">${(cnt + emailsCnt).toLocaleString()} adresse(s)${emailsCnt > 0 ? ' <span style=\"color:var(--text3);font-weight:400\">(dont ' + emailsCnt.toLocaleString() + ' email-only)</span>' : ''}</div>
       </div>
-      <div class="lpcnt">${cnt}</div>
-      ${!l.system ? `<button class="lpdel" onclick="event.stopPropagation();openListView('${l.id}')" title="Voir / éditer les emails" style="color:var(--purl);font-size:13px">✎</button>` : ''}
-      ${!l.system ? `<button class="lpdel" onclick="event.stopPropagation();delList('${l.id}')">×</button>` : ''}
+      ${!l.system ? `<button class="lpdel" onclick="event.stopPropagation();delList('${l.id}')" title="Supprimer">×</button>` : ''}
     </div>`;
   }).join('');
 }
@@ -4798,6 +4901,7 @@ function saveListEmails() {
   list.emails = [...new Set(emails)];
   lsS(SK.lists, S.lists);
   renderLists();
+  renderListSelects();
   closeModal('modal-list-view');
   toast('✓ ' + list.emails.length.toLocaleString() + ' emails sauvegardés dans "' + list.name + '"', 'success');
 }
@@ -4909,9 +5013,39 @@ function loadQSFromList(listId) {
   toast('✓ ' + emails.length.toLocaleString() + ' emails chargés depuis "' + list.name + '"', 'success');
 }
 
+function loadQSSMSFromList(listId) {
+  if (!listId) return;
+  var list = S.lists.find(function(l){ return l.id === listId; });
+  if (!list) return;
+  var ta = $('qs-sms-to');
+  if (!ta) return;
+
+  var phones = [];
+  // Emails de la liste qui sont des numéros (liste phone-only)
+  if (list.emails && list.emails.length) {
+    list.emails.forEach(function(e) {
+      var cleaned = cleanPhone(e);
+      if (cleaned.match(/^(\+|00)?[0-9]{8,15}$/)) phones.push(cleaned);
+    });
+  }
+  // Contacts avec téléphone liés à cette liste
+  var contactPhones = S.contacts
+    .filter(function(ct){ return ct.listIds && ct.listIds.indexOf(listId) > -1 && ct.téléphone; })
+    .map(function(ct){ return cleanPhone(ct.téléphone); })
+    .filter(function(p){ return p.match(/^(\+|00)?[0-9]{8,15}$/); });
+  phones = phones.concat(contactPhones);
+  phones = [...new Set(phones)];
+
+  if (!phones.length) { toast('Aucun numéro valide dans cette liste', 'warn'); return; }
+  var existing = ta.value.trim();
+  ta.value = existing ? existing + '\n' + phones.join('\n') : phones.join('\n');
+  updateQSSMSToCnt && updateQSSMSToCnt();
+  toast('✓ ' + phones.length.toLocaleString() + ' numéros chargés depuis "' + list.name + '"', 'success');
+}
+
 function renderListSelects() {
   const opts = S.lists.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
-  ['csv-list-sel','ac-list','qs-list-sel'].forEach(id => {
+  ['csv-list-sel','ac-list','qs-list-sel','qs-sms-list-sel'].forEach(id => {
     const el = $(id);
     if (el) el.innerHTML = '<option value="">— Aucune liste —</option>' + opts;
   });
@@ -4989,7 +5123,12 @@ function delContact(email) {
 }
 
 function saveContacts() {
-  lsS(SK.contacts, S.contacts);
+  try {
+    lsS(SK.contacts, S.contacts);
+  } catch(e) {
+    console.warn('localStorage contacts:', e.message);
+    // Si localStorage saturé, on reste en mémoire — pas de crash
+  }
   renderContacts();
   updateStats();
 }
@@ -5099,29 +5238,45 @@ function importExcelToEList(file, campId) {
 }
 
 function importCsv() {
-  if (!S.csvData.length) return;
+  if (!S.csvData || !S.csvData.length) { toast('Aucune donnée à importer — rechargez le fichier CSV', 'warn'); return; }
   const listId = $('csv-list-sel')?.value || '';
+  const existingSet = new Set(S.contacts.map(function(x){ return x.email; }));
   let added = 0, dupes = 0;
-  S.csvData.forEach(r => {
-    if (!r.email) return;
-    if (S.contacts.find(c => c.email === r.email)) { dupes++; return; }
-    S.contacts.push({
-      prénom: r.prénom||'', nom: r.nom||'', email: r.email,
-      téléphone: r.téléphone||r.telephone||'', entreprise: r.entreprise||'',
-      ville: r.ville||'', custom1: r.custom1||'', custom2: r.custom2||'',
-      listIds: listId ? [listId] : [],
-      status: 'active', envois: 0, added: new Date().toISOString()
-    });
-    added++;
-  });
-  saveContacts();
-  closeModal('modal-csv');
-  const prev = $('csv-prev');
-  if (prev) prev.style.display = 'none';
-  S.csvData = [];
-  const btn = $('csv-ok');
-  if (btn) { btn.disabled = true; btn.style.opacity='.4'; btn.style.cursor='not-allowed'; }
-  toast(`✓ ${added} importés${dupes ? ` (${dupes} doublons ignorés)` : ''}`, 'success');
+  const CHUNK = 3000;
+  const rows = S.csvData.slice();
+  let idx = 0;
+  function insertChunk() {
+    var end = Math.min(idx + CHUNK, rows.length);
+    for (var i = idx; i < end; i++) {
+      var r = rows[i];
+      if (!r.email) continue;
+      if (existingSet.has(r.email)) { dupes++; continue; }
+      existingSet.add(r.email);
+      S.contacts.push({
+        prénom: r.prénom||'', nom: r.nom||'', email: r.email,
+        téléphone: r.téléphone||r.telephone||'', entreprise: r.entreprise||'',
+        ville: r.ville||'', custom1: r.custom1||'', custom2: r.custom2||'',
+        listIds: listId ? [listId] : [],
+        status: 'active', envois: 0, added: new Date().toISOString()
+      });
+      added++;
+    }
+    idx = end;
+    if (idx < rows.length) {
+      setTimeout(insertChunk, 0);
+    } else {
+      lsS(SK.contacts, S.contacts);
+      updateStats();
+      renderContacts();
+      S.csvData = [];
+      closeModal('modal-csv');
+      var prev = $('csv-prev'); if (prev) prev.style.display = 'none';
+      var btn = $('csv-ok'); if (btn) { btn.disabled = true; btn.style.opacity='.4'; btn.style.cursor='not-allowed'; }
+      toast('✓ ' + added.toLocaleString() + ' importés' + (dupes ? ' (' + dupes + ' doublons ignorés)' : ''), 'success');
+    }
+  }
+  toast('Import CSV en cours...', 'info');
+  insertChunk();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -5380,23 +5535,35 @@ function renderContactsQuick() {
 
 /* ── Sources de données ──────────────────────────────── */
 function getAllEmailLogs() {
-  // Source principale : analytics Worker (opened/unsubscribed fiables)
+  // Source principale : analytics Worker — vérité absolue pour opened
   const workerLogs = S.analytics.filter(x => x.type === 'email');
-  const workerKeys = new Set(workerLogs.map(x => x.email + '|' + (x.campaign||'')));
 
-  // Compléter avec emailList locaux pour les envois non encore remontés
+  // Index Worker par email pour lookup rapide
+  const workerByEmail = {};
+  workerLogs.forEach(function(x) {
+    var key = x.email + '|' + (x.campaign || '');
+    if (!workerByEmail[key] || x.opened) workerByEmail[key] = x;
+  });
+
+  // Compléter avec emailList locaux (envois récents pas encore dans Worker)
   const localLogs = [];
   S.camps.filter(c => c.type !== 'sms').forEach(c => {
     c.emailList.filter(e => e.status === 'sent' || e.status === 'opened' || e.status === 'error').forEach(e => {
-      const key = e.email + '|' + c.name;
-      if (!workerKeys.has(key)) {
-        localLogs.push({email:e.email, campaign:c.name, date:e.sentAt||c.startDate||c.created,
-          status:e.status, opened:e.status==='opened'||e.opened||false,
+      var key = e.email + '|' + c.name;
+      var workerEntry = workerByEmail[key] ||
+        // Fallback : chercher par email seul (campName peut différer)
+        workerLogs.find(function(w){ return w.email === e.email; });
+      if (!workerEntry) {
+        localLogs.push({email:e.email, campaign:c.name,
+          date:e.sentAt||c.startDate||c.created,
+          status:e.status,
+          opened:e.status==='opened'||e.opened||false,
           unsubscribed:e.unsubscribed||false, type:'email'});
       }
     });
   });
 
+  // Fusionner en évitant les doublons : Worker gagne toujours
   return [...workerLogs, ...localLogs].sort((a,b) => new Date(b.date) - new Date(a.date));
 }
 
@@ -5530,7 +5697,10 @@ function renderAnalytics() {
 /* ── updateStats — KPIs globaux topbar + réglages ────── */
 function updateStats() {
   const emailSent   = S.camps.filter(c=>c.type!=='sms').reduce((a,c)=>a+c.sent,0);
-  const emailOpened = S.camps.filter(c=>c.type!=='sms').reduce((a,c)=>a+(c.opened||0),0);
+  // Ouverts : prendre le max entre compteur campagne et analytics Worker
+  const openedFromCamps = S.camps.filter(c=>c.type!=='sms').reduce((a,c)=>a+(c.opened||0),0);
+  const openedFromAnalytics = S.analytics.filter(x=>x.type==='email'&&x.opened).length;
+  const emailOpened = Math.max(openedFromCamps, openedFromAnalytics);
   const emailUnsub  = S.contacts.filter(c=>c.status==='unsubscribed').length;
   const smsSent     = S.camps.filter(c=>c.type==='sms').reduce((a,c)=>a+c.sent,0);
   const smsRead     = S.camps.filter(c=>c.type==='sms').reduce((a,c)=>a+(c.opened||0),0);
@@ -6447,13 +6617,17 @@ function importPastedEmails() {
       if ($('paste-contacts-cnt')) $('paste-contacts-cnt').textContent = 'Import : ' + pct + '%';
       setTimeout(insertChunk, 0);
     } else {
-      // Sauvegarde une seule fois à la fin
-      lsS(SK.contacts, S.contacts);
-      updateStats();
-      renderContacts();
-      ta.value = '';
-      countPastedEmails();
-      toast(added.toLocaleString() + ' contacts ajoutés' + (dupes ? ' · ' + dupes + ' doublons ignorés' : ''), 'success');
+      // Sauvegarde différée pour ne pas bloquer l'UI sur 33k+
+      setTimeout(function() {
+        try { lsS(SK.contacts, S.contacts); } catch(e) {
+          toast('⚠ Stockage local saturé — contacts en mémoire uniquement', 'warn');
+        }
+        updateStats();
+        renderContacts();
+        ta.value = '';
+        countPastedEmails();
+        toast(added.toLocaleString() + ' contacts ajoutés' + (dupes ? ' · ' + dupes + ' doublons ignorés' : ''), 'success');
+      }, 50);
     }
   }
   insertChunk();
@@ -7056,9 +7230,8 @@ async function resetDashboardAndWorker() {
 
   renderCampList('email'); renderCampList('sms');
   renderDashboard(); updateStats();
-
-  // 4 — PAS de relance auto : l'utilisateur relance manuellement via Sync
-  // pour éviter que le Worker réécrase immédiatement
+  var brs = $('btn-resume-sync'); if (brs) brs.style.display = 'inline-flex';
+  // Sync volontairement stoppée — l'utilisateur relance via "▶ Relancer sync"
 }
 
 function resetCampStats(id) {
