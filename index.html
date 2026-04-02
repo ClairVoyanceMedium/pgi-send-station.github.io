@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#8B0000">
-<title>PGI Send Station</title>
+<title>PGI Send Station v33</title>
 <!-- Favicon -->
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="apple-touch-icon" sizes="180x180" href="https://i.imgur.com/GmyGlKk.webp">
@@ -1840,12 +1840,13 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
 <div class="overlay" id="modal-list-view" onclick="closeOvr(event,'modal-list-view')">
   <div class="modal" style="max-width:560px;max-height:80vh" onclick="event.stopPropagation()">
     <div class="mh"></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-      <div class="mt" id="mlv-title" style="color:var(--purl);margin:0">📋 Liste</div>
-      <button onclick="closeModal('modal-list-view')" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:2px 8px;line-height:1" title="Fermer">✕</button>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <span style="color:var(--purl);font-size:16px;flex-shrink:0">📋</span>
+      <input type="text" id="mlv-name-inp" class="fi" style="flex:1;font-size:13px;font-weight:700;color:var(--purl);background:var(--bg3);border-color:var(--pur-b)" placeholder="Nom de la liste">
+      <button onclick="closeModal('modal-list-view')" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:2px 6px;line-height:1;flex-shrink:0" title="Fermer">✕</button>
     </div>
     <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-      <span id="mlv-count" style="font-size:10px;color:var(--text2)"></span>
+      <span id="mlv-cnt-lbl" style="font-size:10px;color:var(--text2);display:flex;align-items:center"></span>
       <button class="btn-sm" onclick="exportListEmails()" style="margin-left:auto">⬇ Exporter .txt</button>
       <button class="btn-sm" style="background:rgba(255,34,68,.1);border-color:rgba(255,34,68,.3);color:var(--red)" onclick="clearListEmails()">🗑 Vider</button>
     </div>
@@ -2413,8 +2414,9 @@ async function syncFromWorker() {
 
   } catch(e) {
     console.warn('syncFromWorker error:', e.message);
+    var chip2 = $('wchip'); if (chip2) chip2.className = 'wchip err';
     var statusLbl2 = $('sync-status-lbl');
-    if (statusLbl2) { statusLbl2.textContent = '⚠️ Worker inaccessible'; statusLbl2.style.color = 'var(--red)'; }
+    if (statusLbl2) { statusLbl2.innerHTML = '⚠️ <strong style="color:var(--red)">Worker inaccessible</strong> — Vérifiez l\'URL dans Réglages'; statusLbl2.style.color = 'var(--red)'; }
   }
 
   _isSyncing = false;
@@ -2628,8 +2630,10 @@ function buildCampForm(c) {
     h += '<select class="fsel" onchange="importListToEList(' + c.id + ',this.value)">';
     h += '<option value="">— Sélectionner une liste —</option>';
     S.lists.forEach(function(l) {
-      var cnt = l.system ? S.contacts.length : S.contacts.filter(function(x){return x.listIds&&x.listIds.indexOf(l.id)>-1;}).length;
-      h += '<option value="' + l.id + '">' + esc(l.name) + ' (' + cnt + ')</option>';
+      var contactsCnt = l.system ? S.contacts.length : S.contacts.filter(function(x){return x.listIds&&x.listIds.indexOf(l.id)>-1;}).length;
+      var emailsCnt = (l.emails && l.emails.length) ? l.emails.length : 0;
+      var total = contactsCnt + emailsCnt;
+      h += '<option value="' + l.id + '">' + esc(l.name) + ' — ' + total.toLocaleString() + ' adresse(s)</option>';
     });
     h += '</select></div>';
     h += '<div class="fc"><label class="fl">Provider d\'envoi pour cette campagne</label>';
@@ -3580,6 +3584,10 @@ function importListToEList(id, listId) {
     for (var i = idx; i < end; i++) camp.emailList.push(toAdd[i]);
     idx = end;
     if (idx < toAdd.length) {
+      var pct = Math.round((idx / toAdd.length) * 100);
+      // Update count display live
+      var cntEl = $('elcnt-' + camp.id);
+      if (cntEl) cntEl.textContent = camp.emailList.length.toLocaleString() + ' adresse(s) — import ' + pct + '%';
       setTimeout(doChunk, 0);
     } else {
       saveCamps();
@@ -4870,10 +4878,9 @@ function renderLists() {
 function openListView(listId) {
   var list = S.lists.find(function(l){ return l.id === listId; });
   if (!list) return;
-  var titleEl = $('mlv-title');
+  var nameInp = $('mlv-name-inp');
   var ta = $('mlv-emails');
-  var cnt = $('mlv-cnt');
-  if (titleEl) titleEl.textContent = '📋 ' + list.name;
+  if (nameInp) { nameInp.value = list.name; nameInp.dataset.listId = listId; }
   if (ta) {
     ta.value = (list.emails || []).join('\n');
     ta.dataset.listId = listId;
@@ -4885,9 +4892,12 @@ function openListView(listId) {
 function mlvCount() {
   var ta = $('mlv-emails');
   var cnt = $('mlv-cnt');
-  if (!ta || !cnt) return;
+  var cntLbl = $('mlv-cnt-lbl');
+  if (!ta) return;
   var emails = ta.value.split(/[\n,;]+/).map(function(x){return x.trim();}).filter(isEmail);
-  cnt.textContent = emails.length.toLocaleString() + ' email(s) valide(s)';
+  var txt = emails.length.toLocaleString() + ' email(s) valide(s)';
+  if (cnt) cnt.textContent = txt;
+  if (cntLbl) cntLbl.textContent = txt;
 }
 
 function saveListEmails() {
@@ -4896,14 +4906,17 @@ function saveListEmails() {
   var listId = ta.dataset.listId;
   var list = S.lists.find(function(l){ return l.id === listId; });
   if (!list) return;
+  // Sauvegarder le nom modifié
+  var nameInp = $('mlv-name-inp');
+  if (nameInp && nameInp.value.trim()) list.name = nameInp.value.trim();
+  // Sauvegarder les emails
   var emails = ta.value.split(/[\n,;]+/).map(function(x){return x.trim().toLowerCase();}).filter(isEmail);
-  // Dédoublonner
   list.emails = [...new Set(emails)];
   lsS(SK.lists, S.lists);
   renderLists();
   renderListSelects();
   closeModal('modal-list-view');
-  toast('✓ ' + list.emails.length.toLocaleString() + ' emails sauvegardés dans "' + list.name + '"', 'success');
+  toast('✓ Liste "' + list.name + '" : ' + list.emails.length.toLocaleString() + ' emails sauvegardés', 'success');
 }
 
 function clearListEmails() {
@@ -5519,8 +5532,11 @@ function renderContactsQuick() {
   const total  = S.contacts.length;
   const active = S.contacts.filter(c => c.status !== 'unsubscribed').length;
   const unsub  = S.contacts.filter(c => c.status === 'unsubscribed').length;
+  // Ajouter les emails email-only des listes
+  const emailsOnly = S.lists.filter(l => !l.system && l.emails && l.emails.length)
+    .reduce((s, l) => s + l.emails.length, 0);
   const se = (id,v) => { const el=$(id); if(el) el.textContent=v.toLocaleString(); };
-  se('cq-total', total); se('cq-active', active); se('cq-unsub', unsub);
+  se('cq-total', total + emailsOnly); se('cq-active', active); se('cq-unsub', unsub);
   const el = $('lists-quick');
   if (el) {
     const userLists = S.lists.filter(l => !l.system);
@@ -6955,24 +6971,26 @@ function toggleUnsubList(listId, rowId) {
 
   // Détecte clic/tap sur un img ou un bloc de niveau bloc dans un éditeur
   document.addEventListener('click', function(e) {
+    // Ne jamais intercepter les clics sur des éléments interactifs natifs
+    var tag = e.target.tagName;
+    if (['BUTTON','INPUT','SELECT','TEXTAREA','A','LABEL'].includes(tag)) return;
+
     var editors = document.querySelectorAll('[contenteditable="true"]');
     var insideEditor = false;
     editors.forEach(function(ed) { if (ed.contains(e.target)) insideEditor = true; });
     if (!insideEditor) return;
 
     var el = e.target;
-    // Image cliquée directement
     if (el.tagName === 'IMG') {
       var ed = getEditorParent(el);
       if (ed) { showToolbar(el, ed); e.preventDefault(); }
       return;
     }
-    // Bloc de niveau bloc (div, p, h1-h6, table, a wrapping img)
     if (['DIV','P','H1','H2','H3','TABLE','BLOCKQUOTE'].includes(el.tagName)) {
       var ed2 = getEditorParent(el);
       if (ed2 && el.parentNode === ed2) { showToolbar(el, ed2); }
     }
-  }, true);
+  }, false);
 
   // Tap long sur mobile (300ms) sur image
   var _tapTimer = null;
