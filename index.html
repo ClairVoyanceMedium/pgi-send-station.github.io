@@ -1609,7 +1609,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
     </div>
 
     <div id="notice-automation" class="notice-section">
-      <div class="notice-title">🤖 Automatisation &amp; Cadence — v33</div>
+      <div class="notice-title">🤖 Automatisation &amp; Cadence</div>
       <ul>
         <li><strong>Emails/heure</strong> : nombre d'emails envoyés sur chaque créneau horaire actif</li>
         <li><strong>Limite/jour</strong> : plafond journalier absolu (toutes campagnes confondues)</li>
@@ -2187,11 +2187,8 @@ function connectAuth() {
     initGIS();
     if (S.tokenClient) S.tokenClient.requestAccessToken();
     else toast('Google Identity Services en chargement...', 'warn');
-  } else if (S.prov === 'outlook') {
-    // Outlook via Azure AD MSAL — instructions claires
-    showModal('modal-outlook-help');
   } else {
-    toast('Adresse personnalisée enregistrée — les emails partiront avec cet expéditeur', 'success');
+    toast('Pour Outlook: entrez votre Azure App Client ID dans ce champ', 'info');
   }
 }
 
@@ -2335,28 +2332,14 @@ async function syncFromWorker() {
           renderCampList('sms');
           renderDashboard();
           updateStats();
-          refreshQuotaBanner();
-          // Mettre à jour les stats visibles sans re-rendre toute la campagne
-          S.camps.forEach(function(camp) {
-            var pct = camp.emailList.length ? Math.round((camp.sent/camp.emailList.length)*100) : 0;
-            var isSMS = camp.type === 'sms';
-            var se = function(id,v){ var el=$(id); if(el) el.textContent=v; };
-            se('prc-contacts-'+camp.id, camp.emailList.length.toLocaleString());
-            se('prc-sent-'+camp.id, camp.sent.toLocaleString());
-            se('prc-open-'+camp.id, isSMS ? (camp.errors||0) : (camp.opened||0));
-            se('prc-pct-'+camp.id, pct+'%');
-            // Progress bar
-            var pb = $('pbar-'+camp.id);
-            if (pb) pb.style.width = pct+'%';
-          });
-          // Recharger uniquement si la vue est ouverte
+          // Rouvrir la campagne active si elle est affichée
           if (S.activeCamp) {
-            var cv = S.camps.find(function(x){ return x.id === S.activeCamp; });
-            if (cv && cv.status !== 'running') openCamp(cv.id, 'email');
+            var c = S.camps.find(function(x){ return x.id === S.activeCamp; });
+            if (c) openCamp(c.id, 'email');
           }
           if (S.activeSMS) {
             var cs = S.camps.find(function(x){ return x.id === S.activeSMS; });
-            if (cs && cs.status !== 'running') openCamp(cs.id, 'sms');
+            if (cs) openCamp(cs.id, 'sms');
           }
         }
       }
@@ -2401,23 +2384,6 @@ async function syncFromWorker() {
           updateStats();
         }
       }
-    }
-
-    // 2b — Sync templates depuis Worker (si disponibles)
-    if (S.wurl) {
-      try {
-        const tplRes = await fetch(S.wurl + '/sync/data?key=pgi_templates');
-        if (tplRes.ok) {
-          const td = await tplRes.json();
-          if (td.value && Array.isArray(td.value) && td.value.length > 0) {
-            // Fusionner les templates Worker avec les locaux
-            var workerTplIds = new Set(td.value.map(function(t){return t.id;}));
-            var localOnly = S.tpls.filter(function(t){return !workerTplIds.has(t.id);});
-            S.tpls = [...td.value, ...localOnly];
-            lsS(SK.tpls, S.tpls);
-          }
-        }
-      } catch(e) { /* silent */ }
     }
 
     // 3 — Mettre à jour l'indicateur de dernière sync
@@ -2594,26 +2560,23 @@ function buildCampForm(c) {
   h += '<button class="btn-ico" onclick="saveCamps();toast(\'✓ Sauvegardé\',\'success\')">💾</button>';
   if (c.status === 'running') {
     h += '<button class="btp" onclick="pauseCamp(' + c.id + ')">⏸ Pause</button>';
-  } else if (c.status === 'paused') {
-    h += '<button class="btn-sm" style="background:rgba(0,255,136,.12);border-color:rgba(0,255,136,.35);color:var(--grn);padding:8px 14px;font-size:11px;font-weight:800" onclick="resumeCamp(' + c.id + ')">▶ Reprendre</button>';
-    h += '<button class="btl ' + (isSMS ? 'pnk' : '') + '" style="opacity:.5" onclick="launchCamp(' + c.id + ')">↺ Relancer</button>';
   } else {
     h += '<button class="btl ' + (isSMS ? 'pnk' : '') + '" onclick="launchCamp(' + c.id + ')">▶ Lancer</button>';
   }
   h += '<button class="btd" onclick="delCamp(' + c.id + ',\'' + c.type + '\')">✕</button>';
   h += '</div></div>';
 
-  // ─── PROGRESSION avec IDs pour mise à jour live
-  h += '<div class="prog-row" id="prog-row-' + c.id + '">';
-  h += '<div class="prc prc-c"><div class="prv" id="prc-contacts-' + c.id + '">' + c.emailList.length.toLocaleString() + '</div><div class="prl">CONTACTS</div></div>';
-  h += '<div class="prc prc-g"><div class="prv" id="prc-sent-' + c.id + '">' + c.sent.toLocaleString() + '</div><div class="prl">ENVOYÉS</div></div>';
-  h += '<div class="prc prc-y"><div class="prv" id="prc-open-' + c.id + '">' + (isSMS ? (c.errors||0) : (c.opened||0)) + '</div><div class="prl">' + (isSMS ? 'ERREURS' : 'OUVERTS') + '</div></div>';
+  // ─── PROGRESSION
+  h += '<div class="prog-row">';
+  h += '<div class="prc prc-c"><div class="prv">' + c.emailList.length.toLocaleString() + '</div><div class="prl">CONTACTS</div></div>';
+  h += '<div class="prc prc-g"><div class="prv">' + c.sent.toLocaleString() + '</div><div class="prl">ENVOYÉS</div></div>';
+  h += '<div class="prc prc-y"><div class="prv">' + (isSMS ? (c.errors||0) : (c.opened||0)) + '</div><div class="prl">' + (isSMS ? 'ERREURS' : 'OUVERTS') + '</div></div>';
   h += '<div class="prc prc-o" style="position:relative">';
-  h += '<div class="prv" id="prc-pct-' + c.id + '">' + pct + '%</div><div class="prl">AVANCEMENT</div>';
+  h += '<div class="prv">' + pct + '%</div><div class="prl">AVANCEMENT</div>';
   h += '<button style="position:absolute;top:4px;right:4px;background:rgba(255,34,68,.09);border:1px solid rgba(255,34,68,.25);color:var(--red);border-radius:4px;font-size:9px;padding:2px 5px;cursor:pointer;font-family:var(--sans);font-weight:700;line-height:1" onclick="event.stopPropagation();resetCampStats(' + c.id + ')" title="Remettre les stats à zéro">🗑</button>';
   h += '</div>';
   h += '</div>';
-  h += '<div class="pbar"><div class="pfill" id="pbar-' + c.id + '" style="width:' + pct + '%;' + (isSMS ? 'background:linear-gradient(90deg,var(--pnk),var(--pur));' : '') + '"></div></div>';
+  h += '<div class="pbar"><div class="pfill" style="width:' + pct + '%;' + (isSMS ? 'background:linear-gradient(90deg,var(--pnk),var(--pur));' : '') + '"></div></div>';
 
   // ════════════════════════════════════════
   // SECTION 1 — DESTINATAIRES
@@ -2762,48 +2725,33 @@ function buildCampForm(c) {
   h += '<div class="ab-hd" onclick="togAB(this)"><div class="ab-ttl"><span class="ab-n">3</span>Automatisation &amp; Planification horaire</div><div class="ab-cv">▾</div></div>';
   h += '<div class="ab-body">';
 
-  // ─── CADENCE INTELLIGENTE
-  var rSecEnabled = c.rateSecEnabled || false;
-  var rMinEnabled = (c.rateMinEnabled !== false);
-  var rHEnabled   = c.rateHEnabled  || false;
-  var rDEnabled   = (c.rateDEnabled !== false);
-  var rSec = c.rateSec || 1;
-  var rMin = c.rateMin || (c.ratePerHour||10);
-  var rH   = c.rateH   || Math.ceil((c.ratePerHour||10)*60);
-  var rDay = c.rateDay || (c.dailyLimit||300);
+  // Sliders cadence + limite
+  var fillRph = Math.round(((c.ratePerHour - 1) / (100000 - 1)) * 100);
+  var logRph = Math.round((Math.log(Math.max(1,c.ratePerHour)) / Math.log(100000)) * 1000);
+  h += '<div class="sblock">';
+  h += '<div class="sbtop"><span class="slbl">' + (isSMS?'SMS':'Emails') + ' par minute</span>';
+  h += '<div style="display:flex;align-items:center;gap:6px;">';
+  h += '<input type="number" id="ni-rph-' + c.id + '" min="1" max="100000" value="' + c.ratePerHour + '" style="width:80px;background:var(--bg3);border:1px solid var(--b2);border-radius:6px;color:var(--yel);font-family:var(--mono);font-size:13px;font-weight:700;padding:3px 8px;outline:none;text-align:right;" onchange="updSlManual(' + c.id + ',\'ratePerHour\',this.value,\'rph\',100000)">';
+  h += '<span style="font-size:11px;color:var(--text3);">/ minute</span>';
+  h += '</div></div>';
+  h += '<div class="strk"><div class="sfill" id="sf-rph-' + c.id + '" style="background:var(--yel);width:' + (logRph/10) + '%;position:absolute;top:0;left:0;height:100%;border-radius:3px;"></div>';
+  h += '<input type="range" class="sr" min="0" max="1000" value="' + logRph + '" style="--val-pct:' + (logRph/10) + '%"';
+  h += ' oninput="var v=Math.round(Math.pow(100000,this.value/1000));if(v<1)v=1;document.getElementById(\'ni-rph-' + c.id + '\').value=v;this.style.setProperty(\'--val-pct\',(this.value/10)+\'%\');var sf=document.getElementById(\'sf-rph-' + c.id + '\');if(sf)sf.style.width=(this.value/10)+\'%\';updSl(' + c.id + ',\'ratePerHour\',v,\'rph\',100000);"';
+  h += ' onchange="var v=Math.round(Math.pow(100000,this.value/1000));if(v<1)v=1;updC(' + c.id + ',\'ratePerHour\',v);"></div>';
+  h += '<div class="smks"><span class="smk">1</span><span class="smk">10</span><span class="smk">100</span><span class="smk">1K</span><span class="smk">10K</span><span class="smk">100K</span></div></div>';
 
-  h += '<div style="background:var(--bg3);border:1px solid var(--b2);border-radius:10px;padding:14px;margin-bottom:14px;">';
-  h += '<div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--yel);margin-bottom:8px">⚡ Cadence d\'envoi</div>';
-  h += '<div style="font-size:9px;color:var(--text3);margin-bottom:10px;line-height:1.6">☑ Cochez les unités à activer — la contrainte la plus restrictive est appliquée.</div>';
-
-  function mkRateRow(label, field, enFld, val, enabled, unit, hint) {
-    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;">' +
-      '<input type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:var(--yel);flex-shrink:0" ' + (enabled?'checked':'') +
-      ' onchange="updC(' + c.id + ',\'' + enFld + '\',this.checked);recalcRate(' + c.id + ')" title="Activer/désactiver">' +
-      '<label style="font-size:10px;color:var(--text2);min-width:70px;flex-shrink:0">' + label + '</label>' +
-      '<input type="number" min="1" max="999999" value="' + val + '" ' +
-      'style="width:80px;background:var(--bg3);border:1px solid var(--b2);border-radius:6px;color:var(--yel);font-family:var(--mono);font-size:13px;font-weight:700;padding:3px 8px;outline:none;text-align:right" ' +
-      'onchange="updC(' + c.id + ',\'' + field + '\',+this.value);recalcRate(' + c.id + ')">' +
-      '<span style="font-size:10px;color:var(--text3)">' + unit + '</span>' +
-      '<span style="font-size:9px;color:var(--text3);flex:1">' + hint + '</span>' +
-      '</div>';
-  }
-
-  h += mkRateRow('Par seconde', 'rateSec', 'rateSecEnabled', rSec, rSecEnabled, '/s', '⚠ Max ~1/s plan gratuit');
-  h += mkRateRow('Par minute',  'rateMin', 'rateMinEnabled', rMin, rMinEnabled, '/min', '');
-  h += mkRateRow('Par heure',   'rateH',   'rateHEnabled',   rH,   rHEnabled,   '/h',  '');
-  h += mkRateRow('Par jour',    'rateDay', 'rateDEnabled',   rDay, rDEnabled,   '/j',  'Gmail perso = 500/j max');
-
-  h += '<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--b1);display:flex;align-items:center;gap:8px">';
-  h += '<div style="font-size:9px;color:var(--text3)">Cadence effective :</div>';
-  h += '<div style="font-family:var(--mono);font-size:13px;color:var(--yel);font-weight:800" id="rate-display-' + c.id + '"></div>';
-  h += '</div>';
-  h += '</div>';
-
-  // Après avoir rendu, recalculer l\'affichage
-  setTimeout(function(){ recalcRate(' + c.id + '); }, 0);
-
-  // Limite journalière intégrée dans rateDay ci-dessus
+  var logDay = Math.round((Math.log(Math.max(1,c.dailyLimit)) / Math.log(1000000)) * 1000);
+  h += '<div class="sblock">';
+  h += '<div class="sbtop"><span class="slbl">Limite maximum par jour</span>';
+  h += '<div style="display:flex;align-items:center;gap:6px;">';
+  h += '<input type="number" id="ni-day-' + c.id + '" min="1" max="1000000" value="' + c.dailyLimit + '" style="width:90px;background:var(--bg3);border:1px solid var(--b2);border-radius:6px;color:var(--yel);font-family:var(--mono);font-size:13px;font-weight:700;padding:3px 8px;outline:none;text-align:right;" onchange="updSlManual(' + c.id + ',\'dailyLimit\',this.value,\'day\',1000000)">';
+  h += '<span style="font-size:11px;color:var(--text3);">/ jour</span>';
+  h += '</div></div>';
+  h += '<div class="strk"><div class="sfill" id="sf-day-' + c.id + '" style="background:var(--yel);width:' + (logDay/10) + '%;position:absolute;top:0;left:0;height:100%;border-radius:3px;"></div>';
+  h += '<input type="range" class="sr" min="0" max="1000" value="' + logDay + '" style="--val-pct:' + (logDay/10) + '%"';
+  h += ' oninput="var v=Math.round(Math.pow(1000000,this.value/1000));if(v<1)v=1;document.getElementById(\'ni-day-' + c.id + '\').value=v;this.style.setProperty(\'--val-pct\',(this.value/10)+\'%\');var sf=document.getElementById(\'sf-day-' + c.id + '\');if(sf)sf.style.width=(this.value/10)+\'%\';updSl(' + c.id + ',\'dailyLimit\',v,\'day\',1000000);"';
+  h += ' onchange="var v=Math.round(Math.pow(1000000,this.value/1000));if(v<1)v=1;updC(' + c.id + ',\'dailyLimit\',v);"></div>';
+  h += '<div class="smks"><span class="smk">1</span><span class="smk">100</span><span class="smk">1K</span><span class="smk">10K</span><span class="smk">100K</span><span class="smk">1M</span></div></div>';
 
   // Durée
   h += '<div style="margin-bottom:14px;"><div class="slbl" style="display:block;margin-bottom:7px;">Durée totale</div><div class="dur-row">';
@@ -2825,7 +2773,7 @@ function buildCampForm(c) {
   var orders = [
     {v:'inorder',l:"L'un après l'autre",i:'➡️',s:'Ordre CSV',col:'var(--cyan)'},
     {v:'random', l:'Au hasard',          i:'🎲',s:'Aléatoire',  col:'var(--yel)'},
-    {v:'loop',   l:'Répéter',            i:'🔁',s:'Reprend au début',col:'var(--grn)'}
+    {v:'loop',   l:'En boucle',          i:'🔁',s:'Boucle ∞',   col:'var(--grn)'}
   ];
   var eols = [
     {v:'stop',    l:'Arrêter',     i:'🛑',s:'Fin immédiate',  col:'var(--red)'},
@@ -2930,12 +2878,7 @@ function buildCampForm(c) {
   // BOUTONS BAS
   h += '<div style="padding:12px 18px;display:flex;gap:7px;flex-wrap:wrap;">';
   h += '<button class="btn-ico" style="flex:1;padding:11px;" onclick="saveCampBodyAndAll(' + c.id + ');saveCamps();toast(\'✓ Sauvegardé\',\'success\')">💾 Sauvegarder</button>';
-    if (c.status === 'paused') {
-    h += '<button class="btl" style="flex:2;justify-content:center;padding:11px;background:rgba(0,255,136,.12);border-color:rgba(0,255,136,.35);color:var(--grn);" onclick="resumeCamp(' + c.id + ')">▶ Reprendre là où ça s\'est arrêté (' + (c.sent||0) + ' déjà envoyés)</button>';
-    h += '<button class="ela" style="color:var(--text3)" onclick="launchCamp(' + c.id + ')">↺ Tout relancer</button>';
-  } else {
-    h += '<button class="btl ' + (isSMS?'pnk':'') + '" style="flex:2;justify-content:center;padding:11px;" onclick="launchCamp(' + c.id + ')">▶ Lancer la campagne</button>';
-  }
+  h += '<button class="btl ' + (isSMS?'pnk':'') + '" style="flex:2;justify-content:center;padding:11px;" onclick="launchCamp(' + c.id + ')">▶ Lancer la campagne</button>';
   h += '</div>';
 
   // Init toolbar après rendu DOM
@@ -3424,15 +3367,11 @@ function buildAS(c) {
 
   return `<div class="as-title">⚡ Résumé automatisation</div>
   <div class="as-grid">
-    <div class="as-row">Cadence <strong>${
-      c.ratePerHour >= 60 ? Math.round(c.ratePerHour/60)+'/h' :
-      c.ratePerHour < 1   ? (1/c.ratePerHour).toFixed(0)+'s entre envois' :
-      c.ratePerHour+'/min'
-    }</strong></div>
+    <div class="as-row">Cadence <strong>${c.ratePerHour}/min</strong></div>
     <div class="as-row">Limite <strong>${c.dailyLimit.toLocaleString()}/j</strong></div>
     <div class="as-row">Durée <strong>${c.durationInfinite?'∞ Infini':c.durationH+'h'}</strong></div>
     <div class="as-row">Contacts <strong>${typeof t === 'number' ? t.toLocaleString() : t}</strong></div>
-    <div class="as-row">Ordre <strong>${c.sendOrder==='inorder'?"L'un/l'autre":c.sendOrder==='random'?'Au hasard':'Répéter'}</strong></div>
+    <div class="as-row">Ordre <strong>${c.sendOrder==='inorder'?"L'un/l'autre":c.sendOrder==='random'?'Au hasard':'En boucle'}</strong></div>
     <div class="as-row">Fin liste <strong>${c.endOfList==='stop'?'Arrêt':c.endOfList==='restart'?'Recommence':'Reprend'}</strong></div>
     <div class="as-row">Jours estimés <strong>${dn}</strong></div>
     <div class="as-row">Max/semaine <strong>${wkMax.toLocaleString()}</strong></div>
@@ -3887,68 +3826,16 @@ function calcRangeMax(c) {
 function refreshQuotaBanner() {
   const banner = $('quota-global-banner');
   if (!banner) return;
-
-  const runningCamps = S.camps.filter(c => c.status === 'running' && c.type !== 'sms');
-  const pausedCamps  = S.camps.filter(c => c.status === 'paused');
   const q = getGlobalQuota();
-
-  if (!runningCamps.length && !pausedCamps.length) {
-    banner.className = 'quota-banner';
-    banner.innerHTML = '';
-    return;
-  }
-
-  const provLabel = (QUOTAS[S.prov]||QUOTAS.gmail).lbl;
-  const today = new Date().toDateString();
-  const sentToday = S.camps.filter(c=>c.type!=='sms').reduce((s,c)=>{
-    return s + ((c.dailyDate===today) ? (c.dailySent||0) : 0);
-  },0);
-
-  let rows = '';
-
-  // Campagnes actives
-  runningCamps.forEach(function(camp) {
-    const pct = camp.emailList.length ? Math.round((camp.sent/camp.emailList.length)*100) : 0;
-    const remaining = camp.emailList.filter(function(e){return e.status==='pending';}).length;
-    const rateLabel = camp.ratePerHour >= 60
-      ? Math.round(camp.ratePerHour/60)+'/h'
-      : camp.ratePerHour < 1 ? (1/camp.ratePerHour).toFixed(0)+'s/email'
-      : camp.ratePerHour+'/min';
-
-    rows += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,230,0,.1);flex-wrap:wrap">';
-    rows += '<span style="font-weight:800;color:var(--yel);min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">▶ ' + camp.name + '</span>';
-    rows += '<span style="font-family:var(--mono);font-size:11px;color:var(--grn);flex-shrink:0">' + camp.sent.toLocaleString() + '/' + camp.emailList.length.toLocaleString() + ' (' + pct + '%)</span>';
-    rows += '<span style="font-size:10px;color:var(--text2);flex-shrink:0">⚡ ' + rateLabel + '</span>';
-    rows += '<span style="font-size:10px;color:var(--text3);flex-shrink:0">' + remaining.toLocaleString() + ' restants</span>';
-    // Mini progress bar
-    rows += '<div style="width:100%;height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:2px"><div style="height:100%;border-radius:2px;background:var(--yel);width:'+pct+'%"></div></div>';
-    rows += '</div>';
-  });
-
-  // Campagnes en pause
-  pausedCamps.forEach(function(camp) {
-    const pct = camp.emailList.length ? Math.round((camp.sent/camp.emailList.length)*100) : 0;
-    rows += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,230,0,.1);flex-wrap:wrap;opacity:.7">';
-    rows += '<span style="font-weight:800;color:var(--text3);flex:1">⏸ ' + camp.name + '</span>';
-    rows += '<span style="font-family:var(--mono);font-size:11px;color:var(--text2)">' + camp.sent.toLocaleString() + '/' + camp.emailList.length.toLocaleString() + ' (' + pct + '%)</span>';
-    rows += '<button onclick="resumeCamp('+camp.id+')" style="background:rgba(0,255,136,.12);border:1px solid rgba(0,255,136,.3);color:var(--grn);border-radius:5px;font-size:9px;padding:2px 8px;cursor:pointer;font-weight:700">▶ Reprendre</button>';
-    rows += '</div>';
-  });
-
-  // Footer : quota du jour
-  const qColor = q.committed > q.limit ? 'var(--red)' : q.committed > q.safe ? 'var(--yel)' : 'var(--grn)';
-  const footer = '<div style="display:flex;align-items:center;gap:12px;padding-top:8px;flex-wrap:wrap">' +
-    '<span style="font-size:9px;color:var(--text3)">Provider : <strong style="color:var(--text2)">' + provLabel + '</strong></span>' +
-    '<span style="font-size:9px;color:var(--text3)">Quota jour : <strong style="color:'+qColor+'">' + sentToday.toLocaleString() + '/' + q.limit.toLocaleString() + '</strong></span>' +
-    '<span style="font-size:9px;color:var(--text3);flex:1">Disponible : <strong style="color:var(--grn)">' + Math.max(0, q.limit - sentToday).toLocaleString() + '</strong></span>' +
-    '</div>';
-
-  banner.innerHTML = rows + footer;
-
+  if (q.committed === 0) { banner.className = 'quota-banner'; return; }
+  const html = `⚡ Quota ${S.prov} : <strong>${q.committed.toLocaleString()}</strong> engagés sur <strong>${q.limit.toLocaleString()}/j</strong> par les campagnes actives — Il reste <strong>${q.available.toLocaleString()}</strong> disponibles`;
+  banner.innerHTML = html;
   if (q.committed > q.limit) {
     banner.className = 'quota-banner danger show';
-  } else {
+  } else if (q.committed > q.safe) {
     banner.className = 'quota-banner warn show';
+  } else {
+    banner.className = 'quota-banner'; // Caché si OK
   }
 }
 
@@ -4060,17 +3947,6 @@ async function launchCamp(id) {
   c.status = 'running';
   c.startDate = c.startDate || new Date().toISOString().split('T')[0];
 
-  // Mélanger les contacts si ordre = au hasard
-  if (c.sendOrder === 'random') {
-    var pendingIdx = c.emailList.map(function(e,i){return {e,i};}).filter(function(x){return x.e.status==='pending';});
-    for (var ri = pendingIdx.length-1; ri > 0; ri--) {
-      var rj = Math.floor(Math.random()*(ri+1));
-      var tmp = c.emailList[pendingIdx[ri].i];
-      c.emailList[pendingIdx[ri].i] = c.emailList[pendingIdx[rj].i];
-      c.emailList[pendingIdx[rj].i] = tmp;
-    }
-  }
-
   // Récupérer le contenu de l'éditeur intégré
   var edEl = document.getElementById('camp-editor-' + id);
   if (edEl && edEl.contentEditable === 'true') c.campBody = edEl.innerHTML;
@@ -4090,7 +3966,7 @@ async function launchCamp(id) {
     campaign_type: c.type,
     campaign_name: c.name,
     contacts_count: c.emailList.length,
-    rate_per_minute: c.ratePerHour || 10, rate_per_hour: c.ratePerHour * 60, // ratePerHour field = per minute
+    rate_per_minute: c.ratePerHour, rate_per_hour: c.ratePerHour * 60, // ratePerHour field = per minute
     daily_limit: c.dailyLimit
   });
 
@@ -4108,7 +3984,7 @@ async function launchCamp(id) {
     // Pour les campagnes > 1h, re-lancez depuis l'app pour rafraîchir le token.
 
     // Cadence (top-level pour que le Worker y accède directement)
-    rate_per_minute: c.ratePerHour || 10,
+    rate_per_minute: c.ratePerHour,
 
     // Planification horaire
     schedule: {
@@ -4153,117 +4029,12 @@ function pauseCamp(id) {
   const c = S.camps.find(x => x.id === id);
   if (!c) return;
   c.status = 'paused';
-  c.pausePosition = c.sent;
+  c.pausePosition = c.sent; // Save exact position
   syncW('/campaign/pause', {id, status: 'paused', pausePosition: c.pausePosition});
   saveCamps();
   renderCampList(c.type);
   openCamp(id, c.type);
-  toast('⏸ Pause — ' + c.sent + ' envoyés. Cliquez ▶ Reprendre pour continuer.', 'info');
-}
-
-async 
-/* ── Recalculer la cadence effective depuis les contraintes cochées ── */
-function recalcRate(id) {
-  var camp = S.camps.find(function(x){ return x.id === id; });
-  if (!camp) return;
-
-  // Convertir toutes les contraintes activées en emails/minute
-  var constraintsPerMin = [];
-
-  if (camp.rateSecEnabled && camp.rateSec > 0) {
-    constraintsPerMin.push(camp.rateSec * 60); // /s → /min
-  }
-  if (camp.rateMinEnabled !== false && camp.rateMin > 0) {
-    constraintsPerMin.push(camp.rateMin);
-  }
-  if (camp.rateHEnabled && camp.rateH > 0) {
-    constraintsPerMin.push(camp.rateH / 60); // /h → /min
-  }
-
-  // Calculer la cadence effective (minimum des contraintes)
-  var effectivePerMin = constraintsPerMin.length > 0
-    ? Math.max(0.001, Math.min.apply(null, constraintsPerMin))
-    : (camp.rateMin || 10);
-
-  // Arrondir intelligemment
-  var rounded = effectivePerMin >= 1
-    ? Math.round(effectivePerMin)
-    : Math.max(0.01, Math.round(effectivePerMin * 100) / 100);
-
-  camp.ratePerHour = rounded;
-
-  // Limite journalière depuis rateDay si activé
-  if (camp.rateDEnabled !== false && camp.rateDay > 0) {
-    camp.dailyLimit = camp.rateDay;
-  }
-
-  // Afficher
-  var disp = $('rate-display-' + id);
-  if (disp) {
-    var label = '';
-    if (rounded >= 60) label = Math.round(rounded/60) + '/h (' + rounded + '/min)';
-    else if (rounded < 1) label = (1/rounded).toFixed(0) + 's entre envois';
-    else label = rounded + '/min';
-    if (camp.dailyLimit) label += ' · max ' + camp.dailyLimit.toLocaleString() + '/j';
-    disp.textContent = label;
-    disp.style.color = rounded > 30 ? 'var(--yel)' : rounded > 8 ? 'var(--grn)' : 'var(--cyan)';
-  }
-
-  saveCamps();
-}
-
-async function resumeCamp(id) {
-  const c = S.camps.find(x => x.id === id);
-  if (!c) return;
-
-  const remaining = c.emailList.filter(x => x.status === 'pending').length;
-  if (!remaining) {
-    toast('Tous les contacts ont déjà été envoyés. Utilisez ↺ Tout relancer.', 'warn');
-    return;
-  }
-
-  c.status = 'running';
-
-  // Récupérer contenu éditeur
-  var edEl = document.getElementById('camp-editor-' + id);
-  if (edEl && edEl.contentEditable === 'true') c.campBody = edEl.innerHTML;
-  var sEl = document.getElementById('camp-subj2-' + id);
-  if (sEl && sEl.value) c.subject = sEl.value;
-
-  var tpl;
-  if (c.campBody && c.campBody.trim() && c.campBody !== '<br>') {
-    tpl = {id:'inline', name:c.name, subject:c.subject||'', content:c.campBody, mode:'rich'};
-  } else {
-    tpl = S.tpls.find(function(t){return t.id==c.templateId;}) || null;
-  }
-
-  // Envoyer la reprise au Worker (qui continue depuis les contacts pending)
-  await syncW('/campaign/resume', { id });
-
-  // Aussi renvoyer la campagne complète pour que le Worker ait les bons contacts
-  await syncW('/campaign/launch', {
-    campaign: c,
-    contacts: c.emailList,
-    template: tpl,
-    accessToken: S.tok,
-    provider: c.campProvider || S.prov,
-    fromEmail: c.campFromEmail || S.ce || S.email,
-    rate_per_minute: c.ratePerHour || 10,
-    delayMin: c.delayMin || 2,
-    delayMax: c.delayMax || 8,
-    schedule: { enabled: c.schedEnabled, days: c.days, daySchedules: c.daySchedules || {} },
-    dailyLimit: c.dailyLimit,
-    durationH: c.durationH || null,
-    durationInfinite: c.durationInfinite || false,
-    mediaUrl: c.mmsUrl || null,
-    smsConfig: { provider: S.smsProv, apiKey: S.smsKey, apiSecret: S.smsSecret, from: S.smsFrom, webhookUrl: S.smsWebhook||null, webhookBody: S.smsWebhookBody||null },
-    _workerOrigin: S.wurl ? S.wurl.replace(/\/+$/, '') : ''
-  });
-
-  saveCamps();
-  renderCampList(c.type);
-  openCamp(id, c.type);
-  toast('▶ Reprise — ' + remaining.toLocaleString() + ' contacts restants', 'success');
+  toast('⏸ Pause — reprendra depuis le contact ' + c.pausePosition, 'info');
 }
 
 function delCamp(id, type) {
@@ -4721,10 +4492,6 @@ function saveTpls(notify = true) {
   lsS(SK.tpls, S.tpls);
   updateStats();
   updateQSTplSelect();
-  // Sync templates to Worker for cross-device access
-  if (S.wurl) {
-    syncW('/data/save', { key: 'pgi_templates', value: S.tpls }).catch(function(){});
-  }
   if (notify) {
     const dot = $('save-dot');
     if (dot) { dot.classList.add('show'); setTimeout(() => dot.classList.remove('show'), 2500); }
@@ -5631,9 +5398,9 @@ function renderDashboard() {
 /* ── Campagnes actives — tableau complet ────────────── */
 function renderActiveCamps() {
   const tbody = $('active-camps-body'); if (!tbody) return;
-  const actives = S.camps.filter(c => c.status === 'running' || c.status === 'paused');
+  const actives = S.camps.filter(c => c.status === 'running');
   if (!actives.length) {
-    tbody.innerHTML = '<tr><td colspan="10"><div class="empty" style="padding:16px"><p>Aucune campagne en cours ou en pause</p></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10"><div class="empty" style="padding:16px"><p>Aucune campagne en cours</p></div></td></tr>';
     return;
   }
   tbody.innerHTML = actives.map(c => {
@@ -5648,10 +5415,7 @@ function renderActiveCamps() {
       <span style="font-family:var(--mono);font-size:10px;color:var(--purl)">${pct}%</span>
     </div>`;
     return `<tr>
-      <td style="cursor:pointer" onclick="showView('${isSMS?'sms':'email'}');setTimeout(()=>openCamp(${c.id},'${c.type}'),50)">
-        <div style="font-weight:700;color:var(--text)">${c.name}</div>
-        <div><span class="stbadge ${stCls(c.status)}" style="font-size:8px">${stLbl(c.status)}</span></div>
-      </td>
+      <td style="font-weight:700;color:var(--text);cursor:pointer" onclick="showView('${isSMS?'sms':'email'}');setTimeout(()=>openCamp(${c.id},'${c.type}'),50)">${c.name}</td>
       <td><span style="font-size:8px;font-weight:800;padding:2px 6px;border-radius:3px;background:${isSMS?'rgba(255,45,120,.1)':'var(--pur-bg)'};color:${isSMS?'var(--pnk)':'var(--purl)'}">${isSMS?'SMS':'EMAIL'}</span></td>
       <td style="font-family:var(--mono);color:var(--grn)">${c.sent.toLocaleString()}</td>
       <td style="font-family:var(--mono)">${c.emailList.length.toLocaleString()}</td>
@@ -5665,11 +5429,8 @@ function renderActiveCamps() {
       <td style="font-family:var(--mono);color:var(--purl)">${isSMS?'—':(c.opened||0).toLocaleString()+' ('+openRate+'%)'}</td>
       <td style="font-family:var(--mono);color:${c.errors?'var(--red)':'var(--text3)'}">${c.errors||0}</td>
       <td style="font-size:10px;color:var(--text3)">${c.durationInfinite?'∞':c.durationH+'h'}</td>
-      <td style="white-space:nowrap">
-        ${c.status === 'running'
-          ? `<button class="btn-sm" style="padding:3px 8px;font-size:9px" onclick="pauseCamp(${c.id})">⏸ Pause</button>`
-          : `<button class="btn-sm" style="padding:3px 8px;font-size:9px;background:rgba(0,255,136,.12);border-color:rgba(0,255,136,.35);color:var(--grn)" onclick="resumeCamp(${c.id})">▶ Reprendre</button>`
-        }
+      <td>
+        <button class="btn-sm" style="padding:3px 8px;font-size:9px" onclick="pauseCamp(${c.id})">⏸</button>
       </td>
     </tr>`;
   }).join('');
