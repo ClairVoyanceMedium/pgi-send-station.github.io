@@ -2256,14 +2256,15 @@ function updateWorkerUI() {
   const dot  = $('wdot');
   const st   = $('sw-st');
   if (S.wurl) {
+    // URL configurée → vert par défaut, sera mis en rouge si le ping échoue
     chip.className = 'wchip ok';
     dot.classList.remove('p');
-    lbl.textContent = 'Worker actif';
+    lbl.textContent = 'Worker configuré';
     if (st) { st.textContent = '✓ Configuré'; st.style.color = 'var(--grn)'; }
   } else {
     chip.className = 'wchip warn';
     dot.classList.add('p');
-    lbl.textContent = 'Worker';
+    lbl.textContent = 'Worker non configuré';
     if (st) { st.textContent = 'Non configuré'; st.style.color = 'var(--yel)'; }
   }
 }
@@ -2271,15 +2272,28 @@ function updateWorkerUI() {
 async function testWorker() {
   if (!S.wurl) { toast('URL Worker manquante', 'warn'); return; }
   toast('Test en cours...', 'info');
+  const lbl = $('wlbl');
+  const dot = $('wdot');
   try {
     const r = await fetch(S.wurl + '/ping');
     const d = await r.json();
     if (d.ok) {
       $('wchip').className = 'wchip ok';
+      if (dot) dot.classList.remove('p');
+      if (lbl) lbl.textContent = 'Worker actif';
       toast('✓ Worker opérationnel', 'success');
       if (d.lastRun && $('sw-last')) $('sw-last').textContent = fDt(d.lastRun);
-    } else { toast('Worker ne répond pas correctement', 'warn'); }
-  } catch { $('wchip').className = 'wchip err'; toast('Worker inaccessible', 'error'); }
+    } else {
+      $('wchip').className = 'wchip warn';
+      if (lbl) lbl.textContent = 'Worker — réponse incorrecte';
+      toast('Worker ne répond pas correctement', 'warn');
+    }
+  } catch {
+    $('wchip').className = 'wchip err';
+    if (dot) dot.classList.add('p');
+    if (lbl) lbl.textContent = 'Worker inactif';
+    toast('Worker inaccessible', 'error');
+  }
 }
 
 async function syncW(ep, data) {
@@ -2420,7 +2434,7 @@ async function syncFromWorker() {
     var now = new Date();
     var timeStr = now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0');
     var wlbl = $('wlbl');
-    if (wlbl) wlbl.textContent = 'Sync ' + timeStr;
+    if (wlbl) wlbl.textContent = 'Worker actif · ' + timeStr;
 
     // Mettre à jour la bannière de sync dans le dashboard
     var banner = $('sync-banner');
@@ -2460,6 +2474,8 @@ async function syncFromWorker() {
   } catch(e) {
     console.warn('syncFromWorker error:', e.message);
     var chip2 = $('wchip'); if (chip2) chip2.className = 'wchip err';
+    var wlbl2 = $('wlbl'); if (wlbl2) wlbl2.textContent = 'Worker inactif';
+    var dot2 = $('wdot'); if (dot2) dot2.classList.add('p');
     var statusLbl2 = $('sync-status-lbl');
     if (statusLbl2) { statusLbl2.innerHTML = '⚠️ <strong style="color:var(--red)">Worker inaccessible</strong> — Vérifiez l\'URL dans Réglages'; statusLbl2.style.color = 'var(--red)'; }
   }
@@ -4118,8 +4134,8 @@ async function launchCamp(id) {
     }
   }
 
-  // Récupérer le contenu de l'éditeur intégré
-  var edEl = document.getElementById('camp-editor-' + id);
+  // Récupérer le contenu de l'éditeur intégré (ID = camp-rich-{id})
+  var edEl = document.getElementById('camp-rich-' + id);
   if (edEl && edEl.contentEditable === 'true') c.campBody = edEl.innerHTML;
   var sEl = document.getElementById('camp-subj2-' + id);
   if (sEl && sEl.value) c.subject = sEl.value;
@@ -6693,7 +6709,7 @@ function qsInsertImgFile(input) {
 
 /* Insérer une variable dans l'éditeur de campagne email */
 function campInsertVar(id, v) {
-  var ed = document.getElementById('camp-editor-' + id);
+  var ed = document.getElementById('camp-rich-' + id);
   if (!ed) return; ed.focus();
   document.execCommand('insertText', false, v);
   saveCampBody(id);
@@ -6719,7 +6735,7 @@ function campInsertBlock(id, type) {
       '<a href="{{lien_desinscription}}" style="color:#999;text-decoration:underline;">Se désinscrire</a></div>';
   }
   if (!html) return;
-  var ed = document.getElementById('camp-editor-' + id);
+  var ed = document.getElementById('camp-rich-' + id);
   if (ed) { ed.focus(); document.execCommand('insertHTML', false, html); }
   saveCampBody(id);
 }
@@ -6728,7 +6744,7 @@ function campInsertBlock(id, type) {
 function saveCampBody(id) {
   var c = S.camps.find(function(x){return x.id===id;});
   if (!c) return;
-  var ed = document.getElementById('camp-editor-' + id);
+  var ed = document.getElementById('camp-rich-' + id);
   if (ed && ed.contentEditable) c.campBody = ed.innerHTML;
   saveCamps();
 }
@@ -6738,7 +6754,7 @@ function campInsertImgURL(id) {
   var inp = document.getElementById('camp-img-url-' + id);
   var url = inp ? inp.value.trim() : '';
   if (!url) { toast('Entrez une URL image', 'warn'); return; }
-  var ed = document.getElementById('camp-editor-' + id);
+  var ed = document.getElementById('camp-rich-' + id);
   if (ed) { ed.focus(); document.execCommand('insertHTML', false, '<img src="' + url + '" style="max-width:100%;height:auto;border-radius:4px;margin:6px 0;display:block;">'); }
   if (inp) inp.value = '';
   saveCampBody(id);
@@ -6748,7 +6764,7 @@ function campInsertImgFile(input, id) {
   var file = input.files[0]; if (!file) return;
   var reader = new FileReader();
   reader.onload = function(e) {
-    var ed = document.getElementById('camp-editor-' + id);
+    var ed = document.getElementById('camp-rich-' + id);
     if (ed) { ed.focus(); document.execCommand('insertHTML', false, '<img src="' + e.target.result + '" style="max-width:100%;height:auto;border-radius:4px;margin:6px 0;display:block;">'); }
     saveCampBody(id);
   };
@@ -6757,7 +6773,7 @@ function campInsertImgFile(input, id) {
 
 /* Basculer HTML brut dans éditeur campagne */
 function toggleCampHtmlMode(id) {
-  var ed   = document.getElementById('camp-editor-' + id);
+  var ed   = document.getElementById('camp-rich-' + id);
   var html = document.getElementById('camp-html-' + id);
   var btn  = document.getElementById('camp-mode-btn-' + id);
   var lbl  = document.getElementById('camp-mode-lbl-' + id);
@@ -6803,7 +6819,7 @@ function prevCampEmail(id) {
 
 /* SMS — fonctions éditeur */
 function updCampSMSCnt(id) {
-  var ta = document.getElementById('camp-editor-' + id);
+  var ta = document.getElementById('camp-rich-' + id);
   var cnt = document.getElementById('camp-sms-cnt-' + id);
   var c = S.camps.find(function(x){return x.id===id;});
   if (!ta || !cnt) return;
@@ -6814,7 +6830,7 @@ function updCampSMSCnt(id) {
 }
 
 function campSMSInsert(id, text) {
-  var ta = document.getElementById('camp-editor-' + id);
+  var ta = document.getElementById('camp-rich-' + id);
   if (!ta) return;
   var p = ta.selectionStart || ta.value.length;
   ta.value = ta.value.slice(0,p) + text + ta.value.slice(p);
@@ -6823,8 +6839,8 @@ function campSMSInsert(id, text) {
 }
 
 function campSMSInsertEmoji(id) {
-  _emojiTargetEditor = 'camp-editor-' + id;
-  showEmojiPicker('camp-editor-' + id);
+  _emojiTargetEditor = 'camp-rich-' + id;
+  showEmojiPicker('camp-rich-' + id);
 }
 
 function campSMSInsertLink(id) {
@@ -6835,8 +6851,8 @@ function campSMSInsertLink(id) {
 /* Auto-save du contenu éditeur quand on quitte la campagne */
 document.addEventListener('blur', function(e) {
   var el = e.target;
-  if (el && el.id && el.id.startsWith('camp-editor-') && el.contentEditable) {
-    var id = parseInt(el.id.replace('camp-editor-',''));
+  if (el && el.id && el.id.startsWith('camp-rich-') && el.contentEditable) {
+    var id = parseInt(el.id.replace('camp-rich-',''));
     if (!isNaN(id)) saveCampBody(id);
   }
 }, true);
