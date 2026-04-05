@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#8B0000">
-<title>PGI Send Station v34</title>
+<title>PGI Send Station v35</title>
 <!-- Favicon -->
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="apple-touch-icon" sizes="180x180" href="https://i.imgur.com/GmyGlKk.webp">
@@ -1831,9 +1831,15 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
         </div>
       </div>
       <div class="fc">
-        <label class="fl">Emails (optionnel — un par ligne)</label>
-        <textarea class="fta" id="list-emails-inp" style="min-height:100px;font-family:var(--mono);font-size:11px" placeholder="jean@gmail.com&#10;marie@outlook.fr&#10;pierre@yahoo.com&#10;&#10;→ Tu peux aussi les ajouter plus tard" oninput="countListModalEmails()"></textarea>
-        <div id="list-emails-cnt" style="font-size:9px;color:var(--text3);margin-top:3px">0 email(s) détecté(s)</div>
+        <label class="fl">Emails — collez ou importez un fichier</label>
+        <div style="display:flex;gap:5px;margin-bottom:7px;flex-wrap:wrap">
+          <label class="btn-sm" style="cursor:pointer;background:rgba(0,255,136,.08);border-color:rgba(0,255,136,.25);color:var(--grn)" title="CSV ou TXT">📁 CSV/TXT<input type="file" accept=".csv,.txt" style="display:none" onchange="importFileIntoListModal(this)"></label>
+          <label class="btn-sm" style="cursor:pointer;background:rgba(0,255,136,.08);border-color:rgba(0,255,136,.25);color:var(--grn)" title="Excel">📊 Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importExcelIntoListModal(this)"></label>
+          <label class="btn-sm" style="cursor:pointer;background:rgba(0,255,136,.08);border-color:rgba(0,255,136,.25);color:var(--grn)" title="Document Word">📝 Word<input type="file" accept=".docx" style="display:none" onchange="importDocxIntoListModal(this)"></label>
+          <button class="btn-sm" style="background:rgba(0,232,255,.08);border-color:rgba(0,232,255,.25);color:var(--cyan)" onclick="importGSheetsIntoListModal()" title="Google Sheets public">📋 G.Sheets</button>
+        </div>
+        <textarea class="fta" id="list-emails-inp" style="min-height:80px;font-family:var(--mono);font-size:11px" placeholder="jean@gmail.com&#10;marie@outlook.fr&#10;→ Collez ici ou importez un fichier ci-dessus" oninput="countListModalEmails()"></textarea>
+        <div id="list-emails-cnt" style="font-size:9px;color:var(--text3);margin-top:3px"></div>
       </div>
     </div>
     <div class="mbtns">
@@ -1854,6 +1860,10 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
     </div>
     <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
       <span id="mlv-cnt-lbl" style="font-size:10px;color:var(--text2);display:flex;align-items:center"></span>
+      <label class="btn-sm" style="cursor:pointer;background:rgba(0,255,136,.08);border-color:rgba(0,255,136,.25);color:var(--grn)" title="Fichier texte ou CSV">📁 CSV/TXT<input type="file" accept=".csv,.txt" style="display:none" onchange="importFileIntoList(this)"></label>
+      <label class="btn-sm" style="cursor:pointer;background:rgba(0,255,136,.08);border-color:rgba(0,255,136,.25);color:var(--grn)" title="Fichier Excel">📊 Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importExcelIntoList(this)"></label>
+      <label class="btn-sm" style="cursor:pointer;background:rgba(0,255,136,.08);border-color:rgba(0,255,136,.25);color:var(--grn)" title="Document Word .docx">📝 Word<input type="file" accept=".docx" style="display:none" onchange="importDocxIntoList(this)"></label>
+      <button class="btn-sm" style="background:rgba(0,232,255,.08);border-color:rgba(0,232,255,.25);color:var(--cyan)" onclick="importGSheetsIntoList()" title="Google Sheets public — URL de partage">📋 G.Sheets</button>
       <button class="btn-sm" onclick="exportListEmails()" style="margin-left:auto">⬇ Exporter .txt</button>
       <button class="btn-sm" style="background:rgba(255,34,68,.1);border-color:rgba(255,34,68,.3);color:var(--red)" onclick="clearListEmails()">🗑 Vider</button>
     </div>
@@ -1890,6 +1900,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
 ═══════════════════════════════════════════════════ -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 
 <!-- Google Analytics 4 — remplacer G-XXXXXXXXXX par ton ID de mesure -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
@@ -2823,12 +2834,12 @@ function buildCampForm(c) {
 
   // Ordre + fin liste
   var orders = [
-    {v:'inorder',l:"Séquentiel",      i:'➡️',s:'Ordre CSV original',       col:'var(--cyan)'},
+    {v:'inorder',l:"1 après l'autre",  i:'➡️',s:'Ordre de la liste respecté',  col:'var(--cyan)'},
     {v:'random', l:'Aléatoire',       i:'🎲',s:'Mélangé à chaque lancement',col:'var(--yel)'},
     {v:'loop',   l:'Boucle aléatoire',i:'🔁',s:'Mélangé à chaque cycle',    col:'var(--grn)'}
   ];
   var eols = [
-    {v:'stop',    l:'Terminer',              i:'🛑',s:'Campagne terminée',              col:'var(--red)'},
+    {v:'stop',    l:'Terminer',              i:'🛑',s:'Arrête à la fin du cycle',        col:'var(--red)'},
     {v:'restart', l:'Recommencer (même ordre)',i:'↩️',s:'Repart contact 1, même séquence',col:'var(--grn)'},
     {v:'resume',  l:'Reboucler (ordre différent)',i:'🔀',s:'Idéal avec mode Aléatoire',col:'var(--purl)'}
   ];
@@ -3461,7 +3472,7 @@ function buildAS(c) {
     <div class="as-row">Quota/j <strong style="color:${sentToday >= c.dailyLimit ? 'var(--red)' : 'var(--grn)'}">${sentToday.toLocaleString()}/${c.dailyLimit.toLocaleString()} <span style="font-size:9px;font-weight:400;color:var(--text3)">(${leftToday.toLocaleString()} restants)</span></strong></div>
     <div class="as-row">Durée <strong>${c.durationInfinite ? '∞ Infini' : c.durationH + 'h'}</strong></div>
     <div class="as-row">Contacts <strong>${typeof t === 'number' ? t.toLocaleString() : t} <span style="font-size:9px;font-weight:400;color:var(--grn)">✓${sentCount}</span> <span style="font-size:9px;font-weight:400;color:var(--text3)">⏳${pendCount}</span>${errCount ? '<span style="font-size:9px;font-weight:400;color:var(--red)"> ✕' + errCount + '</span>' : ''}</strong></div>
-    <div class="as-row">Ordre <strong>${c.sendOrder === 'inorder' ? 'Séquentiel' : c.sendOrder === 'random' ? 'Aléatoire' : 'Boucle aléatoire'}</strong></div>
+    <div class="as-row">Ordre <strong>${c.sendOrder === 'inorder' ? "1 après l'autre" : c.sendOrder === 'random' ? 'Aléatoire' : 'Boucle aléatoire'}</strong></div>
     <div class="as-row">Fin liste <strong>${c.endOfList === 'stop' ? 'Terminer' : c.endOfList === 'restart' ? 'Recommencer' : 'Reboucler'}</strong></div>
     <div class="as-row">Jours estimés <strong>${daysEst}</strong></div>
     <div class="as-row">Max/semaine <strong>${wkMax.toLocaleString()}</strong></div>
@@ -5178,6 +5189,194 @@ function exportListEmails() {
   toast('✓ Export ' + list.emails.length + ' emails', 'success');
 }
 
+/* ================================================================
+   IMPORT DANS UNE LISTE — modal-list-view (liste existante)
+================================================================ */
+
+/* Utilitaire : extraire les emails depuis un texte brut */
+function extractEmailsFromText(text) {
+  var lines = text.split(/[\n,;\t\r]+/);
+  var emails = [];
+  lines.forEach(function(line) {
+    var parts = line.trim().split(/\s+/);
+    parts.forEach(function(part) {
+      var clean = part.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '');
+      if (isEmail(clean)) emails.push(clean.toLowerCase());
+    });
+  });
+  return [...new Set(emails)];
+}
+
+/* Ajouter des emails à la textarea mlv-emails et mettre à jour le compteur */
+function appendEmailsToMlv(emails) {
+  var ta = $('mlv-emails');
+  if (!ta) return;
+  var existing = ta.value.trim();
+  ta.value = existing ? existing + '\n' + emails.join('\n') : emails.join('\n');
+  mlvCount();
+}
+
+/* Ajouter des emails à la textarea list-emails-inp (modal création) */
+function appendEmailsToListModal(emails) {
+  var ta = $('list-emails-inp');
+  if (!ta) return;
+  var existing = ta.value.trim();
+  ta.value = existing ? existing + '\n' + emails.join('\n') : emails.join('\n');
+  countListModalEmails();
+}
+
+/* Import CSV/TXT → liste existante */
+function importFileIntoList(input) {
+  var file = input.files[0]; if (!file) return;
+  var r = new FileReader();
+  r.onload = function(e) {
+    var emails = extractEmailsFromText(e.target.result);
+    if (!emails.length) { toast('Aucun email valide trouvé dans le fichier', 'warn'); return; }
+    appendEmailsToMlv(emails);
+    toast('✓ ' + emails.length.toLocaleString() + ' email(s) ajouté(s) depuis ' + file.name, 'success');
+  };
+  r.readAsText(file, 'UTF-8');
+  input.value = '';
+}
+
+/* Import Excel → liste existante */
+function importExcelIntoList(input) {
+  var file = input.files[0]; if (!file) return;
+  if (!window.XLSX) { toast('SheetJS non chargé — réessayez', 'warn'); return; }
+  var r = new FileReader();
+  r.onload = function(e) {
+    try {
+      var wb = XLSX.read(e.target.result, {type:'binary'});
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      var text = rows.map(function(row) { return row.join(' '); }).join('\n');
+      var emails = extractEmailsFromText(text);
+      if (!emails.length) { toast('Aucun email valide trouvé dans le fichier Excel', 'warn'); return; }
+      appendEmailsToMlv(emails);
+      toast('✓ ' + emails.length.toLocaleString() + ' email(s) importé(s) depuis ' + file.name, 'success');
+    } catch(err) { toast('Erreur lecture Excel : ' + err.message, 'error'); }
+  };
+  r.readAsBinaryString(file);
+  input.value = '';
+}
+
+/* Import Word .docx → liste existante */
+function importDocxIntoList(input) {
+  var file = input.files[0]; if (!file) return;
+  if (!window.mammoth) { toast('Librairie Word non chargée — réessayez', 'warn'); return; }
+  var r = new FileReader();
+  r.onload = function(e) {
+    mammoth.extractRawText({arrayBuffer: e.target.result}).then(function(result) {
+      var emails = extractEmailsFromText(result.value);
+      if (!emails.length) { toast('Aucun email valide trouvé dans le document Word', 'warn'); return; }
+      appendEmailsToMlv(emails);
+      toast('✓ ' + emails.length.toLocaleString() + ' email(s) importé(s) depuis ' + file.name, 'success');
+    }).catch(function(err) { toast('Erreur lecture Word : ' + err.message, 'error'); });
+  };
+  r.readAsArrayBuffer(file);
+  input.value = '';
+}
+
+/* Import Google Sheets public → liste existante
+   Fonctionne uniquement si le Sheet est partagé en lecture publique.
+   L'URL de partage est convertie en URL d'export CSV. */
+async function importGSheetsIntoList() {
+  var url = prompt('Collez l\'URL de votre Google Sheet (doit être public ou accessible via lien) :');
+  if (!url) return;
+  // Convertir URL Sheet en URL export CSV
+  var csvUrl = '';
+  var m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (!m) { toast('URL Google Sheets non reconnue', 'error'); return; }
+  var sheetId = m[1];
+  var gidMatch = url.match(/gid=(\d+)/);
+  var gid = gidMatch ? gidMatch[1] : '0';
+  csvUrl = 'https://docs.google.com/spreadsheets/d/' + sheetId + '/export?format=csv&gid=' + gid;
+  toast('Chargement du Google Sheet...', 'info');
+  try {
+    var resp = await fetch(csvUrl);
+    if (!resp.ok) throw new Error('Accès refusé — vérifiez que le Sheet est partagé en lecture publique');
+    var text = await resp.text();
+    var emails = extractEmailsFromText(text);
+    if (!emails.length) { toast('Aucun email valide trouvé dans le Google Sheet', 'warn'); return; }
+    appendEmailsToMlv(emails);
+    toast('✓ ' + emails.length.toLocaleString() + ' email(s) importé(s) depuis Google Sheets', 'success');
+  } catch(err) { toast('Erreur : ' + err.message, 'error'); }
+}
+
+/* ================================================================
+   IMPORT DANS UNE LISTE — modal-list (création de liste)
+================================================================ */
+
+function importFileIntoListModal(input) {
+  var file = input.files[0]; if (!file) return;
+  var r = new FileReader();
+  r.onload = function(e) {
+    var emails = extractEmailsFromText(e.target.result);
+    if (!emails.length) { toast('Aucun email valide trouvé', 'warn'); return; }
+    appendEmailsToListModal(emails);
+    toast('✓ ' + emails.length.toLocaleString() + ' email(s) chargé(s)', 'success');
+  };
+  r.readAsText(file, 'UTF-8');
+  input.value = '';
+}
+
+function importExcelIntoListModal(input) {
+  var file = input.files[0]; if (!file) return;
+  if (!window.XLSX) { toast('SheetJS non chargé — réessayez', 'warn'); return; }
+  var r = new FileReader();
+  r.onload = function(e) {
+    try {
+      var wb = XLSX.read(e.target.result, {type:'binary'});
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      var text = rows.map(function(row) { return row.join(' '); }).join('\n');
+      var emails = extractEmailsFromText(text);
+      if (!emails.length) { toast('Aucun email valide dans le fichier Excel', 'warn'); return; }
+      appendEmailsToListModal(emails);
+      toast('✓ ' + emails.length.toLocaleString() + ' email(s) importé(s)', 'success');
+    } catch(err) { toast('Erreur Excel : ' + err.message, 'error'); }
+  };
+  r.readAsBinaryString(file);
+  input.value = '';
+}
+
+function importDocxIntoListModal(input) {
+  var file = input.files[0]; if (!file) return;
+  if (!window.mammoth) { toast('Librairie Word non chargée', 'warn'); return; }
+  var r = new FileReader();
+  r.onload = function(e) {
+    mammoth.extractRawText({arrayBuffer: e.target.result}).then(function(result) {
+      var emails = extractEmailsFromText(result.value);
+      if (!emails.length) { toast('Aucun email valide dans le document Word', 'warn'); return; }
+      appendEmailsToListModal(emails);
+      toast('✓ ' + emails.length.toLocaleString() + ' email(s) importé(s) depuis Word', 'success');
+    }).catch(function(err) { toast('Erreur Word : ' + err.message, 'error'); });
+  };
+  r.readAsArrayBuffer(file);
+  input.value = '';
+}
+
+async function importGSheetsIntoListModal() {
+  var url = prompt('URL de votre Google Sheet (partagé en lecture publique) :');
+  if (!url) return;
+  var m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (!m) { toast('URL Google Sheets non reconnue', 'error'); return; }
+  var sheetId = m[1];
+  var gidMatch = url.match(/gid=(\d+)/);
+  var gid = gidMatch ? gidMatch[1] : '0';
+  var csvUrl = 'https://docs.google.com/spreadsheets/d/' + sheetId + '/export?format=csv&gid=' + gid;
+  toast('Chargement du Google Sheet...', 'info');
+  try {
+    var resp = await fetch(csvUrl);
+    if (!resp.ok) throw new Error('Accès refusé — vérifiez le partage public du Sheet');
+    var text = await resp.text();
+    var emails = extractEmailsFromText(text);
+    if (!emails.length) { toast('Aucun email valide trouvé dans le Google Sheet', 'warn'); return; }
+    appendEmailsToListModal(emails);
+    toast('✓ ' + emails.length.toLocaleString() + ' email(s) importé(s) depuis Google Sheets', 'success');
+  } catch(err) { toast('Erreur : ' + err.message, 'error'); }
+}
+
 /* Créer une nouvelle liste directement (sans ouvrir modal) */
 function newSimpleList() {
   // Réinitialiser le modal
@@ -5193,7 +5392,7 @@ function countListModalEmails() {
   var cnt = $('list-emails-cnt');
   if (!ta || !cnt) return;
   var emails = ta.value.split(/[\n,;]+/).map(function(x){return x.trim();}).filter(isEmail);
-  cnt.textContent = emails.length.toLocaleString() + ' email(s) détecté(s)';
+  cnt.textContent = emails.length > 0 ? emails.length.toLocaleString() + ' email(s) détecté(s)' : '';
 }
 
 function setActiveList(id) { S.activeList = id; renderLists(); renderContacts(); }
