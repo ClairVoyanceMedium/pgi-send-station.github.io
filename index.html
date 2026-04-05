@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#8B0000">
-<title>PGI Send Station v33</title>
+<title>PGI Send Station v34</title>
 <!-- Favicon -->
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="apple-touch-icon" sizes="180x180" href="https://i.imgur.com/GmyGlKk.webp">
@@ -769,8 +769,9 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
 
   <!-- Bannière de synchronisation Worker -->
   <div id="sync-banner" style="display:none;background:var(--bg2);border:1px solid var(--b1);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-    <div style="font-size:11px;color:var(--text2);flex:1;">
+    <div style="font-size:11px;color:var(--text2);flex:1;min-width:180px;">
       <span id="sync-status-lbl" style="color:var(--text3);">Synchronisation avec le Worker...</span>
+      <div id="sync-pos-lbl" style="font-size:9px;color:var(--text3);margin-top:2px;font-family:var(--mono);display:none;"></div>
     </div>
     <button class="btn-sm" onclick="forceSyncNow()" style="white-space:nowrap;">🔄 Sync</button>
     <button class="btn-sm" onclick="resetDashboard()" style="white-space:nowrap;background:rgba(255,34,68,.1);border-color:rgba(255,34,68,.3);color:var(--red);">🗑 Reset local</button>
@@ -887,7 +888,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
           <th>Campagne</th>
           <th>Type</th>
           <th>Envoyés</th>
-          <th>Total</th>
+          <th>Position</th>
           <th>Avancement</th>
           <th>Cadence</th>
           <th>Ouverts</th>
@@ -1595,147 +1596,153 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
     </div>
 
     <div id="notice-email" class="notice-section">
-      <div class="notice-title">📧 Campagnes Email</div>
+      <div class="notice-title">📧 Campagnes Email — v34</div>
       <p>Créez des campagnes d'emailing avec automatisation complète :</p>
       <ul>
-        <li><strong>Section 1 — Destinataires</strong> : Copier-coller des milliers d'adresses d'un coup (une par ligne, ou séparées par virgule/point-virgule), importer un CSV/Excel, ou importer depuis vos listes de contacts</li>
-        <li><strong>Section 2 — Template</strong> : Choisir un template sauvegardé ou rédiger directement dans l'éditeur</li>
-        <li><strong>Section 3 — Automatisation</strong> : Cadence, limite journalière, durée, ordre d'envoi, heures et jours</li>
-        <li><strong>Section 4 — Planification</strong> : Activer/désactiver les jours et créneaux horaires précis</li>
-        <li><strong>Section 5 — Anti-bannissement</strong> : Délais aléatoires, pauses automatiques, quotas par provider</li>
+        <li><strong>Section 1 — Destinataires</strong> : Copier-coller des milliers d'adresses d'un coup, importer CSV/Excel, ou charger depuis vos listes</li>
+        <li><strong>Section 2 — Template</strong> : Choisissez un template sauvegardé ou rédigez directement dans l'éditeur intégré</li>
+        <li><strong>Section 3 — Automatisation</strong> : Cadence multi-unité (seconde/minute/heure/jour), limite journalière stricte, durée, ordre d'envoi</li>
+        <li><strong>Section 4 — Planification horaire</strong> : Jours de la semaine + créneaux horaires précis par jour</li>
+        <li><strong>Section 5 — Anti-bannissement</strong> : Délais aléatoires entre envois, quotas par provider</li>
       </ul>
-      <div class="notice-tip">💡 <strong>Pause intelligente</strong> : si vous mettez en pause une campagne, elle reprend exactement au même contact. Vous ne perdez aucun envoi.</div>
-      <div class="notice-tip">💡 <strong>Adresse d'envoi par campagne</strong> : chaque campagne peut utiliser un compte Gmail, Outlook ou une adresse personnalisée différente.</div>
+      <div class="notice-tip">💡 <strong>Pause &amp; Reprise intelligente (v34)</strong> : quand vous mettez en pause, le bouton devient <strong>▶ Reprendre</strong>. Cliquer reprend exactement au contact suivant — le compteur journalier et la durée ne sont PAS remis à zéro. Vous ne perdez aucun envoi.</div>
+      <div class="notice-tip">💡 <strong>Multi-appareils</strong> : si vous pausez depuis votre téléphone, le PC se synchronise automatiquement et affiche aussi le bouton ▶ Reprendre avec le bon état.</div>
     </div>
 
     <div id="notice-automation" class="notice-section">
-      <div class="notice-title">🤖 Automatisation &amp; Cadence</div>
+      <div class="notice-title">🤖 Automatisation &amp; Cadence — v34</div>
+      <p>La cadence d'envoi se configure sur <strong>4 unités indépendantes</strong>, avec une case à cocher pour activer/désactiver chacune :</p>
       <ul>
-        <li><strong>Emails/heure</strong> : nombre d'emails envoyés sur chaque créneau horaire actif</li>
-        <li><strong>Limite/jour</strong> : plafond journalier absolu (toutes campagnes confondues)</li>
-        <li><strong>Durée</strong> : de 1h à l'infini (∞ = tourne jusqu'à arrêt manuel)</li>
-        <li><strong>Ordre d'envoi</strong> : L'un après l'autre (ordre CSV), Au hasard, En boucle</li>
-        <li><strong>Fin de liste</strong> : Arrêter, Recommencer depuis le début, Reprendre (boucle infinie)</li>
+        <li><strong>Par seconde</strong> ☑ : ex. 1/s = max 1 email toutes les secondes (attention : plan gratuit Gmail = ~1/s max)</li>
+        <li><strong>Par minute</strong> ☑ : ex. 10/min = 10 emails envoyés par minute</li>
+        <li><strong>Par heure</strong> ☑ : ex. 300/h = max 300 emails par heure</li>
+        <li><strong>Par jour</strong> ☑ : ex. 300/j = <strong>plafond absolu</strong> — le Worker s'arrête exactement à 300, jamais un de plus</li>
       </ul>
+      <p>Le Worker applique la contrainte la plus restrictive. La <strong>cadence effective</strong> s'affiche en temps réel dans le résumé.</p>
+      <div class="notice-tip">⚠️ <strong>Limite journalière = loi</strong> : si vous réglez 300/j, le Worker envoie 300 et s'arrête. Le lendemain, le compteur repart à zéro automatiquement.</div>
+      <div class="notice-tip">💡 <strong>Durée</strong> : de 1h à ∞ (infini = tourne jusqu'à arrêt manuel ou fin de liste)</div>
     </div>
 
     <div id="notice-hours" class="notice-section">
       <div class="notice-title">🕐 Heures &amp; Jours d'envoi</div>
       <p>Dans la section <strong>Planification horaire</strong> de chaque campagne :</p>
       <ul>
-        <li>Activez le toggle "Activer la planification"</li>
-        <li><strong>Jours</strong> : cochez les jours de la semaine souhaités (Lun, Mar... Dim)</li>
-        <li><strong>Créneaux horaires</strong> : cochez les heures d'envoi (00h à 23h, heure par heure)</li>
-        <li>Le Worker enverra UNIQUEMENT sur ces créneaux, même si l'ordinateur est éteint</li>
+        <li>Choisissez <strong>⚡ Continu 24h/24</strong> ou <strong>📅 Créneaux horaires</strong></li>
+        <li>En mode créneaux : cochez les jours actifs (Lun à Dim) et définissez les heures De/À pour chaque jour</li>
+        <li>Le Worker n'envoie qu'aux créneaux définis, même téléphone éteint</li>
       </ul>
-      <div class="notice-tip">💡 Exemple : cochez 13h, 14h, 15h, 16h + 5 emails/heure = maximum 20 emails/jour sur ces créneaux</div>
-      <div class="notice-tip">⚠️ Si la planification est désactivée, le Worker envoie en continu selon la cadence définie, 24h/24</div>
+      <div class="notice-tip">💡 Exemple noctune : Lun–Dim · 23h00→06h00 + 300/j = envoi automatique la nuit, 300 maximum, sans intervention</div>
     </div>
 
     <div id="notice-quotas" class="notice-section">
-      <div class="notice-title">📊 Quotas &amp; Multi-campagnes simultanées</div>
-      <p>Vous pouvez lancer <strong>plusieurs campagnes en même temps</strong>. Le système calcule automatiquement :</p>
+      <div class="notice-title">📊 Quotas &amp; Multi-campagnes</div>
+      <p>Vous pouvez lancer <strong>plusieurs campagnes simultanément</strong>. Le Dashboard affiche en temps réel :</p>
       <ul>
-        <li>Le quota total consommé par toutes les campagnes actives</li>
-        <li>Le quota restant disponible avant dépassement</li>
-        <li>Une alerte rouge si vous risquez de dépasser la limite du provider</li>
+        <li>Le quota consommé par campagne (envoyés / limite du jour)</li>
+        <li>La position courante dans la liste de contacts (ex: <code>47/300</code>)</li>
+        <li>Une alerte rouge si la somme des limites dépasse le quota provider</li>
       </ul>
-      <div class="notice-tip">⚠️ Limites officielles : Gmail 500/jour (perso), Gmail Workspace 2000/jour, Outlook 300/jour. Au-delà, risque de bannissement.</div>
+      <div class="notice-tip">⚠️ Limites officielles : Gmail 500/j (perso), Gmail Workspace 2000/j, Outlook 300/j. Ne dépassez pas ces seuils sous peine de suspension.</div>
     </div>
 
     <div id="notice-quick" class="notice-section">
       <div class="notice-title">🚀 Envoi Rapide</div>
       <p>Pour envoyer un message <strong>ponctuel et urgent</strong> sans créer de campagne :</p>
       <ul>
-        <li>Rédigez votre email ou SMS directement</li>
-        <li>Collez les adresses ou numéros (des milliers d'un coup)</li>
-        <li>Cliquez "Envoyer maintenant" — envoi immédiat via le Worker</li>
-        <li>L'envoi est tracé dans le Dashboard</li>
+        <li>Rédigez votre email ou SMS directement dans l'éditeur</li>
+        <li>Collez les adresses ou numéros destinataires (des milliers d'un coup)</li>
+        <li>Cliquez "Envoyer maintenant" — envoi immédiat via le Worker Cloudflare</li>
+        <li>Chaque envoi est tracé dans le Dashboard et les Analytics</li>
       </ul>
-      <div class="notice-tip">💡 L'éditeur de l'Envoi Rapide supporte les mêmes fonctionnalités que l'éditeur Templates : images, liens, formatage.</div>
+      <div class="notice-tip">💡 L'éditeur de l'Envoi Rapide supporte les mêmes fonctionnalités que l'éditeur Templates : images, liens, vidéos, tableaux, variables.</div>
     </div>
 
     <div id="notice-templates" class="notice-section">
       <div class="notice-title">✏️ Templates &amp; Éditeur</div>
       <ul>
-        <li><strong>Éditeur Visuel</strong> : mise en forme complète (police, taille, couleurs, listes, alignement)</li>
-        <li><strong>Images</strong> : insérez par URL ou uploadez depuis votre appareil. Les images uploadées sont sauvegardées dans votre bibliothèque locale</li>
-        <li><strong>Liens cliquables</strong> : sur tout texte, image ou numéro de téléphone (tel://)</li>
-        <li><strong>Code HTML</strong> : collez directement votre HTML avec aperçu en direct</li>
-        <li><strong>Texte brut</strong> : pour les emails sans formatage</li>
+        <li><strong>Éditeur Visuel</strong> : mise en forme complète (police, taille, couleurs, alignement, listes)</li>
+        <li><strong>Images</strong> : insérez par URL ou uploadez — les images sont hébergées sur votre Worker Cloudflare (90 jours)</li>
+        <li><strong>Liens cliquables</strong> : sur texte, image ou numéro de téléphone (tap-to-call)</li>
+        <li><strong>Code HTML</strong> : collez votre HTML avec aperçu en direct</li>
         <li><strong>Auto-sauvegarde</strong> : toutes les 30 secondes + Ctrl+S</li>
-        <li><strong>Aperçu complet</strong> : rendu réel avec images et variables d'exemple</li>
       </ul>
-      <div class="notice-tip">💡 Les templates sauvegardés sont disponibles dans toutes vos campagnes via le sélecteur "Template email"</div>
+      <div class="notice-tip">⚠️ <strong>Templates = stockage local</strong> : les templates sont sauvegardés dans le navigateur (localStorage). Pour les transférer entre appareils : Réglages → Exporter JSON, puis importez sur l'autre appareil.</div>
     </div>
 
     <div id="notice-sms" class="notice-section">
       <div class="notice-title">💬 Campagnes SMS</div>
       <ul>
-        <li><strong>Numéros</strong> : copier-coller en masse, import fichier, import depuis contacts</li>
+        <li><strong>Numéros</strong> : copier-coller en masse, import fichier/Excel, import depuis contacts</li>
         <li><strong>Formats acceptés</strong> : +33, 06, 07, formats internationaux</li>
-        <li><strong>Automatisation identique</strong> aux emails : cadence, heures, jours, durée, ordre</li>
-        <li><strong>Provider SMS</strong> : Twilio, Vonage, ou tout service compatible (webhook personnalisé)</li>
+        <li><strong>Automatisation identique</strong> aux emails : cadence sec/min/h/j, heures, jours, durée, ordre</li>
+        <li><strong>Provider SMS</strong> : Twilio, Vonage, ou webhook personnalisé</li>
+        <li><strong>RGPD</strong> : mentionnez "STOP SMS" dans chaque message — obligatoire légalement</li>
       </ul>
+      <div class="notice-tip">⚠️ Interdit d'envoyer des SMS entre 22h et 8h et le dimanche matin avant 9h (loi française)</div>
     </div>
 
     <div id="notice-import" class="notice-section">
-      <div class="notice-title">📂 Import de fichiers</div>
+      <div class="notice-title">📂 Import de contacts</div>
       <ul>
-        <li><strong>CSV</strong> : colonnes auto-détectées (prénom, nom, email, téléphone, entreprise...)</li>
+        <li><strong>CSV</strong> : colonnes auto-détectées (prénom, nom, email, téléphone, entreprise, ville...)</li>
         <li><strong>Excel (.xlsx)</strong> : lecture directe, première ligne = en-têtes</li>
-        <li><strong>Copier-coller massif</strong> : collez des milliers d'adresses séparées par saut de ligne, virgule ou point-virgule</li>
-        <li><strong>Google Sheets</strong> : exportez en CSV depuis Google Sheets (Fichier → Télécharger → CSV) puis importez</li>
-        <li><strong>Google Docs / Word</strong> : copiez le contenu texte et collez dans la zone dédiée</li>
+        <li><strong>Copier-coller massif</strong> : des milliers d'adresses séparées par saut de ligne, virgule ou point-virgule</li>
+        <li><strong>Google Sheets</strong> : Fichier → Télécharger → CSV, puis importez</li>
       </ul>
     </div>
 
     <div id="notice-worker" class="notice-section">
-      <div class="notice-title">⚡ Cloudflare Worker — Le moteur 24h/24</div>
-      <p>Le Worker est <strong>indispensable</strong> pour que vos campagnes tournent sans votre ordinateur :</p>
+      <div class="notice-title">⚡ Cloudflare Worker v5.0 — Le moteur 24h/24</div>
+      <p>Le Worker est <strong>indispensable</strong> pour l'automatisation. Il tourne 24h/24 même appareil éteint :</p>
       <ol>
         <li>Créez un compte sur <a href="https://cloudflare.com" target="_blank" style="color:var(--purl)">cloudflare.com</a></li>
-        <li>Workers &amp; Pages → Créer → Créer un Worker</li>
-        <li>Collez le contenu du fichier <code style="color:var(--cyan)">worker.js</code></li>
-        <li>Allez dans Paramètres → Variables → KV Namespace Bindings → Ajoutez <code style="color:var(--cyan)">PGI_KV</code></li>
-        <li>Triggers → Cron Triggers → Ajoutez <code style="color:var(--cyan)">*/5 * * * *</code> (toutes les 5 minutes)</li>
+        <li>Workers &amp; Pages → Créer → Créer un Worker → collez le code Worker v5.0</li>
+        <li>Paramètres → Variables → KV Namespace Bindings → Ajoutez <code style="color:var(--cyan)">PGI_KV</code></li>
+        <li>Triggers → Cron Triggers → Ajoutez <code style="color:var(--cyan)">*/5 * * * *</code> (toutes les 5 min)</li>
+        <li>Secrets requis : <code style="color:var(--cyan)">GMAIL_CLIENT_ID</code>, <code style="color:var(--cyan)">GMAIL_CLIENT_SECRET</code>, <code style="color:var(--cyan)">GMAIL_REFRESH_TOKEN</code>, <code style="color:var(--cyan)">GMAIL_SENDER</code></li>
         <li>Copiez l'URL du Worker dans Réglages → Cloudflare Worker</li>
       </ol>
-      <div class="notice-tip">💡 Une fois configuré, vos campagnes tournent 24h/24, même téléphone éteint, même en voyage à l'autre bout du monde</div>
+      <div class="notice-tip">💡 Le Worker stocke tout dans Cloudflare KV : campagnes, contacts envoyés, analytics, statuts. La synchronisation entre appareils est automatique.</div>
     </div>
 
     <div id="notice-sync" class="notice-section">
-      <div class="notice-title">🌍 Accès multi-appareils (PC, iPhone, Android, tablette)</div>
-      <p>Hébergez votre fichier HTML sur <strong>GitHub Pages</strong> (gratuit) :</p>
+      <div class="notice-title">🌍 Synchronisation multi-appareils (v34)</div>
+      <p>Hébergez votre fichier HTML sur <strong>GitHub Pages</strong> (gratuit) pour y accéder de n'importe quel appareil :</p>
       <ol>
-        <li>Créez un repo GitHub et uploadez le fichier <code style="color:var(--cyan)">index.html</code></li>
+        <li>Créez un repo GitHub et uploadez le fichier comme <code style="color:var(--cyan)">index.html</code></li>
         <li>Settings → Pages → Source : main → Save</li>
-        <li>Votre URL sera <code style="color:var(--cyan)">https://votrecompte.github.io/nom-du-repo</code></li>
-        <li>Accédez depuis n'importe quel appareil, n'importe où dans le monde</li>
+        <li>Votre URL : <code style="color:var(--cyan)">https://votrecompte.github.io/nom-du-repo</code></li>
+        <li>Ouvrez cette URL sur téléphone, tablette, PC — tout est synchronisé</li>
       </ol>
-      <div class="notice-tip">💡 Le Worker Cloudflare stocke toutes vos campagnes dans KV Storage. Quand vous ouvrez l'app sur un autre appareil, elle se synchronise automatiquement avec le Worker.</div>
+      <p><strong>Ce qui se synchronise automatiquement</strong> (via Worker KV) :</p>
+      <ul>
+        <li>✅ Campagnes actives — statut, contacts envoyés, position courante, quota du jour</li>
+        <li>✅ Pause/Reprise — pausez sur téléphone, reprenez sur PC au même contact</li>
+        <li>✅ Analytics — tous les envois, ouvertures, désabonnements</li>
+        <li>⚠️ Templates — stockage local uniquement (exportez JSON pour transférer)</li>
+      </ul>
+      <div class="notice-tip">💡 La sync est automatique toutes les 30 secondes. Cliquez 🔄 Sync dans le Dashboard pour une sync immédiate.</div>
     </div>
 
     <div id="notice-settings" class="notice-section">
       <div class="notice-title">⚙️ Réglages</div>
       <ul>
-        <li><strong>Compte email</strong> : Gmail (OAuth), Outlook (OAuth), ou adresse personnalisée libre</li>
-        <li><strong>Adresse par campagne</strong> : chaque campagne peut avoir son propre compte d'envoi</li>
-        <li><strong>Worker Cloudflare</strong> : URL + test de connexion</li>
-        <li><strong>SMS</strong> : Twilio, Vonage, ou webhook personnalisé (n'importe quel fournisseur)</li>
-        <li><strong>Export</strong> : sauvegarde complète de toutes vos données en JSON</li>
+        <li><strong>Compte email</strong> : Gmail (OAuth GIS), Outlook (OAuth), ou adresse personnalisée</li>
+        <li><strong>Adresse par campagne</strong> : chaque campagne peut utiliser un compte d'envoi différent</li>
+        <li><strong>Worker Cloudflare</strong> : URL + test de connexion en un clic</li>
+        <li><strong>SMS</strong> : Twilio, Vonage, ou webhook personnalisé (tout provider compatible)</li>
+        <li><strong>Export JSON</strong> : sauvegarde complète de toutes vos données (contacts, campagnes, templates, analytics)</li>
       </ul>
     </div>
 
     <div id="notice-tracking" class="notice-section">
       <div class="notice-title">📈 Tracking &amp; Analytics</div>
       <ul>
-        <li><strong>Google Analytics 4</strong> : chaque action trackée (ouverture vue, lancement campagne, envoi rapide...)</li>
-        <li><strong>Dashboard interne</strong> : taux d'ouverture email, SMS lus, désabonnés, erreurs</li>
+        <li><strong>Dashboard</strong> : taux d'ouverture email, SMS lus, désabonnés, erreurs, position courante par campagne</li>
         <li><strong>Historique filtrable</strong> : par jour, semaine, mois ou période personnalisée</li>
-        <li><strong>Pixel de tracking email</strong> : le Worker insère un pixel 1x1 invisible dans chaque email pour détecter l'ouverture</li>
+        <li><strong>Pixel de tracking</strong> : le Worker insère un pixel invisible dans chaque email pour détecter l'ouverture</li>
+        <li><strong>Google Analytics 4</strong> : chaque action trackée (optionnel — remplacez <code style="color:var(--cyan)">G-XXXXXXXXXX</code> dans le code)</li>
       </ul>
-      <div class="notice-tip">⚠️ Pour activer GA4 : remplacez <code style="color:var(--cyan)">G-XXXXXXXXXX</code> par votre ID de mesure Google Analytics dans le code source (ligne ~20)</div>
     </div>
 
   </div>
@@ -2187,8 +2194,11 @@ function connectAuth() {
     initGIS();
     if (S.tokenClient) S.tokenClient.requestAccessToken();
     else toast('Google Identity Services en chargement...', 'warn');
+  } else if (S.prov === 'outlook') {
+    // Outlook via Azure AD MSAL — instructions claires
+    showModal('modal-outlook-help');
   } else {
-    toast('Pour Outlook: entrez votre Azure App Client ID dans ce champ', 'info');
+    toast('Adresse personnalisée enregistrée — les emails partiront avec cet expéditeur', 'success');
   }
 }
 
@@ -2294,14 +2304,19 @@ async function syncFromWorker() {
         data.campaigns.forEach(function(wc) {
           var local = S.camps.find(function(c){ return c.id == wc.id; });
           if (!local) return;
-          // Mettre à jour les compteurs depuis le Worker
-          if (wc.sent      !== undefined && wc.sent      > (local.sent||0))      { local.sent      = wc.sent;      updated++; }
-          if (wc.opened    !== undefined && wc.opened    > (local.opened||0))    { local.opened    = wc.opened;    updated++; }
-          if (wc.errors    !== undefined && wc.errors    > (local.errors||0))    { local.errors    = wc.errors;    updated++; }
-          if (wc.unsubscribed !== undefined)                                       { local.unsubscribed = wc.unsubscribed; }
-          // Synchroniser dailySent pour quota correct
-          if (wc.dailySent !== undefined) { local.dailySent = wc.dailySent; local.dailyDate = new Date().toDateString(); updated++; }
-          // Statut (running → done, paused, etc.)
+          // Mettre à jour les compteurs depuis le Worker (prendre la valeur la plus haute)
+          if (wc.sent      !== undefined && wc.sent      > (local.sent||0))   { local.sent      = wc.sent;   updated++; }
+          if (wc.opened    !== undefined && wc.opened    > (local.opened||0)) { local.opened    = wc.opened; updated++; }
+          if (wc.errors    !== undefined && wc.errors    > (local.errors||0)) { local.errors    = wc.errors; updated++; }
+          if (wc.unsubscribed !== undefined) { local.unsubscribed = wc.unsubscribed; }
+          // Synchroniser dailySent SANS remettre à zéro (le Worker est la source de vérité)
+          if (wc.dailySent !== undefined) {
+            local.dailySent = wc.dailySent;
+            local.dailyDate = new Date().toDateString();
+            updated++;
+          }
+          // Statut (running → paused → done, etc.) — le Worker prime
+          var prevStatus = local.status;
           if (wc.status && wc.status !== local.status) {
             local.status = wc.status;
             updated++;
@@ -2312,7 +2327,6 @@ async function syncFromWorker() {
               var lContact = local.emailList.find(function(e){ return e.email === wContact.email; });
               if (lContact && wContact.status && wContact.status !== lContact.status) {
                 lContact.status = wContact.status;
-                // Si ouvert → mettre à jour aussi les analytics locaux
                 if (wContact.status === 'opened') {
                   for (var ai = S.analytics.length - 1; ai >= 0; ai--) {
                     if (S.analytics[ai].email === wContact.email && !S.analytics[ai].opened) {
@@ -2325,6 +2339,11 @@ async function syncFromWorker() {
               }
             });
           }
+          // Reconstruire le formulaire si statut a changé (ex: running→paused depuis un autre terminal)
+          if (local.status !== prevStatus) {
+            if (local.type === 'sms' && S.activeSMS === local.id)   { setTimeout(function(){ openCamp(local.id, 'sms'); },   50); }
+            if (local.type !== 'sms' && S.activeCamp === local.id)  { setTimeout(function(){ openCamp(local.id, 'email'); }, 50); }
+          }
         });
         if (updated > 0) {
           lsS(SK.camps, S.camps);
@@ -2332,15 +2351,7 @@ async function syncFromWorker() {
           renderCampList('sms');
           renderDashboard();
           updateStats();
-          // Rouvrir la campagne active si elle est affichée
-          if (S.activeCamp) {
-            var c = S.camps.find(function(x){ return x.id === S.activeCamp; });
-            if (c) openCamp(c.id, 'email');
-          }
-          if (S.activeSMS) {
-            var cs = S.camps.find(function(x){ return x.id === S.activeSMS; });
-            if (cs) openCamp(cs.id, 'sms');
-          }
+          refreshQuotaBanner();
         }
       }
     }
@@ -2386,6 +2397,12 @@ async function syncFromWorker() {
       }
     }
 
+
+    // 2b — Sync templates : stockés en localStorage local sur chaque appareil
+    // Les templates ne sont pas synchronisés via le Worker v5.0 (pas de route /sync/data)
+    // Pour partager des templates entre appareils : exporter (JSON) et importer sur l'autre appareil
+
+
     // 3 — Mettre à jour l'indicateur de dernière sync
     var chip = $('wchip');
     if (chip) chip.className = 'wchip ok';
@@ -2397,17 +2414,34 @@ async function syncFromWorker() {
     // Mettre à jour la bannière de sync dans le dashboard
     var banner = $('sync-banner');
     var statusLbl = $('sync-status-lbl');
-    var lastLbl = $('sync-last-lbl');
+    var posLbl    = $('sync-pos-lbl');
+    var lastLbl   = $('sync-last-lbl');
     if (banner) banner.style.display = 'flex';
     if (statusLbl) {
-      var activeCamps = S.camps.filter(function(c){ return c.status === 'running'; });
+      var activeCamps  = S.camps.filter(function(c){ return c.status === 'running'; });
+      var pausedCamps  = S.camps.filter(function(c){ return c.status === 'paused'; });
       if (activeCamps.length > 0) {
-        statusLbl.innerHTML = '⚡ <strong style="color:var(--yel);">' + activeCamps.length + ' campagne(s) en cours</strong> — Le Worker envoie automatiquement';
+        statusLbl.innerHTML = '⚡ <strong style="color:var(--yel);">' + activeCamps.length + ' campagne(s) en cours</strong>' + (pausedCamps.length ? ' · ⏸ ' + pausedCamps.length + ' en pause' : '') + ' — Worker actif';
         statusLbl.style.color = 'var(--yel)';
+        // Afficher position de chaque campagne active
+        if (posLbl) {
+          var posLines = activeCamps.map(function(c) {
+            var firstPending = c.emailList.findIndex(function(e){ return e.status === 'pending'; });
+            var pos = firstPending === -1 ? c.emailList.length : firstPending + 1;
+            var todayStr2 = new Date().toDateString();
+            var sentToday2 = (c.dailyDate === todayStr2) ? (c.dailySent || 0) : 0;
+            return c.name + ' : ' + pos + '/' + c.emailList.length + ' · ' + sentToday2 + '/' + c.dailyLimit + ' aujourd\'hui';
+          });
+          posLbl.textContent = posLines.join(' | ');
+          posLbl.style.display = 'block';
+        }
       } else {
         var provLbl = (window.QUOTAS && QUOTAS[S.prov]) ? QUOTAS[S.prov].lbl : S.prov;
-        statusLbl.innerHTML = '✅ <strong style="color:var(--grn);">Synchronisé</strong> — Provider : <strong style="color:var(--cyan);">' + provLbl + '</strong>';
-        statusLbl.style.color = 'var(--grn)';
+        statusLbl.innerHTML = pausedCamps.length
+          ? '⏸ <strong style="color:var(--yel);">' + pausedCamps.length + ' campagne(s) en pause</strong> — Cliquez ▶ Reprendre pour continuer'
+          : '✅ <strong style="color:var(--grn);">Synchronisé</strong> — Provider : <strong style="color:var(--cyan);">' + provLbl + '</strong>';
+        statusLbl.style.color = pausedCamps.length ? 'var(--yel)' : 'var(--grn)';
+        if (posLbl) posLbl.style.display = 'none';
       }
     }
     if (lastLbl) lastLbl.textContent = 'Dernière sync : ' + timeStr;
@@ -2480,7 +2514,7 @@ function newCamp(type) {
       day7:{from:'10:00',to:'16:00'}
     },
     timeSlots: ['09:00','10:00','14:00','15:00'],
-    delayMin: 2, delayMax: 8,
+    delayMin: 0, delayMax: 1,
     pauseAfter: 0, pauseDuration: 0,
     sent: 0, opened: 0, errors: 0, unsubscribed: 0,
     campProvider: '',      // Provider spécifique à cette campagne (vide = défaut des Réglages)
@@ -2515,7 +2549,7 @@ function renderCampList(type) {
       <div class="cr-name">${c.name}</div>
       <div class="cr-meta">
         <span class="stbadge ${stCls(c.status)}">${stLbl(c.status)}</span>
-        <span class="cr-cnt">${c.sent}/${c.emailList.length} · ${c.durationInfinite?'∞':c.durationH+'h'}</span>
+        <span class="cr-cnt">${c.emailList.length > 0 ? c.sent + '/' + c.emailList.length : 'Aucun contact'} · ${c.durationInfinite?'∞':c.durationH+'h'}</span>
       </div>
     </div>`).join('');
 }
@@ -2560,23 +2594,26 @@ function buildCampForm(c) {
   h += '<button class="btn-ico" onclick="saveCamps();toast(\'✓ Sauvegardé\',\'success\')">💾</button>';
   if (c.status === 'running') {
     h += '<button class="btp" onclick="pauseCamp(' + c.id + ')">⏸ Pause</button>';
+  } else if (c.status === 'paused') {
+    h += '<button class="btn-sm" style="background:rgba(0,255,136,.12);border-color:rgba(0,255,136,.35);color:var(--grn);padding:8px 14px;font-size:11px;font-weight:800" onclick="resumeCamp(' + c.id + ')">▶ Reprendre</button>';
+    h += '<button class="btl ' + (isSMS ? 'pnk' : '') + '" style="opacity:.5" onclick="launchCamp(' + c.id + ')">↺ Relancer</button>';
   } else {
     h += '<button class="btl ' + (isSMS ? 'pnk' : '') + '" onclick="launchCamp(' + c.id + ')">▶ Lancer</button>';
   }
   h += '<button class="btd" onclick="delCamp(' + c.id + ',\'' + c.type + '\')">✕</button>';
   h += '</div></div>';
 
-  // ─── PROGRESSION
-  h += '<div class="prog-row">';
-  h += '<div class="prc prc-c"><div class="prv">' + c.emailList.length.toLocaleString() + '</div><div class="prl">CONTACTS</div></div>';
-  h += '<div class="prc prc-g"><div class="prv">' + c.sent.toLocaleString() + '</div><div class="prl">ENVOYÉS</div></div>';
-  h += '<div class="prc prc-y"><div class="prv">' + (isSMS ? (c.errors||0) : (c.opened||0)) + '</div><div class="prl">' + (isSMS ? 'ERREURS' : 'OUVERTS') + '</div></div>';
+  // ─── PROGRESSION avec IDs pour mise à jour live
+  h += '<div class="prog-row" id="prog-row-' + c.id + '">';
+  h += '<div class="prc prc-c"><div class="prv" id="prc-contacts-' + c.id + '">' + c.emailList.length.toLocaleString() + '</div><div class="prl">CONTACTS</div></div>';
+  h += '<div class="prc prc-g"><div class="prv" id="prc-sent-' + c.id + '">' + c.sent.toLocaleString() + '</div><div class="prl">ENVOYÉS</div></div>';
+  h += '<div class="prc prc-y"><div class="prv" id="prc-open-' + c.id + '">' + (isSMS ? (c.errors||0) : (c.opened||0)) + '</div><div class="prl">' + (isSMS ? 'ERREURS' : 'OUVERTS') + '</div></div>';
   h += '<div class="prc prc-o" style="position:relative">';
-  h += '<div class="prv">' + pct + '%</div><div class="prl">AVANCEMENT</div>';
+  h += '<div class="prv" id="prc-pct-' + c.id + '">' + pct + '%</div><div class="prl">AVANCEMENT</div>';
   h += '<button style="position:absolute;top:4px;right:4px;background:rgba(255,34,68,.09);border:1px solid rgba(255,34,68,.25);color:var(--red);border-radius:4px;font-size:9px;padding:2px 5px;cursor:pointer;font-family:var(--sans);font-weight:700;line-height:1" onclick="event.stopPropagation();resetCampStats(' + c.id + ')" title="Remettre les stats à zéro">🗑</button>';
   h += '</div>';
   h += '</div>';
-  h += '<div class="pbar"><div class="pfill" style="width:' + pct + '%;' + (isSMS ? 'background:linear-gradient(90deg,var(--pnk),var(--pur));' : '') + '"></div></div>';
+  h += '<div class="pbar"><div class="pfill" id="pbar-' + c.id + '" style="width:' + pct + '%;' + (isSMS ? 'background:linear-gradient(90deg,var(--pnk),var(--pur));' : '') + '"></div></div>';
 
   // ════════════════════════════════════════
   // SECTION 1 — DESTINATAIRES
@@ -2603,13 +2640,13 @@ function buildCampForm(c) {
     : 'jean@email.com\nmarie@gmail.com, pierre@yahoo.fr\nCollez des milliers d\'adresses d\'un coup — aucune limite dans l\'app';
   h += '<textarea class="bulk-ta" id="bulk-ta-' + c.id + '" placeholder="' + bulkPH + '" oninput="updBulkCnt(' + c.id + ')"></textarea>';
   h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:5px;">';
-  h += '<span id="bulk-cnt-' + c.id + '" style="font-size:9px;color:var(--text3);">0 adresse(s) valide(s)</span>';
+  h += '<span id="bulk-cnt-' + c.id + '" style="font-size:9px;color:var(--text3);"></span>';
   h += '<button class="ela" onclick="clearBulk(' + c.id + ')">✕ Vider</button></div>';
   h += '</div>';
 
   // Liste emails
   h += '<div class="el-wrap">';
-  h += '<div class="el-hd"><span class="el-cnt" id="elcnt-' + c.id + '">' + c.emailList.length.toLocaleString() + ' adresse(s)</span>';
+  h += '<div class="el-hd"><span class="el-cnt" id="elcnt-' + c.id + '">' + (c.emailList.length > 0 ? c.emailList.length.toLocaleString() + ' adresse(s)' : 'Aucune adresse') + '</span>';
   h += '<div class="el-acts">';
   if (!isSMS) h += '<button class="ela g" onclick="importFromContactList(' + c.id + ')">👥 Depuis contacts</button>';
   h += '<button class="ela y" onclick="resetSent(' + c.id + ')">↺ Recommencer</button>';
@@ -2725,33 +2762,48 @@ function buildCampForm(c) {
   h += '<div class="ab-hd" onclick="togAB(this)"><div class="ab-ttl"><span class="ab-n">3</span>Automatisation &amp; Planification horaire</div><div class="ab-cv">▾</div></div>';
   h += '<div class="ab-body">';
 
-  // Sliders cadence + limite
-  var fillRph = Math.round(((c.ratePerHour - 1) / (100000 - 1)) * 100);
-  var logRph = Math.round((Math.log(Math.max(1,c.ratePerHour)) / Math.log(100000)) * 1000);
-  h += '<div class="sblock">';
-  h += '<div class="sbtop"><span class="slbl">' + (isSMS?'SMS':'Emails') + ' par minute</span>';
-  h += '<div style="display:flex;align-items:center;gap:6px;">';
-  h += '<input type="number" id="ni-rph-' + c.id + '" min="1" max="100000" value="' + c.ratePerHour + '" style="width:80px;background:var(--bg3);border:1px solid var(--b2);border-radius:6px;color:var(--yel);font-family:var(--mono);font-size:13px;font-weight:700;padding:3px 8px;outline:none;text-align:right;" onchange="updSlManual(' + c.id + ',\'ratePerHour\',this.value,\'rph\',100000)">';
-  h += '<span style="font-size:11px;color:var(--text3);">/ minute</span>';
-  h += '</div></div>';
-  h += '<div class="strk"><div class="sfill" id="sf-rph-' + c.id + '" style="background:var(--yel);width:' + (logRph/10) + '%;position:absolute;top:0;left:0;height:100%;border-radius:3px;"></div>';
-  h += '<input type="range" class="sr" min="0" max="1000" value="' + logRph + '" style="--val-pct:' + (logRph/10) + '%"';
-  h += ' oninput="var v=Math.round(Math.pow(100000,this.value/1000));if(v<1)v=1;document.getElementById(\'ni-rph-' + c.id + '\').value=v;this.style.setProperty(\'--val-pct\',(this.value/10)+\'%\');var sf=document.getElementById(\'sf-rph-' + c.id + '\');if(sf)sf.style.width=(this.value/10)+\'%\';updSl(' + c.id + ',\'ratePerHour\',v,\'rph\',100000);"';
-  h += ' onchange="var v=Math.round(Math.pow(100000,this.value/1000));if(v<1)v=1;updC(' + c.id + ',\'ratePerHour\',v);"></div>';
-  h += '<div class="smks"><span class="smk">1</span><span class="smk">10</span><span class="smk">100</span><span class="smk">1K</span><span class="smk">10K</span><span class="smk">100K</span></div></div>';
+  // ─── CADENCE INTELLIGENTE
+  var rSecEnabled = c.rateSecEnabled || false;
+  var rMinEnabled = (c.rateMinEnabled !== false);
+  var rHEnabled   = c.rateHEnabled  || false;
+  var rDEnabled   = (c.rateDEnabled !== false);
+  var rSec = c.rateSec || 1;
+  var rMin = c.rateMin || (c.ratePerHour||10);
+  var rH   = c.rateH   || Math.ceil((c.ratePerHour||10)*60);
+  var rDay = c.rateDay || (c.dailyLimit||300);
 
-  var logDay = Math.round((Math.log(Math.max(1,c.dailyLimit)) / Math.log(1000000)) * 1000);
-  h += '<div class="sblock">';
-  h += '<div class="sbtop"><span class="slbl">Limite maximum par jour</span>';
-  h += '<div style="display:flex;align-items:center;gap:6px;">';
-  h += '<input type="number" id="ni-day-' + c.id + '" min="1" max="1000000" value="' + c.dailyLimit + '" style="width:90px;background:var(--bg3);border:1px solid var(--b2);border-radius:6px;color:var(--yel);font-family:var(--mono);font-size:13px;font-weight:700;padding:3px 8px;outline:none;text-align:right;" onchange="updSlManual(' + c.id + ',\'dailyLimit\',this.value,\'day\',1000000)">';
-  h += '<span style="font-size:11px;color:var(--text3);">/ jour</span>';
-  h += '</div></div>';
-  h += '<div class="strk"><div class="sfill" id="sf-day-' + c.id + '" style="background:var(--yel);width:' + (logDay/10) + '%;position:absolute;top:0;left:0;height:100%;border-radius:3px;"></div>';
-  h += '<input type="range" class="sr" min="0" max="1000" value="' + logDay + '" style="--val-pct:' + (logDay/10) + '%"';
-  h += ' oninput="var v=Math.round(Math.pow(1000000,this.value/1000));if(v<1)v=1;document.getElementById(\'ni-day-' + c.id + '\').value=v;this.style.setProperty(\'--val-pct\',(this.value/10)+\'%\');var sf=document.getElementById(\'sf-day-' + c.id + '\');if(sf)sf.style.width=(this.value/10)+\'%\';updSl(' + c.id + ',\'dailyLimit\',v,\'day\',1000000);"';
-  h += ' onchange="var v=Math.round(Math.pow(1000000,this.value/1000));if(v<1)v=1;updC(' + c.id + ',\'dailyLimit\',v);"></div>';
-  h += '<div class="smks"><span class="smk">1</span><span class="smk">100</span><span class="smk">1K</span><span class="smk">10K</span><span class="smk">100K</span><span class="smk">1M</span></div></div>';
+  h += '<div style="background:var(--bg3);border:1px solid var(--b2);border-radius:10px;padding:14px;margin-bottom:14px;">';
+  h += '<div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--yel);margin-bottom:8px">⚡ Cadence d\'envoi</div>';
+  h += '<div style="font-size:9px;color:var(--text3);margin-bottom:10px;line-height:1.6">☑ Cochez les unités à activer — la contrainte la plus restrictive est appliquée.</div>';
+
+  function mkRateRow(label, field, enFld, val, enabled, unit, hint) {
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;">' +
+      '<input type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:var(--yel);flex-shrink:0" ' + (enabled?'checked':'') +
+      ' onchange="updC(' + c.id + ',\'' + enFld + '\',this.checked);recalcRate(' + c.id + ')" title="Activer/désactiver">' +
+      '<label style="font-size:10px;color:var(--text2);min-width:70px;flex-shrink:0">' + label + '</label>' +
+      '<input type="number" min="1" max="999999" value="' + val + '" ' +
+      'style="width:80px;background:var(--bg3);border:1px solid var(--b2);border-radius:6px;color:var(--yel);font-family:var(--mono);font-size:13px;font-weight:700;padding:3px 8px;outline:none;text-align:right" ' +
+      'onchange="updC(' + c.id + ',\'' + field + '\',+this.value);recalcRate(' + c.id + ')">' +
+      '<span style="font-size:10px;color:var(--text3)">' + unit + '</span>' +
+      '<span style="font-size:9px;color:var(--text3);flex:1">' + hint + '</span>' +
+      '</div>';
+  }
+
+  h += mkRateRow('Par seconde', 'rateSec', 'rateSecEnabled', rSec, rSecEnabled, '/s', '⚠ Max ~1/s plan gratuit');
+  h += mkRateRow('Par minute',  'rateMin', 'rateMinEnabled', rMin, rMinEnabled, '/min', '');
+  h += mkRateRow('Par heure',   'rateH',   'rateHEnabled',   rH,   rHEnabled,   '/h',  '');
+  h += mkRateRow('Par jour',    'rateDay', 'rateDEnabled',   rDay, rDEnabled,   '/j',  'Gmail perso = 500/j max');
+
+  h += '<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--b1);display:flex;align-items:center;gap:8px">';
+  h += '<div style="font-size:9px;color:var(--text3)">Cadence effective :</div>';
+  h += '<div style="font-family:var(--mono);font-size:13px;color:var(--yel);font-weight:800" id="rate-display-' + c.id + '"></div>';
+  h += '</div>';
+  h += '</div>';
+
+  // Après avoir rendu, recalculer l\'affichage
+  setTimeout(function(){ recalcRate(' + c.id + '); }, 0);
+
+  // Limite journalière intégrée dans rateDay ci-dessus
 
   // Durée
   h += '<div style="margin-bottom:14px;"><div class="slbl" style="display:block;margin-bottom:7px;">Durée totale</div><div class="dur-row">';
@@ -2771,14 +2823,14 @@ function buildCampForm(c) {
 
   // Ordre + fin liste
   var orders = [
-    {v:'inorder',l:"L'un après l'autre",i:'➡️',s:'Ordre CSV',col:'var(--cyan)'},
-    {v:'random', l:'Au hasard',          i:'🎲',s:'Aléatoire',  col:'var(--yel)'},
-    {v:'loop',   l:'En boucle',          i:'🔁',s:'Boucle ∞',   col:'var(--grn)'}
+    {v:'inorder',l:"Séquentiel",      i:'➡️',s:'Ordre CSV original',       col:'var(--cyan)'},
+    {v:'random', l:'Aléatoire',       i:'🎲',s:'Mélangé à chaque lancement',col:'var(--yel)'},
+    {v:'loop',   l:'Boucle aléatoire',i:'🔁',s:'Mélangé à chaque cycle',    col:'var(--grn)'}
   ];
   var eols = [
-    {v:'stop',    l:'Arrêter',     i:'🛑',s:'Fin immédiate',  col:'var(--red)'},
-    {v:'restart', l:'Recommencer', i:'↩️',s:'Depuis début',   col:'var(--grn)'},
-    {v:'resume',  l:'Reprendre',   i:'▶️',s:'Après arrêt',    col:'var(--purl)'}
+    {v:'stop',    l:'Terminer',              i:'🛑',s:'Campagne terminée',              col:'var(--red)'},
+    {v:'restart', l:'Recommencer (même ordre)',i:'↩️',s:'Repart contact 1, même séquence',col:'var(--grn)'},
+    {v:'resume',  l:'Reboucler (ordre différent)',i:'🔀',s:'Idéal avec mode Aléatoire',col:'var(--purl)'}
   ];
   h += '<div style="margin-bottom:12px;"><div class="slbl" style="display:block;margin-bottom:7px;">Ordre d\'envoi</div><div class="mcards">';
   orders.forEach(function(o) {
@@ -2870,15 +2922,32 @@ function buildCampForm(c) {
     h += '</div>';
   }
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
-  h += '<div class="fc"><label class="fl">Délai min entre envois (sec)</label><input type="number" class="fi" value="' + (c.delayMin||2) + '" min="0" onchange="updC(' + c.id + ',\'delayMin\',+this.value)"></div>';
-  h += '<div class="fc"><label class="fl">Délai max entre envois (sec)</label><input type="number" class="fi" value="' + (c.delayMax||8) + '" min="0" onchange="updC(' + c.id + ',\'delayMax\',+this.value)"></div>';
+  h += '<div class="fc"><label class="fl">Délai min entre envois (sec)</label><input type="number" class="fi" value="' + (c.delayMin||0) + '" min="0" onchange="updC(' + c.id + ',\'delayMin\',+this.value)"></div>';
+  h += '<div class="fc"><label class="fl">Délai max entre envois (sec)</label><input type="number" class="fi" value="' + (c.delayMax||1) + '" min="0" onchange="updC(' + c.id + ',\'delayMax\',+this.value)"></div>';
   h += '</div>';
   h += '</div></div>';
 
-  // BOUTONS BAS
-  h += '<div style="padding:12px 18px;display:flex;gap:7px;flex-wrap:wrap;">';
+  // BOUTONS BAS — adaptatifs selon l'état de la campagne
+  h += '<div style="padding:12px 18px;display:flex;gap:7px;flex-wrap:wrap;border-top:1px solid var(--b1);">';
   h += '<button class="btn-ico" style="flex:1;padding:11px;" onclick="saveCampBodyAndAll(' + c.id + ');saveCamps();toast(\'✓ Sauvegardé\',\'success\')">💾 Sauvegarder</button>';
-  h += '<button class="btl ' + (isSMS?'pnk':'') + '" style="flex:2;justify-content:center;padding:11px;" onclick="launchCamp(' + c.id + ')">▶ Lancer la campagne</button>';
+
+  if (c.status === 'paused') {
+    // Campagne en PAUSE — proposer Reprendre ou Relancer
+    var remaining2 = c.emailList.filter(function(e){ return e.status === 'pending'; }).length;
+    h += '<button class="btl" style="flex:2;justify-content:center;padding:11px;background:rgba(0,255,136,.12);border-color:rgba(0,255,136,.35);color:var(--grn);" onclick="resumeCamp(' + c.id + ')" title="Reprend exactement là où la campagne s\'est arrêtée — compteurs préservés">';
+    h += '▶ Reprendre (' + remaining2.toLocaleString() + ' restant(s) · ' + (c.sent||0) + ' envoyés)';
+    h += '</button>';
+    h += '<button class="ela" style="color:var(--text3);flex-shrink:0" onclick="launchCamp(' + c.id + ')" title="Repart depuis le début — remet les contacts envoyés en attente">↺ Tout relancer</button>';
+  } else if (c.status === 'running') {
+    // Campagne EN COURS — proposer Pause
+    h += '<button class="btl" style="flex:2;justify-content:center;padding:11px;background:rgba(255,230,0,.1);border-color:rgba(255,230,0,.3);color:var(--yel);" onclick="pauseCamp(' + c.id + ')">⏸ Mettre en pause</button>';
+  } else if (c.status === 'done') {
+    // Campagne TERMINÉE — proposer relancer
+    h += '<button class="btl ' + (isSMS?'pnk':'') + '" style="flex:2;justify-content:center;padding:11px;opacity:.7;" onclick="launchCamp(' + c.id + ')">↺ Relancer depuis le début</button>';
+  } else {
+    // BROUILLON — proposer lancer
+    h += '<button class="btl ' + (isSMS?'pnk':'') + '" style="flex:2;justify-content:center;padding:11px;" onclick="launchCamp(' + c.id + ')">▶ Lancer la campagne</button>';
+  }
   h += '</div>';
 
   // Init toolbar après rendu DOM
@@ -3349,9 +3418,8 @@ function togSchedEnabled(id, row) {
 }
 
 function buildAS(c) {
-  const t   = c.emailList.length || '?';
-  const dn  = t !== '?' && !c.durationInfinite ? Math.ceil(t / c.dailyLimit) : '?';
-  const wkMax = calcWeekMax(c);
+  const t      = c.emailList.length || '?';
+  const wkMax  = calcWeekMax(c);
 
   // Résumé planification par jour
   const dayNames = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
@@ -3365,15 +3433,37 @@ function buildAS(c) {
     schedSummary = '<span style="color:var(--text3)">24h/24 (planification désactivée)</span>';
   }
 
+  // Cadence effective lisible
+  const rpm = c.ratePerHour || 10;
+  const cadenceLabel = rpm >= 60
+    ? Math.round(rpm/60) + '/h (' + rpm + '/min)'
+    : rpm < 1 ? (1/rpm).toFixed(0) + 's entre envois'
+    : rpm + '/min';
+
+  // Durée estimée en jours
+  const daysEst = (typeof t === 'number' && t > 0 && !c.durationInfinite && c.dailyLimit > 0)
+    ? Math.ceil(t / c.dailyLimit)
+    : '?';
+
+  // Contacts envoyés vs en attente
+  const sentCount  = c.emailList.filter(e => e.status === 'sent' || e.status === 'opened').length;
+  const pendCount  = c.emailList.filter(e => e.status === 'pending').length;
+  const errCount   = c.emailList.filter(e => e.status === 'error').length;
+
+  // Quota journalier : calcul du temps restant aujourd'hui
+  const todayStr  = new Date().toDateString();
+  const sentToday = (c.dailyDate === todayStr) ? (c.dailySent || 0) : 0;
+  const leftToday = Math.max(0, c.dailyLimit - sentToday);
+
   return `<div class="as-title">⚡ Résumé automatisation</div>
   <div class="as-grid">
-    <div class="as-row">Cadence <strong>${c.ratePerHour}/min</strong></div>
-    <div class="as-row">Limite <strong>${c.dailyLimit.toLocaleString()}/j</strong></div>
-    <div class="as-row">Durée <strong>${c.durationInfinite?'∞ Infini':c.durationH+'h'}</strong></div>
-    <div class="as-row">Contacts <strong>${typeof t === 'number' ? t.toLocaleString() : t}</strong></div>
-    <div class="as-row">Ordre <strong>${c.sendOrder==='inorder'?"L'un/l'autre":c.sendOrder==='random'?'Au hasard':'En boucle'}</strong></div>
-    <div class="as-row">Fin liste <strong>${c.endOfList==='stop'?'Arrêt':c.endOfList==='restart'?'Recommence':'Reprend'}</strong></div>
-    <div class="as-row">Jours estimés <strong>${dn}</strong></div>
+    <div class="as-row">Cadence <strong>${cadenceLabel}</strong></div>
+    <div class="as-row">Quota/j <strong style="color:${sentToday >= c.dailyLimit ? 'var(--red)' : 'var(--grn)'}">${sentToday.toLocaleString()}/${c.dailyLimit.toLocaleString()} <span style="font-size:9px;font-weight:400;color:var(--text3)">(${leftToday.toLocaleString()} restants)</span></strong></div>
+    <div class="as-row">Durée <strong>${c.durationInfinite ? '∞ Infini' : c.durationH + 'h'}</strong></div>
+    <div class="as-row">Contacts <strong>${typeof t === 'number' ? t.toLocaleString() : t} <span style="font-size:9px;font-weight:400;color:var(--grn)">✓${sentCount}</span> <span style="font-size:9px;font-weight:400;color:var(--text3)">⏳${pendCount}</span>${errCount ? '<span style="font-size:9px;font-weight:400;color:var(--red)"> ✕' + errCount + '</span>' : ''}</strong></div>
+    <div class="as-row">Ordre <strong>${c.sendOrder === 'inorder' ? 'Séquentiel' : c.sendOrder === 'random' ? 'Aléatoire' : 'Boucle aléatoire'}</strong></div>
+    <div class="as-row">Fin liste <strong>${c.endOfList === 'stop' ? 'Terminer' : c.endOfList === 'restart' ? 'Recommencer' : 'Reboucler'}</strong></div>
+    <div class="as-row">Jours estimés <strong>${daysEst}</strong></div>
     <div class="as-row">Max/semaine <strong>${wkMax.toLocaleString()}</strong></div>
   </div>
   <div style="margin-top:8px;font-size:10px;color:var(--text2);line-height:1.7">
@@ -3397,7 +3487,7 @@ function refreshEList(c) {
   const b  = $('elsc-' + c.id);
   const ct = $('elcnt-' + c.id);
   if (b)  b.innerHTML = buildEListHTML(c);
-  if (ct) ct.textContent = c.emailList.length + ' adresse(s)';
+  if (ct) ct.textContent = c.emailList.length > 0 ? c.emailList.length.toLocaleString() + ' adresse(s)' : 'Aucune adresse';
   const as = $('as-' + c.id);
   if (as) as.innerHTML = buildAS(c);
 }
@@ -3436,7 +3526,7 @@ function addBulkToList(id) {
   });
   ta.value = '';
   const cntEl = $('bulk-cnt-' + id);
-  if (cntEl) cntEl.textContent = '0 adresse(s) détectée(s)';
+  if (cntEl) cntEl.textContent = '';
 
   if (!toAdd.length) {
     toast('Aucun nouvel élément valide' + (dupes ? ' · ' + dupes + ' doublons' : ''), 'warn');
@@ -3467,23 +3557,30 @@ function clearBulk(id) {
   const ta = $('bulk-ta-' + id);
   if (ta) ta.value = '';
   const cntEl = $('bulk-cnt-' + id);
-  if (cntEl) cntEl.textContent = '0 adresse(s) détectée(s)';
+  if (cntEl) cntEl.textContent = '';
 }
 
-// Compteur live sur la zone de collage
+// Compteur live sur la zone de collage — appelé par oninput="updBulkCnt(id)"
+function updBulkCnt(id) {
+  const ta = $('bulk-ta-' + id);
+  const c  = S.camps.find(x => x.id === id);
+  const cntEl = $('bulk-cnt-' + id);
+  if (!ta || !c || !cntEl) return;
+  if (!ta.value.trim()) { cntEl.textContent = ''; return; }
+  const isSMS = c.type === 'sms';
+  const items = ta.value.split(/[\n,;\t]+/).map(x => x.trim()).filter(x => x.length > 3);
+  const valid = items.filter(item => isSMS
+    ? cleanPhone(item).match(/^(\+|00)?[0-9]{8,15}$/)
+    : isEmail(item.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g,''))
+  ).length;
+  cntEl.textContent = valid > 0 ? valid.toLocaleString() + ' adresse(s) valide(s) détectée(s)' : '';
+}
+
+// Fallback : listener générique bulk-ta (garde la compatibilité)
 document.addEventListener('input', e => {
   if (e.target && e.target.id && e.target.id.startsWith('bulk-ta-')) {
     const id = parseInt(e.target.id.replace('bulk-ta-',''));
-    const c = S.camps.find(x => x.id === id);
-    const cntEl = $('bulk-cnt-' + id);
-    if (!cntEl || !c) return;
-    const isSMS = c.type === 'sms';
-    const items = e.target.value.split(/[\n,;\t]+/).map(x => x.trim()).filter(x => x.length > 3);
-    const valid = items.filter(item => isSMS
-      ? cleanPhone(item).match(/^(\+|00)?[0-9]{8,15}$/)
-      : isEmail(item.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g,''))
-    ).length;
-    cntEl.textContent = valid.toLocaleString() + ' adresse(s) valide(s) détectée(s)';
+    updBulkCnt(id);
   }
 });
 
@@ -3826,16 +3923,68 @@ function calcRangeMax(c) {
 function refreshQuotaBanner() {
   const banner = $('quota-global-banner');
   if (!banner) return;
+
+  const runningCamps = S.camps.filter(c => c.status === 'running' && c.type !== 'sms');
+  const pausedCamps  = S.camps.filter(c => c.status === 'paused');
   const q = getGlobalQuota();
-  if (q.committed === 0) { banner.className = 'quota-banner'; return; }
-  const html = `⚡ Quota ${S.prov} : <strong>${q.committed.toLocaleString()}</strong> engagés sur <strong>${q.limit.toLocaleString()}/j</strong> par les campagnes actives — Il reste <strong>${q.available.toLocaleString()}</strong> disponibles`;
-  banner.innerHTML = html;
+
+  if (!runningCamps.length && !pausedCamps.length) {
+    banner.className = 'quota-banner';
+    banner.innerHTML = '';
+    return;
+  }
+
+  const provLabel = (QUOTAS[S.prov]||QUOTAS.gmail).lbl;
+  const today = new Date().toDateString();
+  const sentToday = S.camps.filter(c=>c.type!=='sms').reduce((s,c)=>{
+    return s + ((c.dailyDate===today) ? (c.dailySent||0) : 0);
+  },0);
+
+  let rows = '';
+
+  // Campagnes actives
+  runningCamps.forEach(function(camp) {
+    const pct = camp.emailList.length ? Math.round((camp.sent/camp.emailList.length)*100) : 0;
+    const remaining = camp.emailList.filter(function(e){return e.status==='pending';}).length;
+    const rateLabel = camp.ratePerHour >= 60
+      ? Math.round(camp.ratePerHour/60)+'/h'
+      : camp.ratePerHour < 1 ? (1/camp.ratePerHour).toFixed(0)+'s/email'
+      : camp.ratePerHour+'/min';
+
+    rows += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,230,0,.1);flex-wrap:wrap">';
+    rows += '<span style="font-weight:800;color:var(--yel);min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">▶ ' + camp.name + '</span>';
+    rows += '<span style="font-family:var(--mono);font-size:11px;color:var(--grn);flex-shrink:0">' + camp.sent.toLocaleString() + '/' + camp.emailList.length.toLocaleString() + ' (' + pct + '%)</span>';
+    rows += '<span style="font-size:10px;color:var(--text2);flex-shrink:0">⚡ ' + rateLabel + '</span>';
+    rows += '<span style="font-size:10px;color:var(--text3);flex-shrink:0">' + remaining.toLocaleString() + ' restants</span>';
+    // Mini progress bar
+    rows += '<div style="width:100%;height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:2px"><div style="height:100%;border-radius:2px;background:var(--yel);width:'+pct+'%"></div></div>';
+    rows += '</div>';
+  });
+
+  // Campagnes en pause
+  pausedCamps.forEach(function(camp) {
+    const pct = camp.emailList.length ? Math.round((camp.sent/camp.emailList.length)*100) : 0;
+    rows += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,230,0,.1);flex-wrap:wrap;opacity:.7">';
+    rows += '<span style="font-weight:800;color:var(--text3);flex:1">⏸ ' + camp.name + '</span>';
+    rows += '<span style="font-family:var(--mono);font-size:11px;color:var(--text2)">' + camp.sent.toLocaleString() + '/' + camp.emailList.length.toLocaleString() + ' (' + pct + '%)</span>';
+    rows += '<button onclick="resumeCamp('+camp.id+')" style="background:rgba(0,255,136,.12);border:1px solid rgba(0,255,136,.3);color:var(--grn);border-radius:5px;font-size:9px;padding:2px 8px;cursor:pointer;font-weight:700">▶ Reprendre</button>';
+    rows += '</div>';
+  });
+
+  // Footer : quota du jour
+  const qColor = q.committed > q.limit ? 'var(--red)' : q.committed > q.safe ? 'var(--yel)' : 'var(--grn)';
+  const footer = '<div style="display:flex;align-items:center;gap:12px;padding-top:8px;flex-wrap:wrap">' +
+    '<span style="font-size:9px;color:var(--text3)">Provider : <strong style="color:var(--text2)">' + provLabel + '</strong></span>' +
+    '<span style="font-size:9px;color:var(--text3)">Quota jour : <strong style="color:'+qColor+'">' + sentToday.toLocaleString() + '/' + q.limit.toLocaleString() + '</strong></span>' +
+    '<span style="font-size:9px;color:var(--text3);flex:1">Disponible : <strong style="color:var(--grn)">' + Math.max(0, q.limit - sentToday).toLocaleString() + '</strong></span>' +
+    '</div>';
+
+  banner.innerHTML = rows + footer;
+
   if (q.committed > q.limit) {
     banner.className = 'quota-banner danger show';
-  } else if (q.committed > q.safe) {
-    banner.className = 'quota-banner warn show';
   } else {
-    banner.className = 'quota-banner'; // Caché si OK
+    banner.className = 'quota-banner warn show';
   }
 }
 
@@ -3947,6 +4096,17 @@ async function launchCamp(id) {
   c.status = 'running';
   c.startDate = c.startDate || new Date().toISOString().split('T')[0];
 
+  // Mélanger les contacts si ordre = au hasard
+  if (c.sendOrder === 'random') {
+    var pendingIdx = c.emailList.map(function(e,i){return {e,i};}).filter(function(x){return x.e.status==='pending';});
+    for (var ri = pendingIdx.length-1; ri > 0; ri--) {
+      var rj = Math.floor(Math.random()*(ri+1));
+      var tmp = c.emailList[pendingIdx[ri].i];
+      c.emailList[pendingIdx[ri].i] = c.emailList[pendingIdx[rj].i];
+      c.emailList[pendingIdx[rj].i] = tmp;
+    }
+  }
+
   // Récupérer le contenu de l'éditeur intégré
   var edEl = document.getElementById('camp-editor-' + id);
   if (edEl && edEl.contentEditable === 'true') c.campBody = edEl.innerHTML;
@@ -3966,9 +4126,12 @@ async function launchCamp(id) {
     campaign_type: c.type,
     campaign_name: c.name,
     contacts_count: c.emailList.length,
-    rate_per_minute: c.ratePerHour, rate_per_hour: c.ratePerHour * 60, // ratePerHour field = per minute
+    rate_per_minute: c.ratePerHour || 10,
     daily_limit: c.dailyLimit
   });
+
+  // Calcul du rate effectif en messages/minute depuis les contraintes cochées
+  var effectiveRpm = c.ratePerHour || 10;
 
   await syncW('/campaign/launch', {
     campaign: c,
@@ -3979,18 +4142,15 @@ async function launchCamp(id) {
     accessToken:  S.tok,
     provider:     c.campProvider || S.prov,
     fromEmail:    c.campFromEmail || S.ce || S.email,
-    // Note : le refresh_token n'est pas disponible via GIS token flow.
-    // Le Worker re-demandera un nouveau token si le précédent expire.
-    // Pour les campagnes > 1h, re-lancez depuis l'app pour rafraîchir le token.
 
-    // Cadence (top-level pour que le Worker y accède directement)
-    rate_per_minute: c.ratePerHour,
+    // Cadence — rate_per_minute = messages envoyés par minute par le Worker
+    rate_per_minute: effectiveRpm,
 
     // Planification horaire
     schedule: {
-      enabled:          c.schedEnabled,
-      days:             c.days,
-      daySchedules:     c.daySchedules || {},
+      enabled:      c.schedEnabled,
+      days:         c.days,
+      daySchedules: c.daySchedules || {},
     },
 
     // Limites et durée
@@ -4012,10 +4172,10 @@ async function launchCamp(id) {
     },
 
     // Délais anti-bannissement
-    delayMin: c.delayMin || 2,
-    delayMax: c.delayMax || 8,
+    delayMin: c.delayMin || 0,
+    delayMax: c.delayMax || 1,
 
-    // URL du Worker lui-même (pour les liens de désinscription)
+    // URL du Worker lui-même (pour les liens de désinscription + tracking ouverture)
     _workerOrigin: S.wurl ? S.wurl.replace(/\/+$/, '') : ''
   });
   saveCamps();
@@ -4029,12 +4189,89 @@ function pauseCamp(id) {
   const c = S.camps.find(x => x.id === id);
   if (!c) return;
   c.status = 'paused';
-  c.pausePosition = c.sent; // Save exact position
+  c.pausePosition = c.sent;
   syncW('/campaign/pause', {id, status: 'paused', pausePosition: c.pausePosition});
   saveCamps();
   renderCampList(c.type);
   openCamp(id, c.type);
-  toast('⏸ Pause — reprendra depuis le contact ' + c.pausePosition, 'info');
+  toast('⏸ Pause — ' + c.sent + ' envoyés. Cliquez ▶ Reprendre pour continuer.', 'info');
+}
+
+
+/* ── Recalculer la cadence effective depuis les contraintes cochées ── */
+function recalcRate(id) {
+  var camp = S.camps.find(function(x){ return x.id === id; });
+  if (!camp) return;
+
+  // Convertir toutes les contraintes activées en emails/minute
+  var constraintsPerMin = [];
+
+  if (camp.rateSecEnabled && camp.rateSec > 0) {
+    constraintsPerMin.push(camp.rateSec * 60); // /s → /min
+  }
+  if (camp.rateMinEnabled !== false && camp.rateMin > 0) {
+    constraintsPerMin.push(camp.rateMin);
+  }
+  if (camp.rateHEnabled && camp.rateH > 0) {
+    constraintsPerMin.push(camp.rateH / 60); // /h → /min
+  }
+
+  // Calculer la cadence effective (minimum des contraintes)
+  var effectivePerMin = constraintsPerMin.length > 0
+    ? Math.max(0.001, Math.min.apply(null, constraintsPerMin))
+    : (camp.rateMin || 10);
+
+  // Arrondir intelligemment
+  var rounded = effectivePerMin >= 1
+    ? Math.round(effectivePerMin)
+    : Math.max(0.01, Math.round(effectivePerMin * 100) / 100);
+
+  camp.ratePerHour = rounded;
+
+  // Limite journalière depuis rateDay si activé
+  if (camp.rateDEnabled !== false && camp.rateDay > 0) {
+    camp.dailyLimit = camp.rateDay;
+  }
+
+  // Afficher
+  var disp = $('rate-display-' + id);
+  if (disp) {
+    var label = '';
+    if (rounded >= 60) label = Math.round(rounded/60) + '/h (' + rounded + '/min)';
+    else if (rounded < 1) label = (1/rounded).toFixed(0) + 's entre envois';
+    else label = rounded + '/min';
+    if (camp.dailyLimit) label += ' · max ' + camp.dailyLimit.toLocaleString() + '/j';
+    disp.textContent = label;
+    disp.style.color = rounded > 30 ? 'var(--yel)' : rounded > 8 ? 'var(--grn)' : 'var(--cyan)';
+  }
+
+  saveCamps();
+}
+
+async function resumeCamp(id) {
+  const c = S.camps.find(x => x.id === id);
+  if (!c) return;
+
+  const remaining = c.emailList.filter(x => x.status === 'pending').length;
+  if (!remaining) {
+    toast('Tous les contacts ont déjà été envoyés. Utilisez ↺ Tout relancer.', 'warn');
+    return;
+  }
+
+  c.status = 'running';
+  c.resumedAt = new Date().toISOString();
+
+  // ── REPRISE PROPRE : on appelle UNIQUEMENT /campaign/resume
+  // Le Worker change status→running et reprend les contacts pending
+  // sans toucher à dailySent, durationStarted, ni aucun compteur
+  await syncW('/campaign/resume', { id });
+
+  saveCamps();
+  renderCampList(c.type);
+  openCamp(id, c.type);
+  renderActiveCamps();
+  track('campaign_resume', { campaign_id: id, remaining });
+  toast('▶ Reprise — ' + remaining.toLocaleString() + ' contact(s) restant(s), compteurs préservés', 'success');
 }
 
 function delCamp(id, type) {
@@ -4492,6 +4729,8 @@ function saveTpls(notify = true) {
   lsS(SK.tpls, S.tpls);
   updateStats();
   updateQSTplSelect();
+  // Templates = stockage localStorage uniquement (pas de route /data/save dans Worker v5.0)
+  // Export JSON disponible dans Réglages pour transférer entre appareils
   if (notify) {
     const dot = $('save-dot');
     if (dot) { dot.classList.add('show'); setTimeout(() => dot.classList.remove('show'), 2500); }
@@ -4944,7 +5183,7 @@ function newSimpleList() {
   // Réinitialiser le modal
   if ($('list-name-inp')) $('list-name-inp').value = '';
   if ($('list-emails-inp')) $('list-emails-inp').value = '';
-  if ($('list-emails-cnt')) $('list-emails-cnt').textContent = '0 email(s) détecté(s)';
+  if ($('list-emails-cnt')) $('list-emails-cnt').textContent = '';
   showModal('modal-list');
 }
 
@@ -5398,40 +5637,78 @@ function renderDashboard() {
 /* ── Campagnes actives — tableau complet ────────────── */
 function renderActiveCamps() {
   const tbody = $('active-camps-body'); if (!tbody) return;
-  const actives = S.camps.filter(c => c.status === 'running');
+  const actives = S.camps.filter(c => c.status === 'running' || c.status === 'paused');
   if (!actives.length) {
-    tbody.innerHTML = '<tr><td colspan="10"><div class="empty" style="padding:16px"><p>Aucune campagne en cours</p></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10"><div class="empty" style="padding:16px"><p>Aucune campagne en cours ou en pause</p></div></td></tr>';
     return;
   }
   tbody.innerHTML = actives.map(c => {
-    const pct   = c.emailList.length ? Math.round((c.sent/c.emailList.length)*100) : 0;
-    const isSMS = c.type === 'sms';
-    const openRate = c.sent > 0 && !isSMS ? Math.round(((c.opened||0)/c.sent)*100) : 0;
-    const started = c.startDate ? fDt(c.startDate) : '—';
+    const total  = c.emailList.length;
+    const sent   = c.sent || 0;
+    const pct    = total ? Math.round((sent/total)*100) : 0;
+    const isSMS  = c.type === 'sms';
+    const openRate = sent > 0 && !isSMS ? Math.round(((c.opened||0)/sent)*100) : 0;
+
+    // Position courante = 1er contact encore pending
+    const firstPendingIdx = c.emailList.findIndex(e => e.status === 'pending');
+    const currentPos = firstPendingIdx === -1 ? total : firstPendingIdx + 1;
+    const posLabel = total
+      ? `<span style="font-family:var(--mono);font-size:11px;color:var(--cyan)">${currentPos.toLocaleString()}</span><span style="font-size:9px;color:var(--text3)">/${total.toLocaleString()}</span>`
+      : '<span style="color:var(--text3);font-size:10px">—</span>';
+
+    // Cadence lisible
+    const rpm = c.ratePerHour || 10;
+    const rateLabel = rpm >= 60
+      ? Math.round(rpm/60) + '/h'
+      : rpm < 1 ? (1/rpm).toFixed(0) + 's/msg'
+      : rpm + '/min';
+
+    // Limite journalière
+    const todayStr = new Date().toDateString();
+    const sentToday = (c.dailyDate === todayStr) ? (c.dailySent || 0) : 0;
+    const limitLabel = c.dailyLimit ? `${sentToday.toLocaleString()}/${c.dailyLimit.toLocaleString()}/j` : '—';
+
     const progBar = `<div style="display:flex;align-items:center;gap:6px">
       <div style="flex:1;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;min-width:60px">
-        <div style="height:100%;border-radius:2px;background:${isSMS?'var(--pnk)':'var(--pur)'};width:${pct}%"></div>
+        <div style="height:100%;border-radius:2px;background:${isSMS?'var(--pnk)':c.status==='paused'?'var(--yel)':'var(--pur)'};width:${pct}%"></div>
       </div>
-      <span style="font-family:var(--mono);font-size:10px;color:var(--purl)">${pct}%</span>
+      <span style="font-family:var(--mono);font-size:10px;color:${c.status==='paused'?'var(--yel)':'var(--purl)'}">${pct}%</span>
     </div>`;
-    return `<tr>
-      <td style="font-weight:700;color:var(--text);cursor:pointer" onclick="showView('${isSMS?'sms':'email'}');setTimeout(()=>openCamp(${c.id},'${c.type}'),50)">${c.name}</td>
+
+    const statusBadge = c.status === 'paused'
+      ? '<span class="stbadge st-pause">⏸ PAUSE</span>'
+      : '<span class="stbadge st-run">▶ EN COURS</span>';
+
+    const actionBtn = c.status === 'running'
+      ? `<div style="display:flex;gap:4px;flex-wrap:wrap">
+           <button class="btn-sm" style="padding:3px 8px;font-size:9px" onclick="pauseCamp(${c.id})">⏸ Pause</button>
+           <button class="btn-sm" style="padding:3px 8px;font-size:9px;background:rgba(255,34,68,.08);border-color:rgba(255,34,68,.25);color:var(--red)" onclick="if(confirm('Arrêter la campagne ?'))syncW('/campaign/stop',{id:${c.id}}).then(()=>{var cc=S.camps.find(x=>x.id===${c.id});if(cc){cc.status='done';saveCamps();}})">■ Stop</button>
+         </div>`
+      : `<div style="display:flex;gap:4px;flex-wrap:wrap">
+           <button class="btn-sm" style="padding:3px 8px;font-size:9px;background:rgba(0,255,136,.12);border-color:rgba(0,255,136,.35);color:var(--grn)" onclick="resumeCamp(${c.id})">▶ Reprendre</button>
+           <button class="btn-sm" style="padding:3px 8px;font-size:9px" onclick="showView('${isSMS?'sms':'email'}');setTimeout(()=>openCamp(${c.id},'${c.type}'),50)">✎ Éditer</button>
+         </div>`;
+
+    return `<tr style="opacity:${c.status==='paused'?'.8':'1'}">
+      <td style="cursor:pointer" onclick="showView('${isSMS?'sms':'email'}');setTimeout(()=>openCamp(${c.id},'${c.type}'),50)">
+        <div style="font-weight:700;color:var(--text);margin-bottom:3px">${c.name}</div>
+        ${statusBadge}
+        <div style="font-size:9px;color:var(--text3);margin-top:2px">${limitLabel}</div>
+      </td>
       <td><span style="font-size:8px;font-weight:800;padding:2px 6px;border-radius:3px;background:${isSMS?'rgba(255,45,120,.1)':'var(--pur-bg)'};color:${isSMS?'var(--pnk)':'var(--purl)'}">${isSMS?'SMS':'EMAIL'}</span></td>
-      <td style="font-family:var(--mono);color:var(--grn)">${c.sent.toLocaleString()}</td>
-      <td style="font-family:var(--mono)">${c.emailList.length.toLocaleString()}</td>
-      <td style="min-width:140px">
-        <div style="font-size:9px;font-weight:700;color:var(--grn);margin-bottom:3px">
-          ${c.sent.toLocaleString()}/${c.emailList.length.toLocaleString()} envoi${c.sent>1?'s':''} réussi${c.sent>1?'s':''}
+      <td style="font-family:var(--mono);color:var(--grn)">${sent.toLocaleString()}</td>
+      <td>${posLabel}</td>
+      <td style="min-width:120px">
+        <div style="font-size:9px;font-weight:700;color:${c.status==='paused'?'var(--yel)':'var(--grn)'};margin-bottom:3px">
+          ${sent.toLocaleString()}/${total.toLocaleString()}
         </div>
         ${progBar}
       </td>
-      <td style="font-family:var(--mono);color:var(--yel)">${c.ratePerHour}/h</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--yel)">${rateLabel}</td>
       <td style="font-family:var(--mono);color:var(--purl)">${isSMS?'—':(c.opened||0).toLocaleString()+' ('+openRate+'%)'}</td>
       <td style="font-family:var(--mono);color:${c.errors?'var(--red)':'var(--text3)'}">${c.errors||0}</td>
       <td style="font-size:10px;color:var(--text3)">${c.durationInfinite?'∞':c.durationH+'h'}</td>
-      <td>
-        <button class="btn-sm" style="padding:3px 8px;font-size:9px" onclick="pauseCamp(${c.id})">⏸</button>
-      </td>
+      <td style="white-space:nowrap">${actionBtn}</td>
     </tr>`;
   }).join('');
 }
