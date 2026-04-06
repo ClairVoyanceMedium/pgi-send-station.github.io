@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#8B0000">
-<title>PGI Send Station v35</title>
+<title>PGI Send Station v36</title>
 <!-- Favicon -->
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="apple-touch-icon" sizes="180x180" href="https://i.imgur.com/GmyGlKk.webp">
@@ -957,10 +957,11 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
           <th onclick="sortAnalytics('date')">Date/Heure ↕</th>
           <th>Statut</th>
           <th>Lu</th>
+          <th>Clics</th>
           <th>Désabonné</th>
         </tr></thead>
         <tbody id="analytics-body">
-          <tr><td colspan="6"><div class="empty" style="padding:16px"><p>Aucun envoi sur cette période</p></div></td></tr>
+          <tr><td colspan="7"><div class="empty" style="padding:16px"><p>Aucun envoi sur cette période</p></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -1238,8 +1239,20 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
         <label class="btn-sm g" style="cursor:pointer">📁 Fichier<input type="file" accept=".csv,.txt" style="display:none" onchange="loadQSEmailFile(this)"></label>
         <label class="btn-sm g" style="cursor:pointer">📊 Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="loadQSExcelFile(this)"></label>
         <button class="btn-sm" onclick="clearQSEmail()">✕ Vider</button>
-        <div id="qs-email-cnt" style="font-family:var(--mono);font-size:10px;color:var(--text3)">0 destinataire(s)</div>
+        <div id="qs-email-cnt" style="font-family:var(--mono);font-size:10px;color:var(--grn)"></div>
         <button class="btl" style="margin-left:auto;padding:9px 20px" onclick="sendQuickEmail()">▶ Envoyer maintenant</button>
+      </div>
+
+      <!-- Pièces jointes envoi rapide -->
+      <div style="margin-top:10px;background:var(--bg3);border:1px solid var(--b2);border-radius:8px;padding:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;">
+          <span style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text2);">📎 Pièces jointes <span style="font-weight:400;color:var(--text3)">(optionnel)</span></span>
+          <label class="btn-sm" style="cursor:pointer;">+ Ajouter
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.mp4,.mov,.docx,.xlsx,.csv,.txt,.zip" multiple style="display:none" onchange="addQSAttachments(this)">
+          </label>
+        </div>
+        <div id="qs-attachments-list" style="display:flex;flex-wrap:wrap;gap:5px;min-height:0;"></div>
+        <div style="font-size:9px;color:var(--text3);margin-top:5px">Formats : PDF, images (JPG/PNG/WebP), vidéos (MP4), Word, Excel — max 10 Mo par pièce jointe</div>
       </div>
     </div>
 
@@ -1293,7 +1306,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
         <label class="btn-sm pk" style="cursor:pointer">📊 Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="loadQSSMSExcel(this)"></label>
         <button class="btn-sm" onclick="importSMSQSFromContacts()">👥 Contacts</button>
         <button class="btn-sm" onclick="clearQSSMS()">✕ Vider</button>
-        <div id="qs-sms-to-cnt" style="font-family:var(--mono);font-size:10px;color:var(--text3)">0 numéro(s)</div>
+        <div id="qs-sms-to-cnt" style="font-family:var(--mono);font-size:10px;color:var(--grn)"></div>
         <button class="btl pnk" style="margin-left:auto;padding:9px 20px" onclick="sendQuickSMS()">▶ Envoyer maintenant</button>
       </div>
     </div>
@@ -2067,7 +2080,12 @@ function showView(name) {
   if (bottomBtn) bottomBtn.classList.add('active');
   S.currentView = name;
   checkMobFABs();
-  if (name === 'quick') updateQSTplSelect();
+  if (name === 'quick') {
+    updateQSTplSelect();
+    // Mettre à jour les compteurs au cas où des données sont déjà dans les zones
+    updateQSEmailCnt();
+    updateQSSMSToCnt();
+  }
   // ── Tracking Google Analytics 4
   track('page_view', { page_title: name, page_location: window.location.href + '#' + name });
   // ── Rafraîchir le dashboard quota si vue email/sms
@@ -2461,7 +2479,7 @@ async function syncFromWorker() {
           posLbl.style.display = 'block';
         }
       } else {
-        var provLbl = (window.QUOTAS && QUOTAS[S.prov]) ? QUOTAS[S.prov].lbl : S.prov;
+        var provLbl = (window.QUOTAS && QUOTAS[S.prov]) ? QUOTAS[S.prov].lbl : (S.prov.charAt(0).toUpperCase() + S.prov.slice(1));
         statusLbl.innerHTML = pausedCamps.length
           ? '⏸ <strong style="color:var(--yel);">' + pausedCamps.length + ' campagne(s) en pause</strong> — Cliquez ▶ Reprendre pour continuer'
           : '✅ <strong style="color:var(--grn);">Synchronisé</strong> — Provider : <strong style="color:var(--cyan);">' + provLbl + '</strong>';
@@ -2546,6 +2564,7 @@ function newCamp(type) {
     sent: 0, opened: 0, errors: 0, unsubscribed: 0,
     campProvider: '',      // Provider spécifique à cette campagne (vide = défaut des Réglages)
     campFromEmail: '',     // Adresse email spécifique à cette campagne
+    attachments: [],       // Pièces jointes [{name, contentType, data(base64), size}]
     created: new Date().toISOString()
   };
   S.camps.push(c);
@@ -2554,9 +2573,18 @@ function newCamp(type) {
   openCamp(c.id, type);
 }
 
+// Debounce de la sync /campaigns — évite les dizaines d'appels lors des modifications
+var _saveCampsTimer = null;
 function saveCamps() {
   lsS(SK.camps, S.camps);
-  syncW('/campaigns', { campaigns: S.camps, accessToken: S.tok, provider: S.prov });
+  // Sync Worker différée : regroupe les modifications rapides (ex: sliders, toggles)
+  if (_saveCampsTimer) clearTimeout(_saveCampsTimer);
+  _saveCampsTimer = setTimeout(function() {
+    if (S.wurl) {
+      syncW('/campaigns', { campaigns: S.camps, accessToken: S.tok, provider: S.prov });
+    }
+    _saveCampsTimer = null;
+  }, 2000); // Attend 2s d'inactivité avant d'envoyer
   renderDashboard();
   updateStats();
 }
@@ -2590,6 +2618,10 @@ function openCamp(id, type) {
   if (!det) return;
   det.innerHTML = buildCampForm(c);
   refreshEList(c);
+  if (type !== 'sms') {
+    // Rendre les pièces jointes après que le DOM est construit
+    setTimeout(function() { renderCampAttachments(id); }, 50);
+  }
   if (type === 'sms' && c.smsText) {
     const ta = $('sms-txt-' + c.id);
     if (ta) { ta.value = c.smsText; updSMSCnt(c.id); }
@@ -2759,6 +2791,16 @@ function buildCampForm(c) {
     h += '<button class="btn-sm" onclick="showView(\'templates\')">✏️ Gérer les templates</button>';
     h += '<button class="btn-sm grn" id="camp-prev-btn-' + c.id + '" onclick="prevCampTpl(' + c.id + ')" ' + (selTpl?'':'style="opacity:.4;cursor:not-allowed;" disabled') + '>👁 Aperçu</button>';
     h += '</div></div>';
+
+    // Pièces jointes pour campagnes email
+    h += '<div style="margin-top:8px;background:var(--bg3);border:1px solid var(--b2);border-radius:8px;padding:10px;">';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;">';
+    h += '<span style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text2);">📎 Pièces jointes <span style="font-weight:400;color:var(--text3)">(envoyées à chaque destinataire)</span></span>';
+    h += '<label class="btn-sm" style="cursor:pointer;">+ Ajouter<input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.mp4,.mov,.docx,.xlsx,.csv,.txt,.zip" multiple style="display:none" onchange="addCampAttachments(this,' + c.id + ')"></label>';
+    h += '</div>';
+    h += '<div id="camp-attachments-' + c.id + '" style="display:flex;flex-wrap:wrap;gap:5px;"></div>';
+    h += '<div style="font-size:9px;color:var(--text3);margin-top:5px">PDF, images JPG/PNG/WebP, vidéos MP4, Word, Excel — max 10 Mo/pièce</div>';
+    h += '</div>';
 
   } else {
     // SMS : Textarea enrichi simple
@@ -4202,6 +4244,9 @@ async function launchCamp(id) {
     delayMin: c.delayMin || 0,
     delayMax: c.delayMax || 1,
 
+    // Pièces jointes (base64) — envoyées à chaque destinataire
+    attachments: c.attachments || [],
+
     // URL du Worker lui-même (pour les liens de désinscription + tracking ouverture)
     _workerOrigin: S.wurl ? S.wurl.replace(/\/+$/, '') : ''
   });
@@ -4649,17 +4694,21 @@ function importSMSQSFromContacts() {
 }
 
 function updateQSEmailCnt() {
-  const ta = $('qs-email-to');
+  const ta  = $('qs-email-to');
   const cnt = $('qs-email-cnt');
   if (!ta || !cnt) return;
-  cnt.textContent = parseQSEmails(ta.value).length + ' destinataire(s)';
+  const n = parseQSEmails(ta.value).length;
+  cnt.textContent = n > 0 ? n.toLocaleString() + ' destinataire(s)' : '';
+  cnt.style.color = n > 0 ? 'var(--grn)' : 'var(--text3)';
 }
 
 function updateQSSMSToCnt() {
-  const ta = $('qs-sms-to');
+  const ta  = $('qs-sms-to');
   const cnt = $('qs-sms-to-cnt');
   if (!ta || !cnt) return;
-  cnt.textContent = parseQSPhones(ta.value).length + ' numéro(s)';
+  const n = parseQSPhones(ta.value).length;
+  cnt.textContent = n > 0 ? n.toLocaleString() + ' numéro(s)' : '';
+  cnt.style.color = n > 0 ? 'var(--grn)' : 'var(--text3)';
 }
 
 function updQSSMSCnt() {
@@ -4686,26 +4735,47 @@ async function sendQuickEmail() {
   const toText = $('qs-email-to')?.value.trim();
   const emails = parseQSEmails(toText);
   if (!emails.length) { toast('Aucun email valide dans la zone destinataires', 'error'); return; }
-  // Récupère le corps depuis l'éditeur actif (visuel ou HTML brut)
+
   let body = getQSBody();
-  // Si un template est sélectionné, il écrase l'éditeur
-  if (tplId) {
-    const tpl = S.tpls.find(t => t.id == tplId);
-    if (tpl) body = tpl.content;
-  }
+  if (tplId) { const tpl = S.tpls.find(t => t.id == tplId); if (tpl) body = tpl.content; }
   if (!body || body === '<br>') { toast('Le corps du message est vide', 'error'); return; }
-  // ── Tracking GA4
+
+  const campName = 'Envoi rapide — ' + new Date().toLocaleDateString('fr-FR');
   track('quick_send_email', { recipients_count: emails.length, has_template: !!tplId });
   toast('Envoi en cours vers ' + emails.length + ' destinataire(s)...', 'info');
-  // Record in analytics
-  const campName = 'Envoi rapide — ' + new Date().toLocaleDateString('fr-FR');
+
+  // Enregistrement local analytics
   emails.forEach(email => {
-    S.analytics.push({type:'email', email, campaign:campName, date:new Date().toISOString(), status:'sent', opened:false, unsubscribed:false});
+    S.analytics.push({
+      type:'email', email, campaign:campName,
+      date:new Date().toISOString(), status:'sent',
+      opened:false, unsubscribed:false
+    });
   });
   lsS(SK.analytics, S.analytics);
-  await syncW('/quick-send', {type:'email', to:emails, subject:subj, body, accessToken:S.tok, provider:S.prov});
+
+  // Récupérer les pièces jointes si présentes
+  const attachments = S._qsAttachments || [];
+
+  await syncW('/quick-send', {
+    type:          'email',
+    to:            emails,
+    subject:       subj,
+    body,
+    accessToken:   S.tok,
+    provider:      S.prov,
+    fromEmail:     S.ce || S.email || '',
+    campName,
+    _workerOrigin: S.wurl ? S.wurl.replace(/\/+$/, '') : '',
+    attachments,
+  });
+
+  // Réinitialiser les pièces jointes après envoi
+  S._qsAttachments = [];
+  renderQSAttachments();
+
   updateStats();
-  toast('✓ ' + emails.length + ' email(s) envoyé(s)', 'success');
+  toast('✓ ' + emails.length + ' email(s) en file d\'envoi — tracking activé', 'success');
 }
 
 async function sendQuickSMS() {
@@ -4715,23 +4785,35 @@ async function sendQuickSMS() {
   const phones   = parseQSPhones(toText);
   if (!phones.length) { toast('Aucun numéro valide dans la zone destinataires', 'error'); return; }
   if (!body) { toast('Le message SMS est vide', 'error'); return; }
-  const isMMS = !!mediaUrl;
-  toast((isMMS?'MMS':'SMS')+' en cours vers ' + phones.length + ' numéro(s)...', 'info');
+  const isMMS    = !!mediaUrl;
+  const campName = (isMMS ? 'MMS' : 'SMS') + ' rapide — ' + new Date().toLocaleDateString('fr-FR');
+  toast((isMMS?'MMS':'SMS') + ' en cours vers ' + phones.length + ' numéro(s)...', 'info');
   track('quick_send_sms', { recipients_count: phones.length, is_mms: isMMS });
-  const campName = (isMMS?'MMS':'SMS') + ' rapide — ' + new Date().toLocaleDateString('fr-FR');
   phones.forEach(p => {
-    S.analytics.push({type:'sms', email:p, campaign:campName, date:new Date().toISOString(), status:'sent', opened:false, unsubscribed:false});
+    S.analytics.push({
+      type: 'sms', email: p, campaign: campName,
+      date: new Date().toISOString(), status: 'sent',
+      opened: false, unsubscribed: false
+    });
   });
   lsS(SK.analytics, S.analytics);
   await syncW('/quick-send', {
-    type: 'sms',
-    to: phones,
+    type:      'sms',
+    to:        phones,
     body,
-    mediaUrl,           // null si SMS texte, URL si MMS image
-    smsConfig: {provider:S.smsProv, apiKey:S.smsKey, apiSecret:S.smsSecret, from:S.smsFrom}
+    campName,
+    mediaUrl,
+    smsConfig: {
+      provider:    S.smsProv,
+      apiKey:      S.smsKey,
+      apiSecret:   S.smsSecret,
+      from:        S.smsFrom,
+      webhookUrl:  S.smsWebhook  || null,
+      webhookBody: S.smsWebhookBody || null
+    }
   });
   updateStats();
-  toast('✓ ' + phones.length + ' ' + (isMMS?'MMS':'SMS') + ' envoyé(s)', 'success');
+  toast('✓ ' + phones.length + ' ' + (isMMS?'MMS':'SMS') + ' en file d\'envoi', 'success');
 }
 
 // Attach live count events
@@ -5189,6 +5271,123 @@ function clearListEmails() {
   if (!confirm('Vider tous les emails de cette liste ?')) return;
   var ta = $('mlv-emails');
   if (ta) { ta.value = ''; mlvCount(); }
+}
+
+/* ================================================================
+   PIÈCES JOINTES — Envoi rapide + Campagnes
+================================================================ */
+
+// État pièces jointes envoi rapide — initialisé dans S
+S._qsAttachments = S._qsAttachments || [];
+
+/* Convertir un File en base64 */
+function fileToBase64(file) {
+  return new Promise(function(resolve, reject) {
+    var r = new FileReader();
+    r.onload = function(e) {
+      var b64 = e.target.result.split(',')[1];
+      resolve(b64);
+    };
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+/* Icône selon le type de fichier */
+function attIcon(contentType) {
+  if (!contentType) return '📎';
+  if (contentType.startsWith('image/'))          return '🖼';
+  if (contentType === 'application/pdf')          return '📄';
+  if (contentType.startsWith('video/'))           return '🎬';
+  if (contentType.includes('spreadsheet') || contentType.includes('excel')) return '📊';
+  if (contentType.includes('word') || contentType.includes('document'))     return '📝';
+  return '📎';
+}
+
+/* Rendre la liste des pièces jointes de l'envoi rapide */
+function renderQSAttachments() {
+  var el = $('qs-attachments-list');
+  if (!el) return;
+  if (!S._qsAttachments || !S._qsAttachments.length) { el.innerHTML = ''; return; }
+  el.innerHTML = S._qsAttachments.map(function(att, i) {
+    return '<div style="display:flex;align-items:center;gap:5px;background:var(--bg4);border:1px solid var(--b1);border-radius:6px;padding:4px 8px;font-size:10px;">' +
+      '<span>' + attIcon(att.contentType) + '</span>' +
+      '<span style="color:var(--text);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + att.name + '">' + att.name + '</span>' +
+      '<span style="color:var(--text3);font-size:9px">' + Math.round(att.size/1024) + 'Ko</span>' +
+      '<button onclick="removeQSAttachment(' + i + ')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;padding:0 2px;line-height:1">×</button>' +
+      '</div>';
+  }).join('');
+}
+
+/* Ajouter des pièces jointes à l'envoi rapide */
+async function addQSAttachments(input) {
+  var files = Array.from(input.files || []);
+  if (!files.length) return;
+  if (!S._qsAttachments) S._qsAttachments = [];
+
+  toast('Chargement des pièces jointes...', 'info');
+  for (var f of files) {
+    if (f.size > 10 * 1024 * 1024) { toast('Fichier trop lourd : ' + f.name + ' (max 10 Mo)', 'error'); continue; }
+    try {
+      var b64 = await fileToBase64(f);
+      S._qsAttachments.push({ name: f.name, contentType: f.type || 'application/octet-stream', data: b64, size: f.size });
+    } catch(e) { toast('Erreur lecture : ' + f.name, 'error'); }
+  }
+  renderQSAttachments();
+  toast('✓ ' + files.length + ' pièce(s) jointe(s) prête(s)', 'success');
+  input.value = '';
+}
+
+function removeQSAttachment(i) {
+  if (!S._qsAttachments) return;
+  S._qsAttachments.splice(i, 1);
+  renderQSAttachments();
+}
+
+/* Rendre la liste des pièces jointes d'une campagne */
+function renderCampAttachments(campId) {
+  var el = $('camp-attachments-' + campId);
+  if (!el) return;
+  var c = S.camps.find(function(x){ return x.id === campId; });
+  if (!c || !c.attachments || !c.attachments.length) { el.innerHTML = ''; return; }
+  el.innerHTML = c.attachments.map(function(att, i) {
+    return '<div style="display:flex;align-items:center;gap:5px;background:var(--bg4);border:1px solid var(--b1);border-radius:6px;padding:4px 8px;font-size:10px;">' +
+      '<span>' + attIcon(att.contentType) + '</span>' +
+      '<span style="color:var(--text);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + att.name + '">' + att.name + '</span>' +
+      '<span style="color:var(--text3);font-size:9px">' + Math.round(att.size/1024) + 'Ko</span>' +
+      '<button onclick="removeCampAttachment(' + campId + ',' + i + ')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;padding:0 2px;line-height:1">×</button>' +
+      '</div>';
+  }).join('');
+}
+
+/* Ajouter des pièces jointes à une campagne */
+async function addCampAttachments(input, campId) {
+  var files = Array.from(input.files || []);
+  if (!files.length) return;
+  var c = S.camps.find(function(x){ return x.id === campId; });
+  if (!c) return;
+  if (!c.attachments) c.attachments = [];
+
+  toast('Chargement des pièces jointes...', 'info');
+  for (var f of files) {
+    if (f.size > 10 * 1024 * 1024) { toast('Fichier trop lourd : ' + f.name + ' (max 10 Mo)', 'error'); continue; }
+    try {
+      var b64 = await fileToBase64(f);
+      c.attachments.push({ name: f.name, contentType: f.type || 'application/octet-stream', data: b64, size: f.size });
+    } catch(e) { toast('Erreur lecture : ' + f.name, 'error'); }
+  }
+  saveCamps();
+  renderCampAttachments(campId);
+  toast('✓ ' + files.length + ' pièce(s) jointe(s) ajoutée(s) à la campagne', 'success');
+  input.value = '';
+}
+
+function removeCampAttachment(campId, i) {
+  var c = S.camps.find(function(x){ return x.id === campId; });
+  if (!c || !c.attachments) return;
+  c.attachments.splice(i, 1);
+  saveCamps();
+  renderCampAttachments(campId);
 }
 
 function exportListEmails() {
@@ -6152,20 +6351,32 @@ function renderAnalytics() {
   if (abody) {
     const shown = emailLogs.slice(0, analyticsShownCount);
     if (!shown.length) {
-      abody.innerHTML = `<tr><td colspan="6"><div class="empty" style="padding:16px"><p>Aucun email correspondant</p></div></td></tr>`;
+      abody.innerHTML = `<tr><td colspan="7"><div class="empty" style="padding:16px"><p>Aucun email correspondant</p></div></td></tr>`;
     } else {
       abody.innerHTML = shown.map(l => {
-        const stag  = l.status==='error' ? '<span class="tg tg-err">Erreur</span>' : '<span class="tg tg-sent">Envoyé</span>';
-        const openLabel = l.opened ? ('✓ Ouvert' + (l.openedAt ? '<br><span style="font-size:9px;color:var(--text3)">' + fDt(l.openedAt) + '</span>' : '')) : '—';
-        const otag  = l.opened ? '<span class="tg tg-open" style="line-height:1.3">' + openLabel + '</span>' : '<span style="font-size:10px;color:var(--text3)">Non lu</span>';
-        const utag  = l.unsubscribed ? '<span class="tg tg-unsb">🚫</span>' : '—';
-        const time  = l.date ? fDt(l.date) : '—';
+        const stag = l.status==='error'
+          ? '<span class="tg tg-err">Erreur</span>'
+          : '<span class="tg tg-sent">Envoyé</span>';
+        const openLabel = l.opened
+          ? ('✓ Ouvert' + (l.openedAt ? '<br><span style="font-size:9px;color:var(--text3)">' + fDt(l.openedAt) + '</span>' : ''))
+          : '—';
+        const otag = l.opened
+          ? '<span class="tg tg-open" style="line-height:1.3">' + openLabel + '</span>'
+          : '<span style="font-size:10px;color:var(--text3)">Non lu</span>';
+        const utag = l.unsubscribed ? '<span class="tg tg-unsb">🚫</span>' : '—';
+        const time = l.date ? fDt(l.date) : '—';
+        // Clics
+        const clickCount = (l.clicks || []).length;
+        const clickTag = clickCount > 0
+          ? `<span class="tg" style="background:rgba(0,232,255,.1);color:var(--cyan);cursor:pointer" title="${(l.clicks||[]).map(c=>c.url).join('\n')}">🔗 ${clickCount} clic${clickCount>1?'s':''}</span>`
+          : '<span style="font-size:10px;color:var(--text3)">—</span>';
         return `<tr>
           <td class="em">${l.email||'—'}</td>
-          <td style="font-size:10px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.campaign||'—'}</td>
+          <td style="font-size:10px;max-width:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.campaign||'—'}</td>
           <td style="font-size:10px;white-space:nowrap;color:var(--text2)">${time}</td>
           <td>${stag}</td>
           <td>${otag}</td>
+          <td>${clickTag}</td>
           <td style="text-align:center">${utag}</td>
         </tr>`;
       }).join('');
