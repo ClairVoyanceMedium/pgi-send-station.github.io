@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#8B0000">
-<title>PGI Send Station v36</title>
+<title>PGI Send Station v37</title>
 <!-- Favicon -->
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="apple-touch-icon" sizes="180x180" href="https://i.imgur.com/GmyGlKk.webp">
@@ -799,6 +799,11 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
       <div class="kv" id="kv-no">0</div>
       <div class="ks">en attente lecture</div>
     </div>
+    <div class="kpi" style="border-color:rgba(0,232,255,.25);background:rgba(0,232,255,.04)" title="Nombre total de clics sur les liens dans les emails">
+      <div class="kl" style="color:var(--cyan)">🔗 Clics liens</div>
+      <div class="kv" id="kv-cl" style="color:var(--cyan)">0</div>
+      <div class="ks" id="ks-cl" style="color:rgba(0,232,255,.5)">0 emails cliqués</div>
+    </div>
     <div class="kpi r" title="Contacts désabonnés (STOP)">
       <div class="kl">🚫 Désabonnés</div>
       <div class="kv" id="kv-un">0</div>
@@ -1048,10 +1053,12 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
 
 <!-- ── Floating block toolbar — repositionné dynamiquement par JS ── -->
 <div id="pgi-block-toolbar">
+  <div id="pbt-drag-handle" title="Déplacer" style="cursor:grab;padding:4px 6px;color:var(--text3);font-size:14px;line-height:1;user-select:none">⠿</div>
   <button id="pbt-up" title="Déplacer vers le haut">↑</button>
   <button id="pbt-down" title="Déplacer vers le bas">↓</button>
   <button id="pbt-link" title="Lien sur ce bloc">🔗</button>
   <button id="pbt-del" title="Supprimer ce bloc" style="color:var(--red)">✕</button>
+  <button id="pbt-close" title="Fermer la barre" style="color:var(--text3);margin-left:4px;border-color:transparent;background:none">✕ fermer</button>
   <div class="pbt-lnk-row" id="pbt-lnk-row">
     <input type="url" id="pbt-link-inp" placeholder="https://...">
     <button id="pbt-link-ok" title="Appliquer">✓</button>
@@ -1245,14 +1252,16 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
 
       <!-- Pièces jointes envoi rapide -->
       <div style="margin-top:10px;background:var(--bg3);border:1px solid var(--b2);border-radius:8px;padding:10px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;">
-          <span style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text2);">📎 Pièces jointes <span style="font-weight:400;color:var(--text3)">(optionnel)</span></span>
-          <label class="btn-sm" style="cursor:pointer;">+ Ajouter
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--purl);">📎 Pièces jointes <span id="qs-att-count" style="font-weight:400;color:var(--text3)"></span></span>
+          <label class="btn-sm" style="cursor:pointer;background:var(--pur-bg);border-color:var(--pur-b);color:var(--purl)">+ Ajouter
             <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.mp4,.mov,.docx,.xlsx,.csv,.txt,.zip" multiple style="display:none" onchange="addQSAttachments(this)">
           </label>
         </div>
-        <div id="qs-attachments-list" style="display:flex;flex-wrap:wrap;gap:5px;min-height:0;"></div>
-        <div style="font-size:9px;color:var(--text3);margin-top:5px">Formats : PDF, images (JPG/PNG/WebP), vidéos (MP4), Word, Excel — max 10 Mo par pièce jointe</div>
+        <div id="qs-attachments-list" style="display:flex;flex-wrap:wrap;gap:6px;min-height:20px;">
+          <span style="font-size:10px;color:var(--text3);font-style:italic">Aucune pièce jointe — cliquez "+ Ajouter" pour en ajouter</span>
+        </div>
+        <div style="font-size:9px;color:var(--text3);margin-top:7px;border-top:1px solid var(--b1);padding-top:6px">Formats acceptés : PDF, images JPG/PNG/WebP/GIF, vidéo MP4, Word .docx, Excel .xlsx — Max 10 Mo/fichier · Envoyées à chaque destinataire</div>
       </div>
     </div>
 
@@ -1904,6 +1913,22 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
   </div>
 </div>
 
+<!-- ── Modale PGI custom : remplace confirm() et prompt() natifs ── -->
+<div class="overlay" id="pgi-dialog" style="z-index:99999;display:none;align-items:center;justify-content:center;">
+  <div class="modal" style="max-width:400px;width:90%" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <span id="pgi-dialog-icon" style="font-size:20px">⚠️</span>
+      <span style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--purl)">PGI • Send Station</span>
+    </div>
+    <div id="pgi-dialog-msg" style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:14px;white-space:pre-line"></div>
+    <input type="text" id="pgi-dialog-inp" class="fi" style="display:none;margin-bottom:12px" placeholder="">
+    <div class="mbtns">
+      <button class="btn-s" id="pgi-dialog-cancel" style="flex:1">Annuler</button>
+      <button class="btn-p" id="pgi-dialog-ok" style="flex:2">OK</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 <!-- ═══════════════════════════════════════════════════
      BIBLIOTHÈQUES EXTERNES
@@ -2172,6 +2197,62 @@ function toast(msg, type='info') {
   t.className = 'show ' + type;
   clearTimeout(t._t);
   t._t = setTimeout(() => { t.className = type; }, 4000);
+}
+
+/* ── Modale confirm/prompt custom — remplace les natives ── */
+function pgiConfirm(msg, icon) {
+  return new Promise(function(resolve) {
+    var d  = $('pgi-dialog');
+    var ic = $('pgi-dialog-icon');
+    var m  = $('pgi-dialog-msg');
+    var inp= $('pgi-dialog-inp');
+    var ok = $('pgi-dialog-ok');
+    var ca = $('pgi-dialog-cancel');
+    if (!d) { resolve(window.confirm(msg)); return; }
+    if (ic) ic.textContent = icon || '⚠️';
+    if (m)  m.textContent  = msg;
+    if (inp) inp.style.display = 'none';
+    d.style.display = 'flex';
+    function cleanup(result) {
+      d.style.display = 'none';
+      ok.removeEventListener('click', onOk);
+      ca.removeEventListener('click', onCancel);
+      resolve(result);
+    }
+    function onOk()     { cleanup(true);  }
+    function onCancel() { cleanup(false); }
+    ok.addEventListener('click', onOk);
+    ca.addEventListener('click', onCancel);
+  });
+}
+
+function pgiPrompt(msg, defaultVal, icon) {
+  return new Promise(function(resolve) {
+    var d  = $('pgi-dialog');
+    var ic = $('pgi-dialog-icon');
+    var m  = $('pgi-dialog-msg');
+    var inp= $('pgi-dialog-inp');
+    var ok = $('pgi-dialog-ok');
+    var ca = $('pgi-dialog-cancel');
+    if (!d) { resolve(window.prompt(msg, defaultVal||'')); return; }
+    if (ic) ic.textContent = icon || '✏️';
+    if (m)  m.textContent  = msg;
+    if (inp) { inp.style.display='block'; inp.value=defaultVal||''; setTimeout(function(){inp.focus();},100); }
+    d.style.display = 'flex';
+    function cleanup(result) {
+      d.style.display = 'none';
+      ok.removeEventListener('click', onOk);
+      ca.removeEventListener('click', onCancel);
+      inp.removeEventListener('keydown', onKey);
+      resolve(result);
+    }
+    function onOk()     { cleanup(inp ? inp.value : ''); }
+    function onCancel() { cleanup(null); }
+    function onKey(e)   { if (e.key === 'Enter') onOk(); if (e.key === 'Escape') onCancel(); }
+    ok.addEventListener('click', onOk);
+    ca.addEventListener('click', onCancel);
+    if (inp) inp.addEventListener('keydown', onKey);
+  });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2793,13 +2874,21 @@ function buildCampForm(c) {
     h += '</div></div>';
 
     // Pièces jointes pour campagnes email
-    h += '<div style="margin-top:8px;background:var(--bg3);border:1px solid var(--b2);border-radius:8px;padding:10px;">';
-    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;">';
-    h += '<span style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text2);">📎 Pièces jointes <span style="font-weight:400;color:var(--text3)">(envoyées à chaque destinataire)</span></span>';
-    h += '<label class="btn-sm" style="cursor:pointer;">+ Ajouter<input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.mp4,.mov,.docx,.xlsx,.csv,.txt,.zip" multiple style="display:none" onchange="addCampAttachments(this,' + c.id + ')"></label>';
+    h += '<div style="margin-top:8px;background:var(--bg3);border:1px solid var(--pur-b);border-radius:8px;padding:10px;">';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+    h += '<div>';
+    h += '<span style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--purl);">📎 Pièces jointes</span>';
+    var attCount = (c.attachments && c.attachments.length) ? ' <span style="background:var(--pur);color:#fff;border-radius:10px;padding:1px 6px;font-size:9px;font-weight:800">' + c.attachments.length + '</span>' : '';
+    h += attCount;
     h += '</div>';
-    h += '<div id="camp-attachments-' + c.id + '" style="display:flex;flex-wrap:wrap;gap:5px;"></div>';
-    h += '<div style="font-size:9px;color:var(--text3);margin-top:5px">PDF, images JPG/PNG/WebP, vidéos MP4, Word, Excel — max 10 Mo/pièce</div>';
+    h += '<label class="btn-sm" style="cursor:pointer;background:var(--pur-bg);border-color:var(--pur-b);color:var(--purl)">+ Ajouter<input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.mp4,.mov,.docx,.xlsx,.csv,.txt,.zip" multiple style="display:none" onchange="addCampAttachments(this,' + c.id + ')"></label>';
+    h += '</div>';
+    h += '<div id="camp-attachments-' + c.id + '" style="display:flex;flex-wrap:wrap;gap:6px;min-height:20px;">';
+    if (!c.attachments || !c.attachments.length) {
+      h += '<span style="font-size:10px;color:var(--text3);font-style:italic">Aucune pièce jointe — sera envoyée à chaque destinataire si ajoutée</span>';
+    }
+    h += '</div>';
+    h += '<div style="font-size:9px;color:var(--text3);margin-top:7px;border-top:1px solid var(--b1);padding-top:6px">PDF, JPG, PNG, WebP, MP4, Word .docx, Excel .xlsx — Max 10 Mo/fichier · Envoyée à chaque membre de la liste</div>';
     h += '</div>';
 
   } else {
@@ -3679,8 +3768,8 @@ function removeEmail(id, idx) {
   saveCamps(); refreshEList(c);
 }
 
-function clearEList(id) {
-  if (!confirm('Vider toute la liste ?')) return;
+async function clearEList(id) {
+  if (!await pgiConfirm('Vider toute la liste ?')) return;
   const c = S.camps.find(x => x.id === id);
   if (!c) return;
   c.emailList = [];
@@ -4346,8 +4435,8 @@ async function resumeCamp(id) {
   toast('▶ Reprise — ' + remaining.toLocaleString() + ' contact(s) restant(s), compteurs préservés', 'success');
 }
 
-function delCamp(id, type) {
-  if (!confirm('Supprimer cette campagne ?')) return;
+async function delCamp(id, type) {
+  if (!await pgiConfirm('Supprimer cette campagne ?')) return;
   S.camps = S.camps.filter(c => c.id !== id);
   if (type === 'sms') S.activeSMS = null; else S.activeCamp = null;
   saveCamps();
@@ -4880,10 +4969,10 @@ function closeTplPanel() {
 }
 
 /* Supprimer un template par son ID directement depuis la liste */
-function delTplById(id) {
+async function delTplById(id) {
   var t = S.tpls.find(function(x){return x.id===id;});
   if (!t) return;
-  if (!confirm('Supprimer le template "' + t.name + '" ?')) return;
+  if (!await pgiConfirm('Supprimer le template "' + t.name + '" ?')) return;
   S.tpls = S.tpls.filter(function(x){return x.id!==id;});
   if (S.activeTpl === id) {
     S.activeTpl = null;
@@ -4931,9 +5020,9 @@ function saveTpl(notify) {
   if (notify) toast('✓ Template sauvegardé — accessible depuis les campagnes', 'success');
 }
 
-function delTpl() {
+async function delTpl() {
   if (!S.activeTpl) return;
-  if (!confirm('Supprimer ce template ?')) return;
+  if (!await pgiConfirm('Supprimer ce template ?')) return;
   S.tpls = S.tpls.filter(t => t.id !== S.activeTpl);
   S.activeTpl = null;
   saveTpls(false);
@@ -5267,8 +5356,8 @@ function saveListEmails() {
   toast('✓ Liste "' + list.name + '" : ' + list.emails.length.toLocaleString() + ' emails sauvegardés', 'success');
 }
 
-function clearListEmails() {
-  if (!confirm('Vider tous les emails de cette liste ?')) return;
+async function clearListEmails() {
+  if (!await pgiConfirm('Vider tous les emails de cette liste ?')) return;
   var ta = $('mlv-emails');
   if (ta) { ta.value = ''; mlvCount(); }
 }
@@ -5308,14 +5397,28 @@ function attIcon(contentType) {
 function renderQSAttachments() {
   var el = $('qs-attachments-list');
   if (!el) return;
-  if (!S._qsAttachments || !S._qsAttachments.length) { el.innerHTML = ''; return; }
-  el.innerHTML = S._qsAttachments.map(function(att, i) {
-    return '<div style="display:flex;align-items:center;gap:5px;background:var(--bg4);border:1px solid var(--b1);border-radius:6px;padding:4px 8px;font-size:10px;">' +
-      '<span>' + attIcon(att.contentType) + '</span>' +
-      '<span style="color:var(--text);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + att.name + '">' + att.name + '</span>' +
-      '<span style="color:var(--text3);font-size:9px">' + Math.round(att.size/1024) + 'Ko</span>' +
-      '<button onclick="removeQSAttachment(' + i + ')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;padding:0 2px;line-height:1">×</button>' +
-      '</div>';
+  var list = S._qsAttachments || [];
+  if (!list.length) {
+    el.innerHTML = '<span style="font-size:10px;color:var(--text3);font-style:italic">Aucune pièce jointe — cliquez "+ Ajouter" pour en ajouter</span>';
+    return;
+  }
+  el.innerHTML = list.map(function(att, i) {
+    var sizeStr = att.size >= 1024*1024
+      ? (att.size/(1024*1024)).toFixed(1) + ' Mo'
+      : Math.round(att.size/1024) + ' Ko';
+    var icon = attIcon(att.contentType);
+    var isImg = att.contentType && att.contentType.startsWith('image/');
+    var preview = isImg
+      ? '<img src="data:' + att.contentType + ';base64,' + att.data + '" style="width:32px;height:32px;object-fit:cover;border-radius:4px;flex-shrink:0" alt="">'
+      : '<span style="font-size:22px;flex-shrink:0">' + icon + '</span>';
+    return '<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--pur-b);border-radius:8px;padding:8px 10px;min-width:0;flex:1 1 200px;max-width:280px">' +
+      preview +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + att.name + '">' + att.name + '</div>' +
+        '<div style="font-size:9px;color:var(--text3);margin-top:1px">' + sizeStr + '</div>' +
+      '</div>' +
+      '<button onclick="removeQSAttachment(' + i + ')" title="Supprimer cette pièce jointe" style="background:rgba(255,34,68,.1);border:1px solid rgba(255,34,68,.3);color:var(--red);border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;padding:3px 8px;flex-shrink:0;white-space:nowrap">✕ Retirer</button>' +
+    '</div>';
   }).join('');
 }
 
@@ -5325,23 +5428,49 @@ async function addQSAttachments(input) {
   if (!files.length) return;
   if (!S._qsAttachments) S._qsAttachments = [];
 
-  toast('Chargement des pièces jointes...', 'info');
+  var loaded = 0;
   for (var f of files) {
-    if (f.size > 10 * 1024 * 1024) { toast('Fichier trop lourd : ' + f.name + ' (max 10 Mo)', 'error'); continue; }
+    if (f.size > 10 * 1024 * 1024) {
+      toast('❌ Fichier trop lourd : ' + f.name + ' (max 10 Mo)', 'error');
+      continue;
+    }
     try {
       var b64 = await fileToBase64(f);
-      S._qsAttachments.push({ name: f.name, contentType: f.type || 'application/octet-stream', data: b64, size: f.size });
-    } catch(e) { toast('Erreur lecture : ' + f.name, 'error'); }
+      S._qsAttachments.push({
+        name: f.name,
+        contentType: f.type || 'application/octet-stream',
+        data: b64,
+        size: f.size
+      });
+      loaded++;
+    } catch(e) {
+      toast('❌ Erreur lecture : ' + f.name, 'error');
+    }
   }
   renderQSAttachments();
-  toast('✓ ' + files.length + ' pièce(s) jointe(s) prête(s)', 'success');
+  // Mettre à jour le compteur dans le titre
+  var cntEl = $('qs-att-count');
+  if (cntEl) {
+    var n = S._qsAttachments.length;
+    cntEl.textContent = n > 0 ? '— ' + n + ' fichier' + (n > 1 ? 's' : '') : '';
+    cntEl.style.color = n > 0 ? 'var(--grn)' : 'var(--text3)';
+  }
+  if (loaded > 0) toast('✓ ' + loaded + ' pièce' + (loaded > 1 ? 's jointes' : ' jointe') + ' ajoutée' + (loaded > 1 ? 's' : '') + ' — visible ci-dessous', 'success');
   input.value = '';
 }
 
 function removeQSAttachment(i) {
   if (!S._qsAttachments) return;
+  var name = S._qsAttachments[i] ? S._qsAttachments[i].name : '';
   S._qsAttachments.splice(i, 1);
   renderQSAttachments();
+  var cntEl = $('qs-att-count');
+  if (cntEl) {
+    var n = S._qsAttachments.length;
+    cntEl.textContent = n > 0 ? '— ' + n + ' fichier' + (n > 1 ? 's' : '') : '';
+    cntEl.style.color = n > 0 ? 'var(--grn)' : 'var(--text3)';
+  }
+  if (name) toast('Pièce jointe "' + name + '" retirée', 'info');
 }
 
 /* Rendre la liste des pièces jointes d'une campagne */
@@ -5349,14 +5478,28 @@ function renderCampAttachments(campId) {
   var el = $('camp-attachments-' + campId);
   if (!el) return;
   var c = S.camps.find(function(x){ return x.id === campId; });
-  if (!c || !c.attachments || !c.attachments.length) { el.innerHTML = ''; return; }
-  el.innerHTML = c.attachments.map(function(att, i) {
-    return '<div style="display:flex;align-items:center;gap:5px;background:var(--bg4);border:1px solid var(--b1);border-radius:6px;padding:4px 8px;font-size:10px;">' +
-      '<span>' + attIcon(att.contentType) + '</span>' +
-      '<span style="color:var(--text);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + att.name + '">' + att.name + '</span>' +
-      '<span style="color:var(--text3);font-size:9px">' + Math.round(att.size/1024) + 'Ko</span>' +
-      '<button onclick="removeCampAttachment(' + campId + ',' + i + ')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;padding:0 2px;line-height:1">×</button>' +
-      '</div>';
+  var list = (c && c.attachments) ? c.attachments : [];
+  if (!list.length) {
+    el.innerHTML = '<span style="font-size:10px;color:var(--text3);font-style:italic">Aucune pièce jointe — cliquez "+ Ajouter"</span>';
+    return;
+  }
+  el.innerHTML = list.map(function(att, i) {
+    var sizeStr = att.size >= 1024*1024
+      ? (att.size/(1024*1024)).toFixed(1) + ' Mo'
+      : Math.round(att.size/1024) + ' Ko';
+    var icon = attIcon(att.contentType);
+    var isImg = att.contentType && att.contentType.startsWith('image/');
+    var preview = isImg
+      ? '<img src="data:' + att.contentType + ';base64,' + att.data + '" style="width:32px;height:32px;object-fit:cover;border-radius:4px;flex-shrink:0" alt="">'
+      : '<span style="font-size:22px;flex-shrink:0">' + icon + '</span>';
+    return '<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--pur-b);border-radius:8px;padding:8px 10px;min-width:0;flex:1 1 200px;max-width:280px">' +
+      preview +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + att.name + '">' + att.name + '</div>' +
+        '<div style="font-size:9px;color:var(--text3);margin-top:1px">' + sizeStr + ' · sera envoyée à chaque destinataire</div>' +
+      '</div>' +
+      '<button onclick="removeCampAttachment(' + campId + ',' + i + ')" title="Supprimer cette pièce jointe" style="background:rgba(255,34,68,.1);border:1px solid rgba(255,34,68,.3);color:var(--red);border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;padding:3px 8px;flex-shrink:0;white-space:nowrap">✕ Retirer</button>' +
+    '</div>';
   }).join('');
 }
 
@@ -5368,26 +5511,39 @@ async function addCampAttachments(input, campId) {
   if (!c) return;
   if (!c.attachments) c.attachments = [];
 
-  toast('Chargement des pièces jointes...', 'info');
+  var loaded = 0;
   for (var f of files) {
-    if (f.size > 10 * 1024 * 1024) { toast('Fichier trop lourd : ' + f.name + ' (max 10 Mo)', 'error'); continue; }
+    if (f.size > 10 * 1024 * 1024) {
+      toast('❌ Fichier trop lourd : ' + f.name + ' (max 10 Mo)', 'error');
+      continue;
+    }
     try {
       var b64 = await fileToBase64(f);
-      c.attachments.push({ name: f.name, contentType: f.type || 'application/octet-stream', data: b64, size: f.size });
-    } catch(e) { toast('Erreur lecture : ' + f.name, 'error'); }
+      c.attachments.push({
+        name: f.name,
+        contentType: f.type || 'application/octet-stream',
+        data: b64,
+        size: f.size
+      });
+      loaded++;
+    } catch(e) {
+      toast('❌ Erreur lecture : ' + f.name, 'error');
+    }
   }
   saveCamps();
   renderCampAttachments(campId);
-  toast('✓ ' + files.length + ' pièce(s) jointe(s) ajoutée(s) à la campagne', 'success');
+  if (loaded > 0) toast('✓ ' + loaded + ' pièce' + (loaded > 1 ? 's jointes' : ' jointe') + ' ajoutée' + (loaded > 1 ? 's' : '') + ' à la campagne — visible ci-dessous', 'success');
   input.value = '';
 }
 
 function removeCampAttachment(campId, i) {
   var c = S.camps.find(function(x){ return x.id === campId; });
   if (!c || !c.attachments) return;
+  var name = c.attachments[i] ? c.attachments[i].name : '';
   c.attachments.splice(i, 1);
   saveCamps();
   renderCampAttachments(campId);
+  if (name) toast('Pièce jointe "' + name + '" retirée', 'info');
 }
 
 function exportListEmails() {
@@ -5636,8 +5792,8 @@ function createList() {
   toast(msg + ' ✓', 'success');
 }
 
-function delList(id) {
-  if (!confirm('Supprimer cette liste ?')) return;
+async function delList(id) {
+  if (!await pgiConfirm('Supprimer cette liste ?')) return;
   S.lists = S.lists.filter(l => l.id !== id);
   S.contacts.forEach(c => { if (c.listIds) c.listIds = c.listIds.filter(x => x !== id); });
   lsS(SK.lists, S.lists);
@@ -6223,7 +6379,6 @@ function renderContactsQuick() {
   const total  = S.contacts.length;
   const active = S.contacts.filter(c => c.status !== 'unsubscribed').length;
   const unsub  = S.contacts.filter(c => c.status === 'unsubscribed').length;
-  // Ajouter les emails email-only des listes
   const emailsOnly = S.lists.filter(l => !l.system && l.emails && l.emails.length)
     .reduce((s, l) => s + l.emails.length, 0);
   const se = (id,v) => { const el=$(id); if(el) el.textContent=v.toLocaleString(); };
@@ -6233,8 +6388,12 @@ function renderContactsQuick() {
     const userLists = S.lists.filter(l => !l.system);
     el.innerHTML = userLists.length
       ? userLists.map(l => {
-          const cnt = S.contacts.filter(c => c.listIds?.includes(l.id)).length;
-          return `<span style="background:${l.color}22;border:1px solid ${l.color}44;color:${l.color};font-size:9px;font-weight:700;padding:3px 9px;border-radius:4px">${l.name} (${cnt.toLocaleString()})</span>`;
+          // Contacts liés via listIds
+          const contactsCnt = S.contacts.filter(c => c.listIds?.includes(l.id)).length;
+          // Emails-only dans la liste
+          const emailsCnt = (l.emails && l.emails.length) ? l.emails.length : 0;
+          const total = contactsCnt + emailsCnt;
+          return `<span style="background:${l.color}22;border:1px solid ${l.color}44;color:${l.color};font-size:9px;font-weight:700;padding:3px 9px;border-radius:4px;cursor:default" title="${total} contact(s) dans cette liste">${l.name} (${total.toLocaleString()})</span>`;
         }).join('')
       : '<span style="font-size:10px;color:var(--text3)">Aucune liste créée</span>';
   }
@@ -6416,7 +6575,6 @@ function renderAnalytics() {
 /* ── updateStats — KPIs globaux topbar + réglages ────── */
 function updateStats() {
   const emailSent   = S.camps.filter(c=>c.type!=='sms').reduce((a,c)=>a+c.sent,0);
-  // Ouverts : prendre le max entre compteur campagne et analytics Worker
   const openedFromCamps = S.camps.filter(c=>c.type!=='sms').reduce((a,c)=>a+(c.opened||0),0);
   const openedFromAnalytics = S.analytics.filter(x=>x.type==='email'&&x.opened).length;
   const emailOpened = Math.max(openedFromCamps, openedFromAnalytics);
@@ -6425,6 +6583,10 @@ function updateStats() {
   const smsRead     = S.camps.filter(c=>c.type==='sms').reduce((a,c)=>a+(c.opened||0),0);
   const emailNoOpen = Math.max(0, emailSent - emailOpened);
   const openRate    = emailSent > 0 ? Math.round((emailOpened/emailSent)*100) : 0;
+
+  // Clics : total de tous les clics + nombre d'emails ayant au moins 1 clic
+  const totalClics  = S.analytics.reduce((s,l) => s + ((l.clicks||[]).length), 0);
+  const emailsCliqués = S.analytics.filter(l => l.type==='email' && (l.clicks||[]).length > 0).length;
 
   const today = new Date().toDateString();
   if (S.stats.lastDay !== today) { S.stats.emailToday=0; S.stats.smsToday=0; S.stats.lastDay=today; }
@@ -6435,6 +6597,8 @@ function updateStats() {
   se('kv-op', openRate + '%');
   se('ks-op', emailOpened.toLocaleString() + ' ouverts');
   se('kv-no', emailNoOpen.toLocaleString());
+  se('kv-cl', totalClics.toLocaleString());
+  se('ks-cl', emailsCliqués.toLocaleString() + ' email' + (emailsCliqués > 1 ? 's' : '') + ' cliqué' + (emailsCliqués > 1 ? 's' : ''));
   se('kv-un', emailUnsub.toLocaleString());
   se('kv-sm', smsSent.toLocaleString());
   se('ks-sm', smsRead.toLocaleString() + ' lus');
@@ -6464,9 +6628,9 @@ function exportData() {
   toast('Données exportées ✓', 'success');
 }
 
-function resetData() {
-  if (!confirm('Supprimer TOUTES les données ? Action irréversible.')) return;
-  if (!confirm('Confirmer la suppression définitive.')) return;
+async function resetData() {
+  if (!await pgiConfirm('Supprimer TOUTES les données ? Action irréversible.')) return;
+  if (!await pgiConfirm('Confirmer la suppression définitive.')) return;
   Object.values(SK).forEach(k => localStorage.removeItem(k));
   location.reload();
 }
@@ -7641,12 +7805,15 @@ function toggleUnsubList(listId, rowId) {
 /* ═══════════════════════════════════════════════════════
    FLOATING BLOCK TOOLBAR — éditeurs visuels
    Clic/tap sur image ou bloc → toolbar flottante
-   Boutons : ↑ monter · ↓ descendre · 🔗 lien · ✕ suppr
+   Boutons : ↑ monter · ↓ descendre · 🔗 lien · ✕ suppr · ✕fermer
+   Drag : poignée ⠿ pour déplacer partout
 ═══════════════════════════════════════════════════════ */
 (function() {
   var toolbar    = null;
-  var targetEl   = null;  // élément DOM actuellement ciblé
-  var targetEd   = null;  // éditeur contenteditable parent
+  var targetEl   = null;
+  var targetEd   = null;
+  var _isDragging = false;
+  var _dragOffX = 0, _dragOffY = 0;
 
   function init() {
     toolbar = document.getElementById('pgi-block-toolbar');
@@ -7658,6 +7825,16 @@ function toggleUnsubList(listId, rowId) {
     document.getElementById('pbt-del').addEventListener('click',   deleteBlock);
     document.getElementById('pbt-link-ok').addEventListener('click', applyLink);
     document.getElementById('pbt-link-rm').addEventListener('click', removeLink);
+    // Bouton fermer — ferme sans supprimer le bloc
+    var closeBtn = document.getElementById('pbt-close');
+    if (closeBtn) closeBtn.addEventListener('click', function(e) { e.stopPropagation(); hideToolbar(); });
+
+    // Drag via la poignée ⠿
+    var handle = document.getElementById('pbt-drag-handle');
+    if (handle) {
+      handle.addEventListener('mousedown', startDrag);
+      handle.addEventListener('touchstart', startDrag, {passive:false});
+    }
 
     // Cacher si clic dehors
     document.addEventListener('mousedown', function(e) {
@@ -7670,6 +7847,40 @@ function toggleUnsubList(listId, rowId) {
         hideToolbar();
       }
     }, {passive:true});
+
+    // Fonctions drag
+    function startDrag(e) {
+      if (e.cancelable) e.preventDefault();
+      _isDragging = true;
+      var src = e.touches ? e.touches[0] : e;
+      var rect = toolbar.getBoundingClientRect();
+      _dragOffX = src.clientX - rect.left;
+      _dragOffY = src.clientY - rect.top;
+      toolbar.style.transition = 'none';
+      document.addEventListener('mousemove', onDrag);
+      document.addEventListener('mouseup',   endDrag);
+      document.addEventListener('touchmove', onDrag, {passive:false});
+      document.addEventListener('touchend',  endDrag);
+    }
+    function onDrag(e) {
+      if (!_isDragging) return;
+      if (e.cancelable) e.preventDefault();
+      var src = e.touches ? e.touches[0] : e;
+      var x = src.clientX - _dragOffX;
+      var y = src.clientY - _dragOffY;
+      x = Math.max(4, Math.min(window.innerWidth  - toolbar.offsetWidth  - 4, x));
+      y = Math.max(4, Math.min(window.innerHeight - toolbar.offsetHeight - 4, y));
+      toolbar.style.left = x + 'px';
+      toolbar.style.top  = y + 'px';
+    }
+    function endDrag() {
+      _isDragging = false;
+      toolbar.style.transition = '';
+      document.removeEventListener('mousemove', onDrag);
+      document.removeEventListener('mouseup',   endDrag);
+      document.removeEventListener('touchmove', onDrag);
+      document.removeEventListener('touchend',  endDrag);
+    }
   }
 
   // Détecte clic/tap sur un img ou un bloc de niveau bloc dans un éditeur
@@ -7880,8 +8091,8 @@ function resumeSyncAfterReset() {
   toast('✓ Sync relancée', 'success');
 }
 
-function resetDashboard() {
-  if (!confirm('⚠️ Remettre le dashboard à zéro ?\n\nCeci efface tous les analytics (ouvertures, historique emails/SMS).\nLes campagnes et contacts ne sont PAS supprimés.')) return;
+async function resetDashboard() {
+  if (!await pgiConfirm('⚠️ Remettre le dashboard à zéro ?\n\nCeci efface tous les analytics (ouvertures, historique emails/SMS).\nLes campagnes et contacts ne sont PAS supprimés.')) return;
   // Stopper la sync auto pendant le reset pour éviter rechargement immédiat
   if (_syncInterval) { clearInterval(_syncInterval); _syncInterval = null; }
 
@@ -7909,7 +8120,7 @@ function resetDashboard() {
 }
 
 async function resetDashboardAndWorker() {
-  if (!confirm('⚠️ RESET COMPLET dashboard + Worker ?\n\nTous les analytics locaux ET ceux du Worker Cloudflare seront effacés.\nLes compteurs envoyés/ouverts seront remis à zéro.\nIrréversible.')) return;
+  if (!await pgiConfirm('⚠️ RESET COMPLET dashboard + Worker ?\n\nTous les analytics locaux ET ceux du Worker Cloudflare seront effacés.\nLes compteurs envoyés/ouverts seront remis à zéro.\nIrréversible.')) return;
 
   // 1 — Stopper la sync DEFINITVEMENT jusqu'à relance manuelle
   if (_syncInterval) { clearInterval(_syncInterval); _syncInterval = null; }
@@ -7955,10 +8166,10 @@ async function resetDashboardAndWorker() {
   // Sync volontairement stoppée — l'utilisateur relance via "▶ Relancer sync"
 }
 
-function resetCampStats(id) {
+async function resetCampStats(id) {
   var camp = S.camps.find(function(c){ return c.id === id; });
   if (!camp) return;
-  if (!confirm('⚠️ Remettre à zéro la campagne "' + camp.name + '" ?\n\nEnvoyés, ouverts, erreurs seront remis à 0.\nLes contacts repasseront en "en attente".')) return;
+  if (!await pgiConfirm('⚠️ Remettre à zéro la campagne "' + camp.name + '" ?\n\nEnvoyés, ouverts, erreurs seront remis à 0.\nLes contacts repasseront en "en attente".')) return;
   camp.sent = 0; camp.opened = 0; camp.errors = 0; camp.unsubscribed = 0;
   camp.status = 'draft';
   camp.emailList.forEach(function(e) { e.status = 'pending'; e.opened = false; e.unsubscribed = false; });
@@ -7969,8 +8180,8 @@ function resetCampStats(id) {
   toast('✓ Campagne "' + camp.name + '" remise à zéro', 'success');
 }
 
-function resetAllCamps() {
-  if (!confirm('⚠️ ATTENTION — Remettre TOUTES les campagnes à zéro ?\n\nTous les compteurs et historiques d\'envoi seront effacés.\nLes campagnes repasseront en brouillon.\n\nCette action est irréversible.')) return;
+async function resetAllCamps() {
+  if (!await pgiConfirm('⚠️ ATTENTION — Remettre TOUTES les campagnes à zéro ?\n\nTous les compteurs et historiques d\'envoi seront effacés.\nLes campagnes repasseront en brouillon.\n\nCette action est irréversible.')) return;
   if (_syncInterval) { clearInterval(_syncInterval); _syncInterval = null; }
   S.camps.forEach(function(camp) {
     camp.sent = 0; camp.opened = 0; camp.errors = 0; camp.unsubscribed = 0;
@@ -7988,8 +8199,8 @@ function resetAllCamps() {
   }, 120000);
 }
 
-function resetContacts() {
-  if (!confirm('⚠️ Supprimer TOUS les contacts ?\n\nCette action est irréversible.')) return;
+async function resetContacts() {
+  if (!await pgiConfirm('⚠️ Supprimer TOUS les contacts ?\n\nCette action est irréversible.')) return;
   S.contacts = [];
   lsS(SK.contacts, S.contacts);
   renderContacts(); updateStats();
