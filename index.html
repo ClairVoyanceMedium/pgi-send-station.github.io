@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#8B0000">
-<title>PGI Send Station v37</title>
+<title>PGI Send Station v38</title>
 <!-- Favicon -->
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="apple-touch-icon" sizes="180x180" href="https://i.imgur.com/GmyGlKk.webp">
@@ -418,7 +418,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .camp-hdr{padding:14px 18px 12px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:10px;background:var(--bg2);flex-shrink:0;flex-wrap:wrap;}
 .camp-name-inp{flex:1;min-width:130px;background:none;border:none;border-bottom:2px solid var(--b2);color:var(--text);font-family:var(--sans);font-size:17px;font-weight:800;padding:3px 0;outline:none;transition:border-color .2s;}
 .camp-name-inp:focus{border-color:var(--pur);}
-.prog-row{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--b1);}
+.prog-row{display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid var(--b1);}
 .prc{padding:10px 14px;border-right:1px solid var(--b1);text-align:center;}
 .prc:last-child{border-right:none;}
 .prv{font-family:var(--mono);font-size:17px;font-weight:700;line-height:1;margin-bottom:2px;}
@@ -717,6 +717,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
   .prc:nth-child(2){border-right:none;}
   .prc:nth-child(3){border-top:1px solid var(--b1);}
   .prc:nth-child(4){border-top:1px solid var(--b1);border-right:none;}
+  .prc:nth-child(5){border-top:1px solid var(--b1);border-right:none;}
   .mcards{grid-template-columns:1fr 1fr 1fr;}
   .sg{grid-template-columns:1fr;}
   /* SMS history below email on mobile */
@@ -1016,18 +1017,10 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
   ════════════════════════════════════ -->
   <div class="sec-box">
     <div class="sec-ttl" style="color:var(--cyan)">👥 Contacts — Vue rapide</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="contacts-quick-stats">
+    <div style="display:grid;grid-template-columns:1fr;gap:8px" id="contacts-quick-stats">
       <div style="background:var(--bg3);border-radius:7px;padding:12px;text-align:center">
-        <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--cyan)" id="cq-total">0</div>
-        <div style="font-size:9px;color:var(--text3);margin-top:3px">TOTAL</div>
-      </div>
-      <div style="background:var(--bg3);border-radius:7px;padding:12px;text-align:center">
-        <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--grn)" id="cq-active">0</div>
-        <div style="font-size:9px;color:var(--text3);margin-top:3px">ACTIFS</div>
-      </div>
-      <div style="background:var(--bg3);border-radius:7px;padding:12px;text-align:center">
-        <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--red)" id="cq-unsub">0</div>
-        <div style="font-size:9px;color:var(--text3);margin-top:3px">DÉSABONNÉS</div>
+        <div style="font-family:var(--mono);font-size:24px;font-weight:700;color:var(--cyan)" id="cq-total">0</div>
+        <div style="font-size:9px;color:var(--text3);margin-top:3px">TOTAL CONTACTS</div>
       </div>
     </div>
     <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap" id="lists-quick">
@@ -1608,17 +1601,17 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
       <div class="notice-title">⚡ Dashboard</div>
       <p>Le Dashboard est votre <strong>centre de contrôle en temps réel</strong>. Il affiche :</p>
       <ul>
-        <li><strong>KPIs globaux</strong> : emails envoyés, taux d'ouverture, non ouverts, désabonnés, SMS envoyés</li>
+        <li><strong>KPIs globaux</strong> : emails envoyés, taux d'ouverture, non ouverts, <strong>clics liens</strong>, désabonnés, SMS envoyés</li>
         <li><strong>Filtre par période</strong> : Aujourd'hui, Hier, 7 jours, 30 jours, Tout, ou dates personnalisées</li>
         <li><strong>Historique email</strong> : chaque email envoyé avec son statut (envoyé / ouvert / erreur / désabonné)</li>
         <li><strong>Historique SMS</strong> : chaque SMS avec statut lu / non lu / STOP</li>
-        <li><strong>Campagnes actives</strong> : avancement en temps réel, cliquables pour les modifier</li>
+        <li><strong>Campagnes actives</strong> : avancement en temps réel (sync toutes les 30s), cadre <strong>Clics Liens</strong> par campagne</li>
       </ul>
       <div class="notice-tip">💡 Les données sont synchronisées avec le Worker Cloudflare quand il est configuré — accessible depuis n'importe quel appareil dans le monde.</div>
     </div>
 
     <div id="notice-email" class="notice-section">
-      <div class="notice-title">📧 Campagnes Email — v34</div>
+      <div class="notice-title">📧 Campagnes Email — v38</div>
       <p>Créez des campagnes d'emailing avec automatisation complète :</p>
       <ul>
         <li><strong>Section 1 — Destinataires</strong> : Copier-coller des milliers d'adresses d'un coup, importer CSV/Excel, ou charger depuis vos listes</li>
@@ -1714,7 +1707,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
     </div>
 
     <div id="notice-worker" class="notice-section">
-      <div class="notice-title">⚡ Cloudflare Worker v5.0 — Le moteur 24h/24</div>
+      <div class="notice-title">⚡ Cloudflare Worker v5.3 — Le moteur 24h/24</div>
       <p>Le Worker est <strong>indispensable</strong> pour l'automatisation. Il tourne 24h/24 même appareil éteint :</p>
       <ol>
         <li>Créez un compte sur <a href="https://cloudflare.com" target="_blank" style="color:var(--purl)">cloudflare.com</a></li>
@@ -1725,6 +1718,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
         <li>Copiez l'URL du Worker dans Réglages → Cloudflare Worker</li>
       </ol>
       <div class="notice-tip">💡 Le Worker stocke tout dans Cloudflare KV : campagnes, contacts envoyés, analytics, statuts. La synchronisation entre appareils est automatique.</div>
+      <div class="notice-tip">🔧 <strong>v5.3 — corrections</strong> : campagnes programmées (scheduled) qui ne partaient pas — corrigé. Token Gmail toujours rafraîchi depuis les secrets Cloudflare pour les envois rapides — corrigé. Noms de fichiers pièces jointes avec caractères spéciaux — corrigé (regex safeName).</div>
     </div>
 
     <div id="notice-sync" class="notice-section">
@@ -2476,6 +2470,28 @@ async function syncFromWorker() {
           renderDashboard();
           updateStats();
           refreshQuotaBanner();
+          // Mise à jour live Avancement + Clics dans campagnes ouvertes
+          data.campaigns.forEach(function(wc) {
+            var lc = S.camps.find(function(c){ return c.id == wc.id; });
+            if (!lc || !lc.emailList || !lc.emailList.length) return;
+            var pct = Math.round(((lc.sent||0) / lc.emailList.length) * 100);
+            var _pctEl  = document.getElementById('prc-pct-'  + lc.id);
+            var _pbarEl = document.getElementById('pbar-'     + lc.id);
+            var _sentEl = document.getElementById('prc-sent-' + lc.id);
+            var _openEl = document.getElementById('prc-open-' + lc.id);
+            var _clicsEl = document.getElementById('prc-clics-' + lc.id);
+            var _clicsSubEl = document.getElementById('prc-clics-sub-' + lc.id);
+            if (_pctEl)  _pctEl.textContent  = pct + '%';
+            if (_pbarEl) _pbarEl.style.width = pct + '%';
+            if (_sentEl) _sentEl.textContent = (lc.sent||0).toLocaleString();
+            if (_openEl) _openEl.textContent = (lc.opened||0).toLocaleString();
+            if (_clicsEl && S.analytics) {
+              var _cc=0, _ce=0;
+              S.analytics.filter(function(a){ return a.type==='email' && a.campaign===lc.name && (a.clicks||[]).length>0; }).forEach(function(a){ _cc+=(a.clicks||[]).length; _ce++; });
+              _clicsEl.textContent = _cc;
+              if (_clicsSubEl) _clicsSubEl.textContent = _ce + ' email' + (_ce>1?'s':'') + ' cliqué' + (_ce>1?'s':'');
+            }
+          });
         }
       }
     }
@@ -2751,6 +2767,12 @@ function buildCampForm(c) {
   h += '<div class="prc prc-o" style="position:relative">';
   h += '<div class="prv" id="prc-pct-' + c.id + '">' + pct + '%</div><div class="prl">AVANCEMENT</div>';
   h += '<button style="position:absolute;top:4px;right:4px;background:rgba(255,34,68,.09);border:1px solid rgba(255,34,68,.25);color:var(--red);border-radius:4px;font-size:9px;padding:2px 5px;cursor:pointer;font-family:var(--sans);font-weight:700;line-height:1" onclick="event.stopPropagation();resetCampStats(' + c.id + ')" title="Remettre les stats à zéro">🗑</button>';
+  h += '</div>';
+  var _cc=0,_ce=0; if(S&&S.analytics){S.analytics.filter(function(a){return a.type==='email'&&a.campaign===(c.name||'');}).forEach(function(a){var _n=(a.clicks||[]).length;if(_n>0){_cc+=_n;_ce++;}});}
+  h += '<div class="prc" style="border-right:none">';
+  h += '<div class="prv" id="prc-clics-' + c.id + '" style="color:var(--cyan)">' + _cc + '</div>';
+  h += '<div class="prl" style="color:rgba(0,232,255,.4)">CLICS LIENS</div>';
+  h += '<div style="font-size:9px;color:var(--text3);margin-top:2px" id="prc-clics-sub-' + c.id + '">' + _ce + ' email' + (_ce>1?'s':'') + ' cliqué' + (_ce>1?'s':'') + '</div>';
   h += '</div>';
   h += '</div>';
   h += '<div class="pbar"><div class="pfill" id="pbar-' + c.id + '" style="width:' + pct + '%;' + (isSMS ? 'background:linear-gradient(90deg,var(--pnk),var(--pur));' : '') + '"></div></div>';
@@ -6382,7 +6404,7 @@ function renderContactsQuick() {
   const emailsOnly = S.lists.filter(l => !l.system && l.emails && l.emails.length)
     .reduce((s, l) => s + l.emails.length, 0);
   const se = (id,v) => { const el=$(id); if(el) el.textContent=v.toLocaleString(); };
-  se('cq-total', total + emailsOnly); se('cq-active', active); se('cq-unsub', unsub);
+  se('cq-total', total + emailsOnly);
   const el = $('lists-quick');
   if (el) {
     const userLists = S.lists.filter(l => !l.system);
