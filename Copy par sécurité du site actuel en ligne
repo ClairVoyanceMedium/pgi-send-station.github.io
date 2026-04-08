@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#8B0000">
-<title>PGI Send Station v33</title>
+<title>PGI Send Station v37</title>
 <!-- Favicon -->
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="apple-touch-icon" sizes="180x180" href="https://i.imgur.com/GmyGlKk.webp">
@@ -769,8 +769,9 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
 
   <!-- Bannière de synchronisation Worker -->
   <div id="sync-banner" style="display:none;background:var(--bg2);border:1px solid var(--b1);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-    <div style="font-size:11px;color:var(--text2);flex:1;">
+    <div style="font-size:11px;color:var(--text2);flex:1;min-width:180px;">
       <span id="sync-status-lbl" style="color:var(--text3);">Synchronisation avec le Worker...</span>
+      <div id="sync-pos-lbl" style="font-size:9px;color:var(--text3);margin-top:2px;font-family:var(--mono);display:none;"></div>
     </div>
     <button class="btn-sm" onclick="forceSyncNow()" style="white-space:nowrap;">🔄 Sync</button>
     <button class="btn-sm" onclick="resetDashboard()" style="white-space:nowrap;background:rgba(255,34,68,.1);border-color:rgba(255,34,68,.3);color:var(--red);">🗑 Reset local</button>
@@ -797,6 +798,11 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
       <div class="kl">⏳ Non ouverts</div>
       <div class="kv" id="kv-no">0</div>
       <div class="ks">en attente lecture</div>
+    </div>
+    <div class="kpi" style="border-color:rgba(0,232,255,.25);background:rgba(0,232,255,.04)" title="Nombre total de clics sur les liens dans les emails">
+      <div class="kl" style="color:var(--cyan)">🔗 Clics liens</div>
+      <div class="kv" id="kv-cl" style="color:var(--cyan)">0</div>
+      <div class="ks" id="ks-cl" style="color:rgba(0,232,255,.5)">0 emails cliqués</div>
     </div>
     <div class="kpi r" title="Contacts désabonnés (STOP)">
       <div class="kl">🚫 Désabonnés</div>
@@ -887,7 +893,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
           <th>Campagne</th>
           <th>Type</th>
           <th>Envoyés</th>
-          <th>Total</th>
+          <th>Position</th>
           <th>Avancement</th>
           <th>Cadence</th>
           <th>Ouverts</th>
@@ -956,10 +962,11 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
           <th onclick="sortAnalytics('date')">Date/Heure ↕</th>
           <th>Statut</th>
           <th>Lu</th>
+          <th>Clics</th>
           <th>Désabonné</th>
         </tr></thead>
         <tbody id="analytics-body">
-          <tr><td colspan="6"><div class="empty" style="padding:16px"><p>Aucun envoi sur cette période</p></div></td></tr>
+          <tr><td colspan="7"><div class="empty" style="padding:16px"><p>Aucun envoi sur cette période</p></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -1046,10 +1053,12 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
 
 <!-- ── Floating block toolbar — repositionné dynamiquement par JS ── -->
 <div id="pgi-block-toolbar">
+  <div id="pbt-drag-handle" title="Déplacer" style="cursor:grab;padding:4px 6px;color:var(--text3);font-size:14px;line-height:1;user-select:none">⠿</div>
   <button id="pbt-up" title="Déplacer vers le haut">↑</button>
   <button id="pbt-down" title="Déplacer vers le bas">↓</button>
   <button id="pbt-link" title="Lien sur ce bloc">🔗</button>
   <button id="pbt-del" title="Supprimer ce bloc" style="color:var(--red)">✕</button>
+  <button id="pbt-close" title="Fermer la barre" style="color:var(--text3);margin-left:4px;border-color:transparent;background:none">✕ fermer</button>
   <div class="pbt-lnk-row" id="pbt-lnk-row">
     <input type="url" id="pbt-link-inp" placeholder="https://...">
     <button id="pbt-link-ok" title="Appliquer">✓</button>
@@ -1237,8 +1246,22 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
         <label class="btn-sm g" style="cursor:pointer">📁 Fichier<input type="file" accept=".csv,.txt" style="display:none" onchange="loadQSEmailFile(this)"></label>
         <label class="btn-sm g" style="cursor:pointer">📊 Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="loadQSExcelFile(this)"></label>
         <button class="btn-sm" onclick="clearQSEmail()">✕ Vider</button>
-        <div id="qs-email-cnt" style="font-family:var(--mono);font-size:10px;color:var(--text3)">0 destinataire(s)</div>
+        <div id="qs-email-cnt" style="font-family:var(--mono);font-size:10px;color:var(--grn)"></div>
         <button class="btl" style="margin-left:auto;padding:9px 20px" onclick="sendQuickEmail()">▶ Envoyer maintenant</button>
+      </div>
+
+      <!-- Pièces jointes envoi rapide -->
+      <div style="margin-top:10px;background:var(--bg3);border:1px solid var(--b2);border-radius:8px;padding:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--purl);">📎 Pièces jointes <span id="qs-att-count" style="font-weight:400;color:var(--text3)"></span></span>
+          <label class="btn-sm" style="cursor:pointer;background:var(--pur-bg);border-color:var(--pur-b);color:var(--purl)">+ Ajouter
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.mp4,.mov,.docx,.xlsx,.csv,.txt,.zip" multiple style="display:none" onchange="addQSAttachments(this)">
+          </label>
+        </div>
+        <div id="qs-attachments-list" style="display:flex;flex-wrap:wrap;gap:6px;min-height:20px;">
+          <span style="font-size:10px;color:var(--text3);font-style:italic">Aucune pièce jointe — cliquez "+ Ajouter" pour en ajouter</span>
+        </div>
+        <div style="font-size:9px;color:var(--text3);margin-top:7px;border-top:1px solid var(--b1);padding-top:6px">Formats acceptés : PDF, images JPG/PNG/WebP/GIF, vidéo MP4, Word .docx, Excel .xlsx — Max 10 Mo/fichier · Envoyées à chaque destinataire</div>
       </div>
     </div>
 
@@ -1292,7 +1315,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
         <label class="btn-sm pk" style="cursor:pointer">📊 Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="loadQSSMSExcel(this)"></label>
         <button class="btn-sm" onclick="importSMSQSFromContacts()">👥 Contacts</button>
         <button class="btn-sm" onclick="clearQSSMS()">✕ Vider</button>
-        <div id="qs-sms-to-cnt" style="font-family:var(--mono);font-size:10px;color:var(--text3)">0 numéro(s)</div>
+        <div id="qs-sms-to-cnt" style="font-family:var(--mono);font-size:10px;color:var(--grn)"></div>
         <button class="btl pnk" style="margin-left:auto;padding:9px 20px" onclick="sendQuickSMS()">▶ Envoyer maintenant</button>
       </div>
     </div>
@@ -1595,147 +1618,153 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
     </div>
 
     <div id="notice-email" class="notice-section">
-      <div class="notice-title">📧 Campagnes Email</div>
+      <div class="notice-title">📧 Campagnes Email — v34</div>
       <p>Créez des campagnes d'emailing avec automatisation complète :</p>
       <ul>
-        <li><strong>Section 1 — Destinataires</strong> : Copier-coller des milliers d'adresses d'un coup (une par ligne, ou séparées par virgule/point-virgule), importer un CSV/Excel, ou importer depuis vos listes de contacts</li>
-        <li><strong>Section 2 — Template</strong> : Choisir un template sauvegardé ou rédiger directement dans l'éditeur</li>
-        <li><strong>Section 3 — Automatisation</strong> : Cadence, limite journalière, durée, ordre d'envoi, heures et jours</li>
-        <li><strong>Section 4 — Planification</strong> : Activer/désactiver les jours et créneaux horaires précis</li>
-        <li><strong>Section 5 — Anti-bannissement</strong> : Délais aléatoires, pauses automatiques, quotas par provider</li>
+        <li><strong>Section 1 — Destinataires</strong> : Copier-coller des milliers d'adresses d'un coup, importer CSV/Excel, ou charger depuis vos listes</li>
+        <li><strong>Section 2 — Template</strong> : Choisissez un template sauvegardé ou rédigez directement dans l'éditeur intégré</li>
+        <li><strong>Section 3 — Automatisation</strong> : Cadence multi-unité (seconde/minute/heure/jour), limite journalière stricte, durée, ordre d'envoi</li>
+        <li><strong>Section 4 — Planification horaire</strong> : Jours de la semaine + créneaux horaires précis par jour</li>
+        <li><strong>Section 5 — Anti-bannissement</strong> : Délais aléatoires entre envois, quotas par provider</li>
       </ul>
-      <div class="notice-tip">💡 <strong>Pause intelligente</strong> : si vous mettez en pause une campagne, elle reprend exactement au même contact. Vous ne perdez aucun envoi.</div>
-      <div class="notice-tip">💡 <strong>Adresse d'envoi par campagne</strong> : chaque campagne peut utiliser un compte Gmail, Outlook ou une adresse personnalisée différente.</div>
+      <div class="notice-tip">💡 <strong>Pause &amp; Reprise intelligente (v34)</strong> : quand vous mettez en pause, le bouton devient <strong>▶ Reprendre</strong>. Cliquer reprend exactement au contact suivant — le compteur journalier et la durée ne sont PAS remis à zéro. Vous ne perdez aucun envoi.</div>
+      <div class="notice-tip">💡 <strong>Multi-appareils</strong> : si vous pausez depuis votre téléphone, le PC se synchronise automatiquement et affiche aussi le bouton ▶ Reprendre avec le bon état.</div>
     </div>
 
     <div id="notice-automation" class="notice-section">
-      <div class="notice-title">🤖 Automatisation &amp; Cadence</div>
+      <div class="notice-title">🤖 Automatisation &amp; Cadence — v34</div>
+      <p>La cadence d'envoi se configure sur <strong>4 unités indépendantes</strong>, avec une case à cocher pour activer/désactiver chacune :</p>
       <ul>
-        <li><strong>Emails/heure</strong> : nombre d'emails envoyés sur chaque créneau horaire actif</li>
-        <li><strong>Limite/jour</strong> : plafond journalier absolu (toutes campagnes confondues)</li>
-        <li><strong>Durée</strong> : de 1h à l'infini (∞ = tourne jusqu'à arrêt manuel)</li>
-        <li><strong>Ordre d'envoi</strong> : L'un après l'autre (ordre CSV), Au hasard, En boucle</li>
-        <li><strong>Fin de liste</strong> : Arrêter, Recommencer depuis le début, Reprendre (boucle infinie)</li>
+        <li><strong>Par seconde</strong> ☑ : ex. 1/s = max 1 email toutes les secondes (attention : plan gratuit Gmail = ~1/s max)</li>
+        <li><strong>Par minute</strong> ☑ : ex. 10/min = 10 emails envoyés par minute</li>
+        <li><strong>Par heure</strong> ☑ : ex. 300/h = max 300 emails par heure</li>
+        <li><strong>Par jour</strong> ☑ : ex. 300/j = <strong>plafond absolu</strong> — le Worker s'arrête exactement à 300, jamais un de plus</li>
       </ul>
+      <p>Le Worker applique la contrainte la plus restrictive. La <strong>cadence effective</strong> s'affiche en temps réel dans le résumé.</p>
+      <div class="notice-tip">⚠️ <strong>Limite journalière = loi</strong> : si vous réglez 300/j, le Worker envoie 300 et s'arrête. Le lendemain, le compteur repart à zéro automatiquement.</div>
+      <div class="notice-tip">💡 <strong>Durée</strong> : de 1h à ∞ (infini = tourne jusqu'à arrêt manuel ou fin de liste)</div>
     </div>
 
     <div id="notice-hours" class="notice-section">
       <div class="notice-title">🕐 Heures &amp; Jours d'envoi</div>
       <p>Dans la section <strong>Planification horaire</strong> de chaque campagne :</p>
       <ul>
-        <li>Activez le toggle "Activer la planification"</li>
-        <li><strong>Jours</strong> : cochez les jours de la semaine souhaités (Lun, Mar... Dim)</li>
-        <li><strong>Créneaux horaires</strong> : cochez les heures d'envoi (00h à 23h, heure par heure)</li>
-        <li>Le Worker enverra UNIQUEMENT sur ces créneaux, même si l'ordinateur est éteint</li>
+        <li>Choisissez <strong>⚡ Continu 24h/24</strong> ou <strong>📅 Créneaux horaires</strong></li>
+        <li>En mode créneaux : cochez les jours actifs (Lun à Dim) et définissez les heures De/À pour chaque jour</li>
+        <li>Le Worker n'envoie qu'aux créneaux définis, même téléphone éteint</li>
       </ul>
-      <div class="notice-tip">💡 Exemple : cochez 13h, 14h, 15h, 16h + 5 emails/heure = maximum 20 emails/jour sur ces créneaux</div>
-      <div class="notice-tip">⚠️ Si la planification est désactivée, le Worker envoie en continu selon la cadence définie, 24h/24</div>
+      <div class="notice-tip">💡 Exemple noctune : Lun–Dim · 23h00→06h00 + 300/j = envoi automatique la nuit, 300 maximum, sans intervention</div>
     </div>
 
     <div id="notice-quotas" class="notice-section">
-      <div class="notice-title">📊 Quotas &amp; Multi-campagnes simultanées</div>
-      <p>Vous pouvez lancer <strong>plusieurs campagnes en même temps</strong>. Le système calcule automatiquement :</p>
+      <div class="notice-title">📊 Quotas &amp; Multi-campagnes</div>
+      <p>Vous pouvez lancer <strong>plusieurs campagnes simultanément</strong>. Le Dashboard affiche en temps réel :</p>
       <ul>
-        <li>Le quota total consommé par toutes les campagnes actives</li>
-        <li>Le quota restant disponible avant dépassement</li>
-        <li>Une alerte rouge si vous risquez de dépasser la limite du provider</li>
+        <li>Le quota consommé par campagne (envoyés / limite du jour)</li>
+        <li>La position courante dans la liste de contacts (ex: <code>47/300</code>)</li>
+        <li>Une alerte rouge si la somme des limites dépasse le quota provider</li>
       </ul>
-      <div class="notice-tip">⚠️ Limites officielles : Gmail 500/jour (perso), Gmail Workspace 2000/jour, Outlook 300/jour. Au-delà, risque de bannissement.</div>
+      <div class="notice-tip">⚠️ Limites officielles : Gmail 500/j (perso), Gmail Workspace 2000/j, Outlook 300/j. Ne dépassez pas ces seuils sous peine de suspension.</div>
     </div>
 
     <div id="notice-quick" class="notice-section">
       <div class="notice-title">🚀 Envoi Rapide</div>
       <p>Pour envoyer un message <strong>ponctuel et urgent</strong> sans créer de campagne :</p>
       <ul>
-        <li>Rédigez votre email ou SMS directement</li>
-        <li>Collez les adresses ou numéros (des milliers d'un coup)</li>
-        <li>Cliquez "Envoyer maintenant" — envoi immédiat via le Worker</li>
-        <li>L'envoi est tracé dans le Dashboard</li>
+        <li>Rédigez votre email ou SMS directement dans l'éditeur</li>
+        <li>Collez les adresses ou numéros destinataires (des milliers d'un coup)</li>
+        <li>Cliquez "Envoyer maintenant" — envoi immédiat via le Worker Cloudflare</li>
+        <li>Chaque envoi est tracé dans le Dashboard et les Analytics</li>
       </ul>
-      <div class="notice-tip">💡 L'éditeur de l'Envoi Rapide supporte les mêmes fonctionnalités que l'éditeur Templates : images, liens, formatage.</div>
+      <div class="notice-tip">💡 L'éditeur de l'Envoi Rapide supporte les mêmes fonctionnalités que l'éditeur Templates : images, liens, vidéos, tableaux, variables.</div>
     </div>
 
     <div id="notice-templates" class="notice-section">
       <div class="notice-title">✏️ Templates &amp; Éditeur</div>
       <ul>
-        <li><strong>Éditeur Visuel</strong> : mise en forme complète (police, taille, couleurs, listes, alignement)</li>
-        <li><strong>Images</strong> : insérez par URL ou uploadez depuis votre appareil. Les images uploadées sont sauvegardées dans votre bibliothèque locale</li>
-        <li><strong>Liens cliquables</strong> : sur tout texte, image ou numéro de téléphone (tel://)</li>
-        <li><strong>Code HTML</strong> : collez directement votre HTML avec aperçu en direct</li>
-        <li><strong>Texte brut</strong> : pour les emails sans formatage</li>
+        <li><strong>Éditeur Visuel</strong> : mise en forme complète (police, taille, couleurs, alignement, listes)</li>
+        <li><strong>Images</strong> : insérez par URL ou uploadez — les images sont hébergées sur votre Worker Cloudflare (90 jours)</li>
+        <li><strong>Liens cliquables</strong> : sur texte, image ou numéro de téléphone (tap-to-call)</li>
+        <li><strong>Code HTML</strong> : collez votre HTML avec aperçu en direct</li>
         <li><strong>Auto-sauvegarde</strong> : toutes les 30 secondes + Ctrl+S</li>
-        <li><strong>Aperçu complet</strong> : rendu réel avec images et variables d'exemple</li>
       </ul>
-      <div class="notice-tip">💡 Les templates sauvegardés sont disponibles dans toutes vos campagnes via le sélecteur "Template email"</div>
+      <div class="notice-tip">⚠️ <strong>Templates = stockage local</strong> : les templates sont sauvegardés dans le navigateur (localStorage). Pour les transférer entre appareils : Réglages → Exporter JSON, puis importez sur l'autre appareil.</div>
     </div>
 
     <div id="notice-sms" class="notice-section">
       <div class="notice-title">💬 Campagnes SMS</div>
       <ul>
-        <li><strong>Numéros</strong> : copier-coller en masse, import fichier, import depuis contacts</li>
+        <li><strong>Numéros</strong> : copier-coller en masse, import fichier/Excel, import depuis contacts</li>
         <li><strong>Formats acceptés</strong> : +33, 06, 07, formats internationaux</li>
-        <li><strong>Automatisation identique</strong> aux emails : cadence, heures, jours, durée, ordre</li>
-        <li><strong>Provider SMS</strong> : Twilio, Vonage, ou tout service compatible (webhook personnalisé)</li>
+        <li><strong>Automatisation identique</strong> aux emails : cadence sec/min/h/j, heures, jours, durée, ordre</li>
+        <li><strong>Provider SMS</strong> : Twilio, Vonage, ou webhook personnalisé</li>
+        <li><strong>RGPD</strong> : mentionnez "STOP SMS" dans chaque message — obligatoire légalement</li>
       </ul>
+      <div class="notice-tip">⚠️ Interdit d'envoyer des SMS entre 22h et 8h et le dimanche matin avant 9h (loi française)</div>
     </div>
 
     <div id="notice-import" class="notice-section">
-      <div class="notice-title">📂 Import de fichiers</div>
+      <div class="notice-title">📂 Import de contacts</div>
       <ul>
-        <li><strong>CSV</strong> : colonnes auto-détectées (prénom, nom, email, téléphone, entreprise...)</li>
+        <li><strong>CSV</strong> : colonnes auto-détectées (prénom, nom, email, téléphone, entreprise, ville...)</li>
         <li><strong>Excel (.xlsx)</strong> : lecture directe, première ligne = en-têtes</li>
-        <li><strong>Copier-coller massif</strong> : collez des milliers d'adresses séparées par saut de ligne, virgule ou point-virgule</li>
-        <li><strong>Google Sheets</strong> : exportez en CSV depuis Google Sheets (Fichier → Télécharger → CSV) puis importez</li>
-        <li><strong>Google Docs / Word</strong> : copiez le contenu texte et collez dans la zone dédiée</li>
+        <li><strong>Copier-coller massif</strong> : des milliers d'adresses séparées par saut de ligne, virgule ou point-virgule</li>
+        <li><strong>Google Sheets</strong> : Fichier → Télécharger → CSV, puis importez</li>
       </ul>
     </div>
 
     <div id="notice-worker" class="notice-section">
-      <div class="notice-title">⚡ Cloudflare Worker — Le moteur 24h/24</div>
-      <p>Le Worker est <strong>indispensable</strong> pour que vos campagnes tournent sans votre ordinateur :</p>
+      <div class="notice-title">⚡ Cloudflare Worker v5.0 — Le moteur 24h/24</div>
+      <p>Le Worker est <strong>indispensable</strong> pour l'automatisation. Il tourne 24h/24 même appareil éteint :</p>
       <ol>
         <li>Créez un compte sur <a href="https://cloudflare.com" target="_blank" style="color:var(--purl)">cloudflare.com</a></li>
-        <li>Workers &amp; Pages → Créer → Créer un Worker</li>
-        <li>Collez le contenu du fichier <code style="color:var(--cyan)">worker.js</code></li>
-        <li>Allez dans Paramètres → Variables → KV Namespace Bindings → Ajoutez <code style="color:var(--cyan)">PGI_KV</code></li>
-        <li>Triggers → Cron Triggers → Ajoutez <code style="color:var(--cyan)">*/5 * * * *</code> (toutes les 5 minutes)</li>
+        <li>Workers &amp; Pages → Créer → Créer un Worker → collez le code Worker v5.0</li>
+        <li>Paramètres → Variables → KV Namespace Bindings → Ajoutez <code style="color:var(--cyan)">PGI_KV</code></li>
+        <li>Triggers → Cron Triggers → Ajoutez <code style="color:var(--cyan)">*/5 * * * *</code> (toutes les 5 min)</li>
+        <li>Secrets requis : <code style="color:var(--cyan)">GMAIL_CLIENT_ID</code>, <code style="color:var(--cyan)">GMAIL_CLIENT_SECRET</code>, <code style="color:var(--cyan)">GMAIL_REFRESH_TOKEN</code>, <code style="color:var(--cyan)">GMAIL_SENDER</code></li>
         <li>Copiez l'URL du Worker dans Réglages → Cloudflare Worker</li>
       </ol>
-      <div class="notice-tip">💡 Une fois configuré, vos campagnes tournent 24h/24, même téléphone éteint, même en voyage à l'autre bout du monde</div>
+      <div class="notice-tip">💡 Le Worker stocke tout dans Cloudflare KV : campagnes, contacts envoyés, analytics, statuts. La synchronisation entre appareils est automatique.</div>
     </div>
 
     <div id="notice-sync" class="notice-section">
-      <div class="notice-title">🌍 Accès multi-appareils (PC, iPhone, Android, tablette)</div>
-      <p>Hébergez votre fichier HTML sur <strong>GitHub Pages</strong> (gratuit) :</p>
+      <div class="notice-title">🌍 Synchronisation multi-appareils (v34)</div>
+      <p>Hébergez votre fichier HTML sur <strong>GitHub Pages</strong> (gratuit) pour y accéder de n'importe quel appareil :</p>
       <ol>
-        <li>Créez un repo GitHub et uploadez le fichier <code style="color:var(--cyan)">index.html</code></li>
+        <li>Créez un repo GitHub et uploadez le fichier comme <code style="color:var(--cyan)">index.html</code></li>
         <li>Settings → Pages → Source : main → Save</li>
-        <li>Votre URL sera <code style="color:var(--cyan)">https://votrecompte.github.io/nom-du-repo</code></li>
-        <li>Accédez depuis n'importe quel appareil, n'importe où dans le monde</li>
+        <li>Votre URL : <code style="color:var(--cyan)">https://votrecompte.github.io/nom-du-repo</code></li>
+        <li>Ouvrez cette URL sur téléphone, tablette, PC — tout est synchronisé</li>
       </ol>
-      <div class="notice-tip">💡 Le Worker Cloudflare stocke toutes vos campagnes dans KV Storage. Quand vous ouvrez l'app sur un autre appareil, elle se synchronise automatiquement avec le Worker.</div>
+      <p><strong>Ce qui se synchronise automatiquement</strong> (via Worker KV) :</p>
+      <ul>
+        <li>✅ Campagnes actives — statut, contacts envoyés, position courante, quota du jour</li>
+        <li>✅ Pause/Reprise — pausez sur téléphone, reprenez sur PC au même contact</li>
+        <li>✅ Analytics — tous les envois, ouvertures, désabonnements</li>
+        <li>⚠️ Templates — stockage local uniquement (exportez JSON pour transférer)</li>
+      </ul>
+      <div class="notice-tip">💡 La sync est automatique toutes les 30 secondes. Cliquez 🔄 Sync dans le Dashboard pour une sync immédiate.</div>
     </div>
 
     <div id="notice-settings" class="notice-section">
       <div class="notice-title">⚙️ Réglages</div>
       <ul>
-        <li><strong>Compte email</strong> : Gmail (OAuth), Outlook (OAuth), ou adresse personnalisée libre</li>
-        <li><strong>Adresse par campagne</strong> : chaque campagne peut avoir son propre compte d'envoi</li>
-        <li><strong>Worker Cloudflare</strong> : URL + test de connexion</li>
-        <li><strong>SMS</strong> : Twilio, Vonage, ou webhook personnalisé (n'importe quel fournisseur)</li>
-        <li><strong>Export</strong> : sauvegarde complète de toutes vos données en JSON</li>
+        <li><strong>Compte email</strong> : Gmail (OAuth GIS), Outlook (OAuth), ou adresse personnalisée</li>
+        <li><strong>Adresse par campagne</strong> : chaque campagne peut utiliser un compte d'envoi différent</li>
+        <li><strong>Worker Cloudflare</strong> : URL + test de connexion en un clic</li>
+        <li><strong>SMS</strong> : Twilio, Vonage, ou webhook personnalisé (tout provider compatible)</li>
+        <li><strong>Export JSON</strong> : sauvegarde complète de toutes vos données (contacts, campagnes, templates, analytics)</li>
       </ul>
     </div>
 
     <div id="notice-tracking" class="notice-section">
       <div class="notice-title">📈 Tracking &amp; Analytics</div>
       <ul>
-        <li><strong>Google Analytics 4</strong> : chaque action trackée (ouverture vue, lancement campagne, envoi rapide...)</li>
-        <li><strong>Dashboard interne</strong> : taux d'ouverture email, SMS lus, désabonnés, erreurs</li>
+        <li><strong>Dashboard</strong> : taux d'ouverture email, SMS lus, désabonnés, erreurs, position courante par campagne</li>
         <li><strong>Historique filtrable</strong> : par jour, semaine, mois ou période personnalisée</li>
-        <li><strong>Pixel de tracking email</strong> : le Worker insère un pixel 1x1 invisible dans chaque email pour détecter l'ouverture</li>
+        <li><strong>Pixel de tracking</strong> : le Worker insère un pixel invisible dans chaque email pour détecter l'ouverture</li>
+        <li><strong>Google Analytics 4</strong> : chaque action trackée (optionnel — remplacez <code style="color:var(--cyan)">G-XXXXXXXXXX</code> dans le code)</li>
       </ul>
-      <div class="notice-tip">⚠️ Pour activer GA4 : remplacez <code style="color:var(--cyan)">G-XXXXXXXXXX</code> par votre ID de mesure Google Analytics dans le code source (ligne ~20)</div>
     </div>
 
   </div>
@@ -1824,9 +1853,15 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
         </div>
       </div>
       <div class="fc">
-        <label class="fl">Emails (optionnel — un par ligne)</label>
-        <textarea class="fta" id="list-emails-inp" style="min-height:100px;font-family:var(--mono);font-size:11px" placeholder="jean@gmail.com&#10;marie@outlook.fr&#10;pierre@yahoo.com&#10;&#10;→ Tu peux aussi les ajouter plus tard" oninput="countListModalEmails()"></textarea>
-        <div id="list-emails-cnt" style="font-size:9px;color:var(--text3);margin-top:3px">0 email(s) détecté(s)</div>
+        <label class="fl">Emails — collez ou importez un fichier</label>
+        <div style="display:flex;gap:5px;margin-bottom:7px;flex-wrap:wrap">
+          <label class="btn-sm" style="cursor:pointer;background:rgba(0,255,136,.08);border-color:rgba(0,255,136,.25);color:var(--grn)" title="CSV ou TXT">📁 CSV/TXT<input type="file" accept=".csv,.txt" style="display:none" onchange="importFileIntoListModal(this)"></label>
+          <label class="btn-sm" style="cursor:pointer;background:rgba(0,255,136,.08);border-color:rgba(0,255,136,.25);color:var(--grn)" title="Excel">📊 Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importExcelIntoListModal(this)"></label>
+          <label class="btn-sm" style="cursor:pointer;background:rgba(0,255,136,.08);border-color:rgba(0,255,136,.25);color:var(--grn)" title="Document Word">📝 Word<input type="file" accept=".docx" style="display:none" onchange="importDocxIntoListModal(this)"></label>
+          <button class="btn-sm" style="background:rgba(0,232,255,.08);border-color:rgba(0,232,255,.25);color:var(--cyan)" onclick="importGSheetsIntoListModal()" title="Google Sheets public">📋 G.Sheets</button>
+        </div>
+        <textarea class="fta" id="list-emails-inp" style="min-height:80px;font-family:var(--mono);font-size:11px" placeholder="jean@gmail.com&#10;marie@outlook.fr&#10;→ Collez ici ou importez un fichier ci-dessus" oninput="countListModalEmails()"></textarea>
+        <div id="list-emails-cnt" style="font-size:9px;color:var(--text3);margin-top:3px"></div>
       </div>
     </div>
     <div class="mbtns">
@@ -1847,6 +1882,10 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
     </div>
     <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
       <span id="mlv-cnt-lbl" style="font-size:10px;color:var(--text2);display:flex;align-items:center"></span>
+      <label class="btn-sm" style="cursor:pointer;background:rgba(0,255,136,.08);border-color:rgba(0,255,136,.25);color:var(--grn)" title="Fichier texte ou CSV">📁 CSV/TXT<input type="file" accept=".csv,.txt" style="display:none" onchange="importFileIntoList(this)"></label>
+      <label class="btn-sm" style="cursor:pointer;background:rgba(0,255,136,.08);border-color:rgba(0,255,136,.25);color:var(--grn)" title="Fichier Excel">📊 Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importExcelIntoList(this)"></label>
+      <label class="btn-sm" style="cursor:pointer;background:rgba(0,255,136,.08);border-color:rgba(0,255,136,.25);color:var(--grn)" title="Document Word .docx">📝 Word<input type="file" accept=".docx" style="display:none" onchange="importDocxIntoList(this)"></label>
+      <button class="btn-sm" style="background:rgba(0,232,255,.08);border-color:rgba(0,232,255,.25);color:var(--cyan)" onclick="importGSheetsIntoList()" title="Google Sheets public — URL de partage">📋 G.Sheets</button>
       <button class="btn-sm" onclick="exportListEmails()" style="margin-left:auto">⬇ Exporter .txt</button>
       <button class="btn-sm" style="background:rgba(255,34,68,.1);border-color:rgba(255,34,68,.3);color:var(--red)" onclick="clearListEmails()">🗑 Vider</button>
     </div>
@@ -1874,6 +1913,22 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
   </div>
 </div>
 
+<!-- ── Modale PGI custom : remplace confirm() et prompt() natifs ── -->
+<div class="overlay" id="pgi-dialog" style="z-index:99999;display:none;align-items:center;justify-content:center;">
+  <div class="modal" style="max-width:400px;width:90%" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <span id="pgi-dialog-icon" style="font-size:20px">⚠️</span>
+      <span style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--purl)">PGI • Send Station</span>
+    </div>
+    <div id="pgi-dialog-msg" style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:14px;white-space:pre-line"></div>
+    <input type="text" id="pgi-dialog-inp" class="fi" style="display:none;margin-bottom:12px" placeholder="">
+    <div class="mbtns">
+      <button class="btn-s" id="pgi-dialog-cancel" style="flex:1">Annuler</button>
+      <button class="btn-p" id="pgi-dialog-ok" style="flex:2">OK</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 <!-- ═══════════════════════════════════════════════════
      BIBLIOTHÈQUES EXTERNES
@@ -1883,6 +1938,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
 ═══════════════════════════════════════════════════ -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 
 <!-- Google Analytics 4 — remplacer G-XXXXXXXXXX par ton ID de mesure -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
@@ -2049,7 +2105,12 @@ function showView(name) {
   if (bottomBtn) bottomBtn.classList.add('active');
   S.currentView = name;
   checkMobFABs();
-  if (name === 'quick') updateQSTplSelect();
+  if (name === 'quick') {
+    updateQSTplSelect();
+    // Mettre à jour les compteurs au cas où des données sont déjà dans les zones
+    updateQSEmailCnt();
+    updateQSSMSToCnt();
+  }
   // ── Tracking Google Analytics 4
   track('page_view', { page_title: name, page_location: window.location.href + '#' + name });
   // ── Rafraîchir le dashboard quota si vue email/sms
@@ -2138,6 +2199,62 @@ function toast(msg, type='info') {
   t._t = setTimeout(() => { t.className = type; }, 4000);
 }
 
+/* ── Modale confirm/prompt custom — remplace les natives ── */
+function pgiConfirm(msg, icon) {
+  return new Promise(function(resolve) {
+    var d  = $('pgi-dialog');
+    var ic = $('pgi-dialog-icon');
+    var m  = $('pgi-dialog-msg');
+    var inp= $('pgi-dialog-inp');
+    var ok = $('pgi-dialog-ok');
+    var ca = $('pgi-dialog-cancel');
+    if (!d) { resolve(window.confirm(msg)); return; }
+    if (ic) ic.textContent = icon || '⚠️';
+    if (m)  m.textContent  = msg;
+    if (inp) inp.style.display = 'none';
+    d.style.display = 'flex';
+    function cleanup(result) {
+      d.style.display = 'none';
+      ok.removeEventListener('click', onOk);
+      ca.removeEventListener('click', onCancel);
+      resolve(result);
+    }
+    function onOk()     { cleanup(true);  }
+    function onCancel() { cleanup(false); }
+    ok.addEventListener('click', onOk);
+    ca.addEventListener('click', onCancel);
+  });
+}
+
+function pgiPrompt(msg, defaultVal, icon) {
+  return new Promise(function(resolve) {
+    var d  = $('pgi-dialog');
+    var ic = $('pgi-dialog-icon');
+    var m  = $('pgi-dialog-msg');
+    var inp= $('pgi-dialog-inp');
+    var ok = $('pgi-dialog-ok');
+    var ca = $('pgi-dialog-cancel');
+    if (!d) { resolve(window.prompt(msg, defaultVal||'')); return; }
+    if (ic) ic.textContent = icon || '✏️';
+    if (m)  m.textContent  = msg;
+    if (inp) { inp.style.display='block'; inp.value=defaultVal||''; setTimeout(function(){inp.focus();},100); }
+    d.style.display = 'flex';
+    function cleanup(result) {
+      d.style.display = 'none';
+      ok.removeEventListener('click', onOk);
+      ca.removeEventListener('click', onCancel);
+      inp.removeEventListener('keydown', onKey);
+      resolve(result);
+    }
+    function onOk()     { cleanup(inp ? inp.value : ''); }
+    function onCancel() { cleanup(null); }
+    function onKey(e)   { if (e.key === 'Enter') onOk(); if (e.key === 'Escape') onCancel(); }
+    ok.addEventListener('click', onOk);
+    ca.addEventListener('click', onCancel);
+    if (inp) inp.addEventListener('keydown', onKey);
+  });
+}
+
 // ═══════════════════════════════════════════════════════
 //  AUTH & PROVIDER
 // ═══════════════════════════════════════════════════════
@@ -2187,8 +2304,11 @@ function connectAuth() {
     initGIS();
     if (S.tokenClient) S.tokenClient.requestAccessToken();
     else toast('Google Identity Services en chargement...', 'warn');
+  } else if (S.prov === 'outlook') {
+    // Outlook via Azure AD MSAL — instructions claires
+    showModal('modal-outlook-help');
   } else {
-    toast('Pour Outlook: entrez votre Azure App Client ID dans ce champ', 'info');
+    toast('Adresse personnalisée enregistrée — les emails partiront avec cet expéditeur', 'success');
   }
 }
 
@@ -2235,14 +2355,15 @@ function updateWorkerUI() {
   const dot  = $('wdot');
   const st   = $('sw-st');
   if (S.wurl) {
+    // URL configurée → vert par défaut, sera mis en rouge si le ping échoue
     chip.className = 'wchip ok';
     dot.classList.remove('p');
-    lbl.textContent = 'Worker actif';
+    lbl.textContent = 'Worker configuré';
     if (st) { st.textContent = '✓ Configuré'; st.style.color = 'var(--grn)'; }
   } else {
     chip.className = 'wchip warn';
     dot.classList.add('p');
-    lbl.textContent = 'Worker';
+    lbl.textContent = 'Worker non configuré';
     if (st) { st.textContent = 'Non configuré'; st.style.color = 'var(--yel)'; }
   }
 }
@@ -2250,15 +2371,28 @@ function updateWorkerUI() {
 async function testWorker() {
   if (!S.wurl) { toast('URL Worker manquante', 'warn'); return; }
   toast('Test en cours...', 'info');
+  const lbl = $('wlbl');
+  const dot = $('wdot');
   try {
     const r = await fetch(S.wurl + '/ping');
     const d = await r.json();
     if (d.ok) {
       $('wchip').className = 'wchip ok';
+      if (dot) dot.classList.remove('p');
+      if (lbl) lbl.textContent = 'Worker actif';
       toast('✓ Worker opérationnel', 'success');
       if (d.lastRun && $('sw-last')) $('sw-last').textContent = fDt(d.lastRun);
-    } else { toast('Worker ne répond pas correctement', 'warn'); }
-  } catch { $('wchip').className = 'wchip err'; toast('Worker inaccessible', 'error'); }
+    } else {
+      $('wchip').className = 'wchip warn';
+      if (lbl) lbl.textContent = 'Worker — réponse incorrecte';
+      toast('Worker ne répond pas correctement', 'warn');
+    }
+  } catch {
+    $('wchip').className = 'wchip err';
+    if (dot) dot.classList.add('p');
+    if (lbl) lbl.textContent = 'Worker inactif';
+    toast('Worker inaccessible', 'error');
+  }
 }
 
 async function syncW(ep, data) {
@@ -2294,14 +2428,19 @@ async function syncFromWorker() {
         data.campaigns.forEach(function(wc) {
           var local = S.camps.find(function(c){ return c.id == wc.id; });
           if (!local) return;
-          // Mettre à jour les compteurs depuis le Worker
-          if (wc.sent      !== undefined && wc.sent      > (local.sent||0))      { local.sent      = wc.sent;      updated++; }
-          if (wc.opened    !== undefined && wc.opened    > (local.opened||0))    { local.opened    = wc.opened;    updated++; }
-          if (wc.errors    !== undefined && wc.errors    > (local.errors||0))    { local.errors    = wc.errors;    updated++; }
-          if (wc.unsubscribed !== undefined)                                       { local.unsubscribed = wc.unsubscribed; }
-          // Synchroniser dailySent pour quota correct
-          if (wc.dailySent !== undefined) { local.dailySent = wc.dailySent; local.dailyDate = new Date().toDateString(); updated++; }
-          // Statut (running → done, paused, etc.)
+          // Mettre à jour les compteurs depuis le Worker (prendre la valeur la plus haute)
+          if (wc.sent      !== undefined && wc.sent      > (local.sent||0))   { local.sent      = wc.sent;   updated++; }
+          if (wc.opened    !== undefined && wc.opened    > (local.opened||0)) { local.opened    = wc.opened; updated++; }
+          if (wc.errors    !== undefined && wc.errors    > (local.errors||0)) { local.errors    = wc.errors; updated++; }
+          if (wc.unsubscribed !== undefined) { local.unsubscribed = wc.unsubscribed; }
+          // Synchroniser dailySent SANS remettre à zéro (le Worker est la source de vérité)
+          if (wc.dailySent !== undefined) {
+            local.dailySent = wc.dailySent;
+            local.dailyDate = new Date().toDateString();
+            updated++;
+          }
+          // Statut (running → paused → done, etc.) — le Worker prime
+          var prevStatus = local.status;
           if (wc.status && wc.status !== local.status) {
             local.status = wc.status;
             updated++;
@@ -2312,7 +2451,6 @@ async function syncFromWorker() {
               var lContact = local.emailList.find(function(e){ return e.email === wContact.email; });
               if (lContact && wContact.status && wContact.status !== lContact.status) {
                 lContact.status = wContact.status;
-                // Si ouvert → mettre à jour aussi les analytics locaux
                 if (wContact.status === 'opened') {
                   for (var ai = S.analytics.length - 1; ai >= 0; ai--) {
                     if (S.analytics[ai].email === wContact.email && !S.analytics[ai].opened) {
@@ -2325,6 +2463,11 @@ async function syncFromWorker() {
               }
             });
           }
+          // Reconstruire le formulaire si statut a changé (ex: running→paused depuis un autre terminal)
+          if (local.status !== prevStatus) {
+            if (local.type === 'sms' && S.activeSMS === local.id)   { setTimeout(function(){ openCamp(local.id, 'sms'); },   50); }
+            if (local.type !== 'sms' && S.activeCamp === local.id)  { setTimeout(function(){ openCamp(local.id, 'email'); }, 50); }
+          }
         });
         if (updated > 0) {
           lsS(SK.camps, S.camps);
@@ -2332,15 +2475,7 @@ async function syncFromWorker() {
           renderCampList('sms');
           renderDashboard();
           updateStats();
-          // Rouvrir la campagne active si elle est affichée
-          if (S.activeCamp) {
-            var c = S.camps.find(function(x){ return x.id === S.activeCamp; });
-            if (c) openCamp(c.id, 'email');
-          }
-          if (S.activeSMS) {
-            var cs = S.camps.find(function(x){ return x.id === S.activeSMS; });
-            if (cs) openCamp(cs.id, 'sms');
-          }
+          refreshQuotaBanner();
         }
       }
     }
@@ -2386,28 +2521,51 @@ async function syncFromWorker() {
       }
     }
 
+
+    // 2b — Sync templates : stockés en localStorage local sur chaque appareil
+    // Les templates ne sont pas synchronisés via le Worker v5.0 (pas de route /sync/data)
+    // Pour partager des templates entre appareils : exporter (JSON) et importer sur l'autre appareil
+
+
     // 3 — Mettre à jour l'indicateur de dernière sync
     var chip = $('wchip');
     if (chip) chip.className = 'wchip ok';
     var now = new Date();
     var timeStr = now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0');
     var wlbl = $('wlbl');
-    if (wlbl) wlbl.textContent = 'Sync ' + timeStr;
+    if (wlbl) wlbl.textContent = 'Worker actif · ' + timeStr;
 
     // Mettre à jour la bannière de sync dans le dashboard
     var banner = $('sync-banner');
     var statusLbl = $('sync-status-lbl');
-    var lastLbl = $('sync-last-lbl');
+    var posLbl    = $('sync-pos-lbl');
+    var lastLbl   = $('sync-last-lbl');
     if (banner) banner.style.display = 'flex';
     if (statusLbl) {
-      var activeCamps = S.camps.filter(function(c){ return c.status === 'running'; });
+      var activeCamps  = S.camps.filter(function(c){ return c.status === 'running'; });
+      var pausedCamps  = S.camps.filter(function(c){ return c.status === 'paused'; });
       if (activeCamps.length > 0) {
-        statusLbl.innerHTML = '⚡ <strong style="color:var(--yel);">' + activeCamps.length + ' campagne(s) en cours</strong> — Le Worker envoie automatiquement';
+        statusLbl.innerHTML = '⚡ <strong style="color:var(--yel);">' + activeCamps.length + ' campagne(s) en cours</strong>' + (pausedCamps.length ? ' · ⏸ ' + pausedCamps.length + ' en pause' : '') + ' — Worker actif';
         statusLbl.style.color = 'var(--yel)';
+        // Afficher position de chaque campagne active
+        if (posLbl) {
+          var posLines = activeCamps.map(function(c) {
+            var firstPending = c.emailList.findIndex(function(e){ return e.status === 'pending'; });
+            var pos = firstPending === -1 ? c.emailList.length : firstPending + 1;
+            var todayStr2 = new Date().toDateString();
+            var sentToday2 = (c.dailyDate === todayStr2) ? (c.dailySent || 0) : 0;
+            return c.name + ' : ' + pos + '/' + c.emailList.length + ' · ' + sentToday2 + '/' + c.dailyLimit + ' aujourd\'hui';
+          });
+          posLbl.textContent = posLines.join(' | ');
+          posLbl.style.display = 'block';
+        }
       } else {
-        var provLbl = (window.QUOTAS && QUOTAS[S.prov]) ? QUOTAS[S.prov].lbl : S.prov;
-        statusLbl.innerHTML = '✅ <strong style="color:var(--grn);">Synchronisé</strong> — Provider : <strong style="color:var(--cyan);">' + provLbl + '</strong>';
-        statusLbl.style.color = 'var(--grn)';
+        var provLbl = (window.QUOTAS && QUOTAS[S.prov]) ? QUOTAS[S.prov].lbl : (S.prov.charAt(0).toUpperCase() + S.prov.slice(1));
+        statusLbl.innerHTML = pausedCamps.length
+          ? '⏸ <strong style="color:var(--yel);">' + pausedCamps.length + ' campagne(s) en pause</strong> — Cliquez ▶ Reprendre pour continuer'
+          : '✅ <strong style="color:var(--grn);">Synchronisé</strong> — Provider : <strong style="color:var(--cyan);">' + provLbl + '</strong>';
+        statusLbl.style.color = pausedCamps.length ? 'var(--yel)' : 'var(--grn)';
+        if (posLbl) posLbl.style.display = 'none';
       }
     }
     if (lastLbl) lastLbl.textContent = 'Dernière sync : ' + timeStr;
@@ -2415,6 +2573,8 @@ async function syncFromWorker() {
   } catch(e) {
     console.warn('syncFromWorker error:', e.message);
     var chip2 = $('wchip'); if (chip2) chip2.className = 'wchip err';
+    var wlbl2 = $('wlbl'); if (wlbl2) wlbl2.textContent = 'Worker inactif';
+    var dot2 = $('wdot'); if (dot2) dot2.classList.add('p');
     var statusLbl2 = $('sync-status-lbl');
     if (statusLbl2) { statusLbl2.innerHTML = '⚠️ <strong style="color:var(--red)">Worker inaccessible</strong> — Vérifiez l\'URL dans Réglages'; statusLbl2.style.color = 'var(--red)'; }
   }
@@ -2480,11 +2640,12 @@ function newCamp(type) {
       day7:{from:'10:00',to:'16:00'}
     },
     timeSlots: ['09:00','10:00','14:00','15:00'],
-    delayMin: 2, delayMax: 8,
+    delayMin: 0, delayMax: 1,
     pauseAfter: 0, pauseDuration: 0,
     sent: 0, opened: 0, errors: 0, unsubscribed: 0,
     campProvider: '',      // Provider spécifique à cette campagne (vide = défaut des Réglages)
     campFromEmail: '',     // Adresse email spécifique à cette campagne
+    attachments: [],       // Pièces jointes [{name, contentType, data(base64), size}]
     created: new Date().toISOString()
   };
   S.camps.push(c);
@@ -2493,9 +2654,18 @@ function newCamp(type) {
   openCamp(c.id, type);
 }
 
+// Debounce de la sync /campaigns — évite les dizaines d'appels lors des modifications
+var _saveCampsTimer = null;
 function saveCamps() {
   lsS(SK.camps, S.camps);
-  syncW('/campaigns', { campaigns: S.camps, accessToken: S.tok, provider: S.prov });
+  // Sync Worker différée : regroupe les modifications rapides (ex: sliders, toggles)
+  if (_saveCampsTimer) clearTimeout(_saveCampsTimer);
+  _saveCampsTimer = setTimeout(function() {
+    if (S.wurl) {
+      syncW('/campaigns', { campaigns: S.camps, accessToken: S.tok, provider: S.prov });
+    }
+    _saveCampsTimer = null;
+  }, 2000); // Attend 2s d'inactivité avant d'envoyer
   renderDashboard();
   updateStats();
 }
@@ -2515,7 +2685,7 @@ function renderCampList(type) {
       <div class="cr-name">${c.name}</div>
       <div class="cr-meta">
         <span class="stbadge ${stCls(c.status)}">${stLbl(c.status)}</span>
-        <span class="cr-cnt">${c.sent}/${c.emailList.length} · ${c.durationInfinite?'∞':c.durationH+'h'}</span>
+        <span class="cr-cnt">${c.emailList.length > 0 ? c.sent + '/' + c.emailList.length : 'Aucun contact'} · ${c.durationInfinite?'∞':c.durationH+'h'}</span>
       </div>
     </div>`).join('');
 }
@@ -2529,6 +2699,10 @@ function openCamp(id, type) {
   if (!det) return;
   det.innerHTML = buildCampForm(c);
   refreshEList(c);
+  if (type !== 'sms') {
+    // Rendre les pièces jointes après que le DOM est construit
+    setTimeout(function() { renderCampAttachments(id); }, 50);
+  }
   if (type === 'sms' && c.smsText) {
     const ta = $('sms-txt-' + c.id);
     if (ta) { ta.value = c.smsText; updSMSCnt(c.id); }
@@ -2560,23 +2734,26 @@ function buildCampForm(c) {
   h += '<button class="btn-ico" onclick="saveCamps();toast(\'✓ Sauvegardé\',\'success\')">💾</button>';
   if (c.status === 'running') {
     h += '<button class="btp" onclick="pauseCamp(' + c.id + ')">⏸ Pause</button>';
+  } else if (c.status === 'paused') {
+    h += '<button class="btn-sm" style="background:rgba(0,255,136,.12);border-color:rgba(0,255,136,.35);color:var(--grn);padding:8px 14px;font-size:11px;font-weight:800" onclick="resumeCamp(' + c.id + ')">▶ Reprendre</button>';
+    h += '<button class="btl ' + (isSMS ? 'pnk' : '') + '" style="opacity:.5" onclick="launchCamp(' + c.id + ')">↺ Relancer</button>';
   } else {
     h += '<button class="btl ' + (isSMS ? 'pnk' : '') + '" onclick="launchCamp(' + c.id + ')">▶ Lancer</button>';
   }
   h += '<button class="btd" onclick="delCamp(' + c.id + ',\'' + c.type + '\')">✕</button>';
   h += '</div></div>';
 
-  // ─── PROGRESSION
-  h += '<div class="prog-row">';
-  h += '<div class="prc prc-c"><div class="prv">' + c.emailList.length.toLocaleString() + '</div><div class="prl">CONTACTS</div></div>';
-  h += '<div class="prc prc-g"><div class="prv">' + c.sent.toLocaleString() + '</div><div class="prl">ENVOYÉS</div></div>';
-  h += '<div class="prc prc-y"><div class="prv">' + (isSMS ? (c.errors||0) : (c.opened||0)) + '</div><div class="prl">' + (isSMS ? 'ERREURS' : 'OUVERTS') + '</div></div>';
+  // ─── PROGRESSION avec IDs pour mise à jour live
+  h += '<div class="prog-row" id="prog-row-' + c.id + '">';
+  h += '<div class="prc prc-c"><div class="prv" id="prc-contacts-' + c.id + '">' + c.emailList.length.toLocaleString() + '</div><div class="prl">CONTACTS</div></div>';
+  h += '<div class="prc prc-g"><div class="prv" id="prc-sent-' + c.id + '">' + c.sent.toLocaleString() + '</div><div class="prl">ENVOYÉS</div></div>';
+  h += '<div class="prc prc-y"><div class="prv" id="prc-open-' + c.id + '">' + (isSMS ? (c.errors||0) : (c.opened||0)) + '</div><div class="prl">' + (isSMS ? 'ERREURS' : 'OUVERTS') + '</div></div>';
   h += '<div class="prc prc-o" style="position:relative">';
-  h += '<div class="prv">' + pct + '%</div><div class="prl">AVANCEMENT</div>';
+  h += '<div class="prv" id="prc-pct-' + c.id + '">' + pct + '%</div><div class="prl">AVANCEMENT</div>';
   h += '<button style="position:absolute;top:4px;right:4px;background:rgba(255,34,68,.09);border:1px solid rgba(255,34,68,.25);color:var(--red);border-radius:4px;font-size:9px;padding:2px 5px;cursor:pointer;font-family:var(--sans);font-weight:700;line-height:1" onclick="event.stopPropagation();resetCampStats(' + c.id + ')" title="Remettre les stats à zéro">🗑</button>';
   h += '</div>';
   h += '</div>';
-  h += '<div class="pbar"><div class="pfill" style="width:' + pct + '%;' + (isSMS ? 'background:linear-gradient(90deg,var(--pnk),var(--pur));' : '') + '"></div></div>';
+  h += '<div class="pbar"><div class="pfill" id="pbar-' + c.id + '" style="width:' + pct + '%;' + (isSMS ? 'background:linear-gradient(90deg,var(--pnk),var(--pur));' : '') + '"></div></div>';
 
   // ════════════════════════════════════════
   // SECTION 1 — DESTINATAIRES
@@ -2603,13 +2780,13 @@ function buildCampForm(c) {
     : 'jean@email.com\nmarie@gmail.com, pierre@yahoo.fr\nCollez des milliers d\'adresses d\'un coup — aucune limite dans l\'app';
   h += '<textarea class="bulk-ta" id="bulk-ta-' + c.id + '" placeholder="' + bulkPH + '" oninput="updBulkCnt(' + c.id + ')"></textarea>';
   h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:5px;">';
-  h += '<span id="bulk-cnt-' + c.id + '" style="font-size:9px;color:var(--text3);">0 adresse(s) valide(s)</span>';
+  h += '<span id="bulk-cnt-' + c.id + '" style="font-size:9px;color:var(--text3);"></span>';
   h += '<button class="ela" onclick="clearBulk(' + c.id + ')">✕ Vider</button></div>';
   h += '</div>';
 
   // Liste emails
   h += '<div class="el-wrap">';
-  h += '<div class="el-hd"><span class="el-cnt" id="elcnt-' + c.id + '">' + c.emailList.length.toLocaleString() + ' adresse(s)</span>';
+  h += '<div class="el-hd"><span class="el-cnt" id="elcnt-' + c.id + '">' + (c.emailList.length > 0 ? c.emailList.length.toLocaleString() + ' adresse(s)' : 'Aucune adresse') + '</span>';
   h += '<div class="el-acts">';
   if (!isSMS) h += '<button class="ela g" onclick="importFromContactList(' + c.id + ')">👥 Depuis contacts</button>';
   h += '<button class="ela y" onclick="resetSent(' + c.id + ')">↺ Recommencer</button>';
@@ -2696,6 +2873,24 @@ function buildCampForm(c) {
     h += '<button class="btn-sm grn" id="camp-prev-btn-' + c.id + '" onclick="prevCampTpl(' + c.id + ')" ' + (selTpl?'':'style="opacity:.4;cursor:not-allowed;" disabled') + '>👁 Aperçu</button>';
     h += '</div></div>';
 
+    // Pièces jointes pour campagnes email
+    h += '<div style="margin-top:8px;background:var(--bg3);border:1px solid var(--pur-b);border-radius:8px;padding:10px;">';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+    h += '<div>';
+    h += '<span style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--purl);">📎 Pièces jointes</span>';
+    var attCount = (c.attachments && c.attachments.length) ? ' <span style="background:var(--pur);color:#fff;border-radius:10px;padding:1px 6px;font-size:9px;font-weight:800">' + c.attachments.length + '</span>' : '';
+    h += attCount;
+    h += '</div>';
+    h += '<label class="btn-sm" style="cursor:pointer;background:var(--pur-bg);border-color:var(--pur-b);color:var(--purl)">+ Ajouter<input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.mp4,.mov,.docx,.xlsx,.csv,.txt,.zip" multiple style="display:none" onchange="addCampAttachments(this,' + c.id + ')"></label>';
+    h += '</div>';
+    h += '<div id="camp-attachments-' + c.id + '" style="display:flex;flex-wrap:wrap;gap:6px;min-height:20px;">';
+    if (!c.attachments || !c.attachments.length) {
+      h += '<span style="font-size:10px;color:var(--text3);font-style:italic">Aucune pièce jointe — sera envoyée à chaque destinataire si ajoutée</span>';
+    }
+    h += '</div>';
+    h += '<div style="font-size:9px;color:var(--text3);margin-top:7px;border-top:1px solid var(--b1);padding-top:6px">PDF, JPG, PNG, WebP, MP4, Word .docx, Excel .xlsx — Max 10 Mo/fichier · Envoyée à chaque membre de la liste</div>';
+    h += '</div>';
+
   } else {
     // SMS : Textarea enrichi simple
     h += '<div style="background:var(--bg3);border:1px solid rgba(255,45,120,.2);border-radius:8px 8px 0 0;padding:6px 12px;display:flex;gap:5px;flex-wrap:wrap;align-items:center;border-bottom:none;">';
@@ -2725,33 +2920,48 @@ function buildCampForm(c) {
   h += '<div class="ab-hd" onclick="togAB(this)"><div class="ab-ttl"><span class="ab-n">3</span>Automatisation &amp; Planification horaire</div><div class="ab-cv">▾</div></div>';
   h += '<div class="ab-body">';
 
-  // Sliders cadence + limite
-  var fillRph = Math.round(((c.ratePerHour - 1) / (100000 - 1)) * 100);
-  var logRph = Math.round((Math.log(Math.max(1,c.ratePerHour)) / Math.log(100000)) * 1000);
-  h += '<div class="sblock">';
-  h += '<div class="sbtop"><span class="slbl">' + (isSMS?'SMS':'Emails') + ' par minute</span>';
-  h += '<div style="display:flex;align-items:center;gap:6px;">';
-  h += '<input type="number" id="ni-rph-' + c.id + '" min="1" max="100000" value="' + c.ratePerHour + '" style="width:80px;background:var(--bg3);border:1px solid var(--b2);border-radius:6px;color:var(--yel);font-family:var(--mono);font-size:13px;font-weight:700;padding:3px 8px;outline:none;text-align:right;" onchange="updSlManual(' + c.id + ',\'ratePerHour\',this.value,\'rph\',100000)">';
-  h += '<span style="font-size:11px;color:var(--text3);">/ minute</span>';
-  h += '</div></div>';
-  h += '<div class="strk"><div class="sfill" id="sf-rph-' + c.id + '" style="background:var(--yel);width:' + (logRph/10) + '%;position:absolute;top:0;left:0;height:100%;border-radius:3px;"></div>';
-  h += '<input type="range" class="sr" min="0" max="1000" value="' + logRph + '" style="--val-pct:' + (logRph/10) + '%"';
-  h += ' oninput="var v=Math.round(Math.pow(100000,this.value/1000));if(v<1)v=1;document.getElementById(\'ni-rph-' + c.id + '\').value=v;this.style.setProperty(\'--val-pct\',(this.value/10)+\'%\');var sf=document.getElementById(\'sf-rph-' + c.id + '\');if(sf)sf.style.width=(this.value/10)+\'%\';updSl(' + c.id + ',\'ratePerHour\',v,\'rph\',100000);"';
-  h += ' onchange="var v=Math.round(Math.pow(100000,this.value/1000));if(v<1)v=1;updC(' + c.id + ',\'ratePerHour\',v);"></div>';
-  h += '<div class="smks"><span class="smk">1</span><span class="smk">10</span><span class="smk">100</span><span class="smk">1K</span><span class="smk">10K</span><span class="smk">100K</span></div></div>';
+  // ─── CADENCE INTELLIGENTE
+  var rSecEnabled = c.rateSecEnabled || false;
+  var rMinEnabled = (c.rateMinEnabled !== false);
+  var rHEnabled   = c.rateHEnabled  || false;
+  var rDEnabled   = (c.rateDEnabled !== false);
+  var rSec = c.rateSec || 1;
+  var rMin = c.rateMin || (c.ratePerHour||10);
+  var rH   = c.rateH   || Math.ceil((c.ratePerHour||10)*60);
+  var rDay = c.rateDay || (c.dailyLimit||300);
 
-  var logDay = Math.round((Math.log(Math.max(1,c.dailyLimit)) / Math.log(1000000)) * 1000);
-  h += '<div class="sblock">';
-  h += '<div class="sbtop"><span class="slbl">Limite maximum par jour</span>';
-  h += '<div style="display:flex;align-items:center;gap:6px;">';
-  h += '<input type="number" id="ni-day-' + c.id + '" min="1" max="1000000" value="' + c.dailyLimit + '" style="width:90px;background:var(--bg3);border:1px solid var(--b2);border-radius:6px;color:var(--yel);font-family:var(--mono);font-size:13px;font-weight:700;padding:3px 8px;outline:none;text-align:right;" onchange="updSlManual(' + c.id + ',\'dailyLimit\',this.value,\'day\',1000000)">';
-  h += '<span style="font-size:11px;color:var(--text3);">/ jour</span>';
-  h += '</div></div>';
-  h += '<div class="strk"><div class="sfill" id="sf-day-' + c.id + '" style="background:var(--yel);width:' + (logDay/10) + '%;position:absolute;top:0;left:0;height:100%;border-radius:3px;"></div>';
-  h += '<input type="range" class="sr" min="0" max="1000" value="' + logDay + '" style="--val-pct:' + (logDay/10) + '%"';
-  h += ' oninput="var v=Math.round(Math.pow(1000000,this.value/1000));if(v<1)v=1;document.getElementById(\'ni-day-' + c.id + '\').value=v;this.style.setProperty(\'--val-pct\',(this.value/10)+\'%\');var sf=document.getElementById(\'sf-day-' + c.id + '\');if(sf)sf.style.width=(this.value/10)+\'%\';updSl(' + c.id + ',\'dailyLimit\',v,\'day\',1000000);"';
-  h += ' onchange="var v=Math.round(Math.pow(1000000,this.value/1000));if(v<1)v=1;updC(' + c.id + ',\'dailyLimit\',v);"></div>';
-  h += '<div class="smks"><span class="smk">1</span><span class="smk">100</span><span class="smk">1K</span><span class="smk">10K</span><span class="smk">100K</span><span class="smk">1M</span></div></div>';
+  h += '<div style="background:var(--bg3);border:1px solid var(--b2);border-radius:10px;padding:14px;margin-bottom:14px;">';
+  h += '<div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--yel);margin-bottom:8px">⚡ Cadence d\'envoi</div>';
+  h += '<div style="font-size:9px;color:var(--text3);margin-bottom:10px;line-height:1.6">☑ Cochez les unités à activer — la contrainte la plus restrictive est appliquée.</div>';
+
+  function mkRateRow(label, field, enFld, val, enabled, unit, hint) {
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;">' +
+      '<input type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:var(--yel);flex-shrink:0" ' + (enabled?'checked':'') +
+      ' onchange="updC(' + c.id + ',\'' + enFld + '\',this.checked);recalcRate(' + c.id + ')" title="Activer/désactiver">' +
+      '<label style="font-size:10px;color:var(--text2);min-width:70px;flex-shrink:0">' + label + '</label>' +
+      '<input type="number" min="1" max="999999" value="' + val + '" ' +
+      'style="width:80px;background:var(--bg3);border:1px solid var(--b2);border-radius:6px;color:var(--yel);font-family:var(--mono);font-size:13px;font-weight:700;padding:3px 8px;outline:none;text-align:right" ' +
+      'onchange="updC(' + c.id + ',\'' + field + '\',+this.value);recalcRate(' + c.id + ')">' +
+      '<span style="font-size:10px;color:var(--text3)">' + unit + '</span>' +
+      '<span style="font-size:9px;color:var(--text3);flex:1">' + hint + '</span>' +
+      '</div>';
+  }
+
+  h += mkRateRow('Par seconde', 'rateSec', 'rateSecEnabled', rSec, rSecEnabled, '/s', '⚠ Max ~1/s plan gratuit');
+  h += mkRateRow('Par minute',  'rateMin', 'rateMinEnabled', rMin, rMinEnabled, '/min', '');
+  h += mkRateRow('Par heure',   'rateH',   'rateHEnabled',   rH,   rHEnabled,   '/h',  '');
+  h += mkRateRow('Par jour',    'rateDay', 'rateDEnabled',   rDay, rDEnabled,   '/j',  'Gmail perso = 500/j max');
+
+  h += '<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--b1);display:flex;align-items:center;gap:8px">';
+  h += '<div style="font-size:9px;color:var(--text3)">Cadence effective :</div>';
+  h += '<div style="font-family:var(--mono);font-size:13px;color:var(--yel);font-weight:800" id="rate-display-' + c.id + '"></div>';
+  h += '</div>';
+  h += '</div>';
+
+  // Après avoir rendu, recalculer l\'affichage
+  setTimeout(function(){ recalcRate(' + c.id + '); }, 0);
+
+  // Limite journalière intégrée dans rateDay ci-dessus
 
   // Durée
   h += '<div style="margin-bottom:14px;"><div class="slbl" style="display:block;margin-bottom:7px;">Durée totale</div><div class="dur-row">';
@@ -2771,14 +2981,14 @@ function buildCampForm(c) {
 
   // Ordre + fin liste
   var orders = [
-    {v:'inorder',l:"L'un après l'autre",i:'➡️',s:'Ordre CSV',col:'var(--cyan)'},
-    {v:'random', l:'Au hasard',          i:'🎲',s:'Aléatoire',  col:'var(--yel)'},
-    {v:'loop',   l:'En boucle',          i:'🔁',s:'Boucle ∞',   col:'var(--grn)'}
+    {v:'inorder',l:"1 après l'autre",  i:'➡️',s:'Ordre de la liste respecté',  col:'var(--cyan)'},
+    {v:'random', l:'Aléatoire',       i:'🎲',s:'Mélangé à chaque lancement',col:'var(--yel)'},
+    {v:'loop',   l:'Boucle aléatoire',i:'🔁',s:'Mélangé à chaque cycle',    col:'var(--grn)'}
   ];
   var eols = [
-    {v:'stop',    l:'Arrêter',     i:'🛑',s:'Fin immédiate',  col:'var(--red)'},
-    {v:'restart', l:'Recommencer', i:'↩️',s:'Depuis début',   col:'var(--grn)'},
-    {v:'resume',  l:'Reprendre',   i:'▶️',s:'Après arrêt',    col:'var(--purl)'}
+    {v:'stop',    l:'Terminer',              i:'🛑',s:'Arrête à la fin du cycle',        col:'var(--red)'},
+    {v:'restart', l:'Recommencer (même ordre)',i:'↩️',s:'Repart contact 1, même séquence',col:'var(--grn)'},
+    {v:'resume',  l:'Reboucler (ordre différent)',i:'🔀',s:'Idéal avec mode Aléatoire',col:'var(--purl)'}
   ];
   h += '<div style="margin-bottom:12px;"><div class="slbl" style="display:block;margin-bottom:7px;">Ordre d\'envoi</div><div class="mcards">';
   orders.forEach(function(o) {
@@ -2870,15 +3080,32 @@ function buildCampForm(c) {
     h += '</div>';
   }
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
-  h += '<div class="fc"><label class="fl">Délai min entre envois (sec)</label><input type="number" class="fi" value="' + (c.delayMin||2) + '" min="0" onchange="updC(' + c.id + ',\'delayMin\',+this.value)"></div>';
-  h += '<div class="fc"><label class="fl">Délai max entre envois (sec)</label><input type="number" class="fi" value="' + (c.delayMax||8) + '" min="0" onchange="updC(' + c.id + ',\'delayMax\',+this.value)"></div>';
+  h += '<div class="fc"><label class="fl">Délai min entre envois (sec)</label><input type="number" class="fi" value="' + (c.delayMin||0) + '" min="0" onchange="updC(' + c.id + ',\'delayMin\',+this.value)"></div>';
+  h += '<div class="fc"><label class="fl">Délai max entre envois (sec)</label><input type="number" class="fi" value="' + (c.delayMax||1) + '" min="0" onchange="updC(' + c.id + ',\'delayMax\',+this.value)"></div>';
   h += '</div>';
   h += '</div></div>';
 
-  // BOUTONS BAS
-  h += '<div style="padding:12px 18px;display:flex;gap:7px;flex-wrap:wrap;">';
+  // BOUTONS BAS — adaptatifs selon l'état de la campagne
+  h += '<div style="padding:12px 18px;display:flex;gap:7px;flex-wrap:wrap;border-top:1px solid var(--b1);">';
   h += '<button class="btn-ico" style="flex:1;padding:11px;" onclick="saveCampBodyAndAll(' + c.id + ');saveCamps();toast(\'✓ Sauvegardé\',\'success\')">💾 Sauvegarder</button>';
-  h += '<button class="btl ' + (isSMS?'pnk':'') + '" style="flex:2;justify-content:center;padding:11px;" onclick="launchCamp(' + c.id + ')">▶ Lancer la campagne</button>';
+
+  if (c.status === 'paused') {
+    // Campagne en PAUSE — proposer Reprendre ou Relancer
+    var remaining2 = c.emailList.filter(function(e){ return e.status === 'pending'; }).length;
+    h += '<button class="btl" style="flex:2;justify-content:center;padding:11px;background:rgba(0,255,136,.12);border-color:rgba(0,255,136,.35);color:var(--grn);" onclick="resumeCamp(' + c.id + ')" title="Reprend exactement là où la campagne s\'est arrêtée — compteurs préservés">';
+    h += '▶ Reprendre (' + remaining2.toLocaleString() + ' restant(s) · ' + (c.sent||0) + ' envoyés)';
+    h += '</button>';
+    h += '<button class="ela" style="color:var(--text3);flex-shrink:0" onclick="launchCamp(' + c.id + ')" title="Repart depuis le début — remet les contacts envoyés en attente">↺ Tout relancer</button>';
+  } else if (c.status === 'running') {
+    // Campagne EN COURS — proposer Pause
+    h += '<button class="btl" style="flex:2;justify-content:center;padding:11px;background:rgba(255,230,0,.1);border-color:rgba(255,230,0,.3);color:var(--yel);" onclick="pauseCamp(' + c.id + ')">⏸ Mettre en pause</button>';
+  } else if (c.status === 'done') {
+    // Campagne TERMINÉE — proposer relancer
+    h += '<button class="btl ' + (isSMS?'pnk':'') + '" style="flex:2;justify-content:center;padding:11px;opacity:.7;" onclick="launchCamp(' + c.id + ')">↺ Relancer depuis le début</button>';
+  } else {
+    // BROUILLON — proposer lancer
+    h += '<button class="btl ' + (isSMS?'pnk':'') + '" style="flex:2;justify-content:center;padding:11px;" onclick="launchCamp(' + c.id + ')">▶ Lancer la campagne</button>';
+  }
   h += '</div>';
 
   // Init toolbar après rendu DOM
@@ -3349,9 +3576,8 @@ function togSchedEnabled(id, row) {
 }
 
 function buildAS(c) {
-  const t   = c.emailList.length || '?';
-  const dn  = t !== '?' && !c.durationInfinite ? Math.ceil(t / c.dailyLimit) : '?';
-  const wkMax = calcWeekMax(c);
+  const t      = c.emailList.length || '?';
+  const wkMax  = calcWeekMax(c);
 
   // Résumé planification par jour
   const dayNames = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
@@ -3365,15 +3591,37 @@ function buildAS(c) {
     schedSummary = '<span style="color:var(--text3)">24h/24 (planification désactivée)</span>';
   }
 
+  // Cadence effective lisible
+  const rpm = c.ratePerHour || 10;
+  const cadenceLabel = rpm >= 60
+    ? Math.round(rpm/60) + '/h (' + rpm + '/min)'
+    : rpm < 1 ? (1/rpm).toFixed(0) + 's entre envois'
+    : rpm + '/min';
+
+  // Durée estimée en jours
+  const daysEst = (typeof t === 'number' && t > 0 && !c.durationInfinite && c.dailyLimit > 0)
+    ? Math.ceil(t / c.dailyLimit)
+    : '?';
+
+  // Contacts envoyés vs en attente
+  const sentCount  = c.emailList.filter(e => e.status === 'sent' || e.status === 'opened').length;
+  const pendCount  = c.emailList.filter(e => e.status === 'pending').length;
+  const errCount   = c.emailList.filter(e => e.status === 'error').length;
+
+  // Quota journalier : calcul du temps restant aujourd'hui
+  const todayStr  = new Date().toDateString();
+  const sentToday = (c.dailyDate === todayStr) ? (c.dailySent || 0) : 0;
+  const leftToday = Math.max(0, c.dailyLimit - sentToday);
+
   return `<div class="as-title">⚡ Résumé automatisation</div>
   <div class="as-grid">
-    <div class="as-row">Cadence <strong>${c.ratePerHour}/min</strong></div>
-    <div class="as-row">Limite <strong>${c.dailyLimit.toLocaleString()}/j</strong></div>
-    <div class="as-row">Durée <strong>${c.durationInfinite?'∞ Infini':c.durationH+'h'}</strong></div>
-    <div class="as-row">Contacts <strong>${typeof t === 'number' ? t.toLocaleString() : t}</strong></div>
-    <div class="as-row">Ordre <strong>${c.sendOrder==='inorder'?"L'un/l'autre":c.sendOrder==='random'?'Au hasard':'En boucle'}</strong></div>
-    <div class="as-row">Fin liste <strong>${c.endOfList==='stop'?'Arrêt':c.endOfList==='restart'?'Recommence':'Reprend'}</strong></div>
-    <div class="as-row">Jours estimés <strong>${dn}</strong></div>
+    <div class="as-row">Cadence <strong>${cadenceLabel}</strong></div>
+    <div class="as-row">Quota/j <strong style="color:${sentToday >= c.dailyLimit ? 'var(--red)' : 'var(--grn)'}">${sentToday.toLocaleString()}/${c.dailyLimit.toLocaleString()} <span style="font-size:9px;font-weight:400;color:var(--text3)">(${leftToday.toLocaleString()} restants)</span></strong></div>
+    <div class="as-row">Durée <strong>${c.durationInfinite ? '∞ Infini' : c.durationH + 'h'}</strong></div>
+    <div class="as-row">Contacts <strong>${typeof t === 'number' ? t.toLocaleString() : t} <span style="font-size:9px;font-weight:400;color:var(--grn)">✓${sentCount}</span> <span style="font-size:9px;font-weight:400;color:var(--text3)">⏳${pendCount}</span>${errCount ? '<span style="font-size:9px;font-weight:400;color:var(--red)"> ✕' + errCount + '</span>' : ''}</strong></div>
+    <div class="as-row">Ordre <strong>${c.sendOrder === 'inorder' ? "1 après l'autre" : c.sendOrder === 'random' ? 'Aléatoire' : 'Boucle aléatoire'}</strong></div>
+    <div class="as-row">Fin liste <strong>${c.endOfList === 'stop' ? 'Terminer' : c.endOfList === 'restart' ? 'Recommencer' : 'Reboucler'}</strong></div>
+    <div class="as-row">Jours estimés <strong>${daysEst}</strong></div>
     <div class="as-row">Max/semaine <strong>${wkMax.toLocaleString()}</strong></div>
   </div>
   <div style="margin-top:8px;font-size:10px;color:var(--text2);line-height:1.7">
@@ -3397,7 +3645,7 @@ function refreshEList(c) {
   const b  = $('elsc-' + c.id);
   const ct = $('elcnt-' + c.id);
   if (b)  b.innerHTML = buildEListHTML(c);
-  if (ct) ct.textContent = c.emailList.length + ' adresse(s)';
+  if (ct) ct.textContent = c.emailList.length > 0 ? c.emailList.length.toLocaleString() + ' adresse(s)' : 'Aucune adresse';
   const as = $('as-' + c.id);
   if (as) as.innerHTML = buildAS(c);
 }
@@ -3436,7 +3684,7 @@ function addBulkToList(id) {
   });
   ta.value = '';
   const cntEl = $('bulk-cnt-' + id);
-  if (cntEl) cntEl.textContent = '0 adresse(s) détectée(s)';
+  if (cntEl) cntEl.textContent = '';
 
   if (!toAdd.length) {
     toast('Aucun nouvel élément valide' + (dupes ? ' · ' + dupes + ' doublons' : ''), 'warn');
@@ -3467,23 +3715,30 @@ function clearBulk(id) {
   const ta = $('bulk-ta-' + id);
   if (ta) ta.value = '';
   const cntEl = $('bulk-cnt-' + id);
-  if (cntEl) cntEl.textContent = '0 adresse(s) détectée(s)';
+  if (cntEl) cntEl.textContent = '';
 }
 
-// Compteur live sur la zone de collage
+// Compteur live sur la zone de collage — appelé par oninput="updBulkCnt(id)"
+function updBulkCnt(id) {
+  const ta = $('bulk-ta-' + id);
+  const c  = S.camps.find(x => x.id === id);
+  const cntEl = $('bulk-cnt-' + id);
+  if (!ta || !c || !cntEl) return;
+  if (!ta.value.trim()) { cntEl.textContent = ''; return; }
+  const isSMS = c.type === 'sms';
+  const items = ta.value.split(/[\n,;\t]+/).map(x => x.trim()).filter(x => x.length > 3);
+  const valid = items.filter(item => isSMS
+    ? cleanPhone(item).match(/^(\+|00)?[0-9]{8,15}$/)
+    : isEmail(item.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g,''))
+  ).length;
+  cntEl.textContent = valid > 0 ? valid.toLocaleString() + ' adresse(s) valide(s) détectée(s)' : '';
+}
+
+// Fallback : listener générique bulk-ta (garde la compatibilité)
 document.addEventListener('input', e => {
   if (e.target && e.target.id && e.target.id.startsWith('bulk-ta-')) {
     const id = parseInt(e.target.id.replace('bulk-ta-',''));
-    const c = S.camps.find(x => x.id === id);
-    const cntEl = $('bulk-cnt-' + id);
-    if (!cntEl || !c) return;
-    const isSMS = c.type === 'sms';
-    const items = e.target.value.split(/[\n,;\t]+/).map(x => x.trim()).filter(x => x.length > 3);
-    const valid = items.filter(item => isSMS
-      ? cleanPhone(item).match(/^(\+|00)?[0-9]{8,15}$/)
-      : isEmail(item.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g,''))
-    ).length;
-    cntEl.textContent = valid.toLocaleString() + ' adresse(s) valide(s) détectée(s)';
+    updBulkCnt(id);
   }
 });
 
@@ -3513,8 +3768,8 @@ function removeEmail(id, idx) {
   saveCamps(); refreshEList(c);
 }
 
-function clearEList(id) {
-  if (!confirm('Vider toute la liste ?')) return;
+async function clearEList(id) {
+  if (!await pgiConfirm('Vider toute la liste ?')) return;
   const c = S.camps.find(x => x.id === id);
   if (!c) return;
   c.emailList = [];
@@ -3826,16 +4081,68 @@ function calcRangeMax(c) {
 function refreshQuotaBanner() {
   const banner = $('quota-global-banner');
   if (!banner) return;
+
+  const runningCamps = S.camps.filter(c => c.status === 'running' && c.type !== 'sms');
+  const pausedCamps  = S.camps.filter(c => c.status === 'paused');
   const q = getGlobalQuota();
-  if (q.committed === 0) { banner.className = 'quota-banner'; return; }
-  const html = `⚡ Quota ${S.prov} : <strong>${q.committed.toLocaleString()}</strong> engagés sur <strong>${q.limit.toLocaleString()}/j</strong> par les campagnes actives — Il reste <strong>${q.available.toLocaleString()}</strong> disponibles`;
-  banner.innerHTML = html;
+
+  if (!runningCamps.length && !pausedCamps.length) {
+    banner.className = 'quota-banner';
+    banner.innerHTML = '';
+    return;
+  }
+
+  const provLabel = (QUOTAS[S.prov]||QUOTAS.gmail).lbl;
+  const today = new Date().toDateString();
+  const sentToday = S.camps.filter(c=>c.type!=='sms').reduce((s,c)=>{
+    return s + ((c.dailyDate===today) ? (c.dailySent||0) : 0);
+  },0);
+
+  let rows = '';
+
+  // Campagnes actives
+  runningCamps.forEach(function(camp) {
+    const pct = camp.emailList.length ? Math.round((camp.sent/camp.emailList.length)*100) : 0;
+    const remaining = camp.emailList.filter(function(e){return e.status==='pending';}).length;
+    const rateLabel = camp.ratePerHour >= 60
+      ? Math.round(camp.ratePerHour/60)+'/h'
+      : camp.ratePerHour < 1 ? (1/camp.ratePerHour).toFixed(0)+'s/email'
+      : camp.ratePerHour+'/min';
+
+    rows += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,230,0,.1);flex-wrap:wrap">';
+    rows += '<span style="font-weight:800;color:var(--yel);min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">▶ ' + camp.name + '</span>';
+    rows += '<span style="font-family:var(--mono);font-size:11px;color:var(--grn);flex-shrink:0">' + camp.sent.toLocaleString() + '/' + camp.emailList.length.toLocaleString() + ' (' + pct + '%)</span>';
+    rows += '<span style="font-size:10px;color:var(--text2);flex-shrink:0">⚡ ' + rateLabel + '</span>';
+    rows += '<span style="font-size:10px;color:var(--text3);flex-shrink:0">' + remaining.toLocaleString() + ' restants</span>';
+    // Mini progress bar
+    rows += '<div style="width:100%;height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:2px"><div style="height:100%;border-radius:2px;background:var(--yel);width:'+pct+'%"></div></div>';
+    rows += '</div>';
+  });
+
+  // Campagnes en pause
+  pausedCamps.forEach(function(camp) {
+    const pct = camp.emailList.length ? Math.round((camp.sent/camp.emailList.length)*100) : 0;
+    rows += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,230,0,.1);flex-wrap:wrap;opacity:.7">';
+    rows += '<span style="font-weight:800;color:var(--text3);flex:1">⏸ ' + camp.name + '</span>';
+    rows += '<span style="font-family:var(--mono);font-size:11px;color:var(--text2)">' + camp.sent.toLocaleString() + '/' + camp.emailList.length.toLocaleString() + ' (' + pct + '%)</span>';
+    rows += '<button onclick="resumeCamp('+camp.id+')" style="background:rgba(0,255,136,.12);border:1px solid rgba(0,255,136,.3);color:var(--grn);border-radius:5px;font-size:9px;padding:2px 8px;cursor:pointer;font-weight:700">▶ Reprendre</button>';
+    rows += '</div>';
+  });
+
+  // Footer : quota du jour
+  const qColor = q.committed > q.limit ? 'var(--red)' : q.committed > q.safe ? 'var(--yel)' : 'var(--grn)';
+  const footer = '<div style="display:flex;align-items:center;gap:12px;padding-top:8px;flex-wrap:wrap">' +
+    '<span style="font-size:9px;color:var(--text3)">Provider : <strong style="color:var(--text2)">' + provLabel + '</strong></span>' +
+    '<span style="font-size:9px;color:var(--text3)">Quota jour : <strong style="color:'+qColor+'">' + sentToday.toLocaleString() + '/' + q.limit.toLocaleString() + '</strong></span>' +
+    '<span style="font-size:9px;color:var(--text3);flex:1">Disponible : <strong style="color:var(--grn)">' + Math.max(0, q.limit - sentToday).toLocaleString() + '</strong></span>' +
+    '</div>';
+
+  banner.innerHTML = rows + footer;
+
   if (q.committed > q.limit) {
     banner.className = 'quota-banner danger show';
-  } else if (q.committed > q.safe) {
-    banner.className = 'quota-banner warn show';
   } else {
-    banner.className = 'quota-banner'; // Caché si OK
+    banner.className = 'quota-banner warn show';
   }
 }
 
@@ -3947,8 +4254,19 @@ async function launchCamp(id) {
   c.status = 'running';
   c.startDate = c.startDate || new Date().toISOString().split('T')[0];
 
-  // Récupérer le contenu de l'éditeur intégré
-  var edEl = document.getElementById('camp-editor-' + id);
+  // Mélanger les contacts si ordre = au hasard
+  if (c.sendOrder === 'random') {
+    var pendingIdx = c.emailList.map(function(e,i){return {e,i};}).filter(function(x){return x.e.status==='pending';});
+    for (var ri = pendingIdx.length-1; ri > 0; ri--) {
+      var rj = Math.floor(Math.random()*(ri+1));
+      var tmp = c.emailList[pendingIdx[ri].i];
+      c.emailList[pendingIdx[ri].i] = c.emailList[pendingIdx[rj].i];
+      c.emailList[pendingIdx[rj].i] = tmp;
+    }
+  }
+
+  // Récupérer le contenu de l'éditeur intégré (ID = camp-rich-{id})
+  var edEl = document.getElementById('camp-rich-' + id);
   if (edEl && edEl.contentEditable === 'true') c.campBody = edEl.innerHTML;
   var sEl = document.getElementById('camp-subj2-' + id);
   if (sEl && sEl.value) c.subject = sEl.value;
@@ -3966,9 +4284,12 @@ async function launchCamp(id) {
     campaign_type: c.type,
     campaign_name: c.name,
     contacts_count: c.emailList.length,
-    rate_per_minute: c.ratePerHour, rate_per_hour: c.ratePerHour * 60, // ratePerHour field = per minute
+    rate_per_minute: c.ratePerHour || 10,
     daily_limit: c.dailyLimit
   });
+
+  // Calcul du rate effectif en messages/minute depuis les contraintes cochées
+  var effectiveRpm = c.ratePerHour || 10;
 
   await syncW('/campaign/launch', {
     campaign: c,
@@ -3979,18 +4300,15 @@ async function launchCamp(id) {
     accessToken:  S.tok,
     provider:     c.campProvider || S.prov,
     fromEmail:    c.campFromEmail || S.ce || S.email,
-    // Note : le refresh_token n'est pas disponible via GIS token flow.
-    // Le Worker re-demandera un nouveau token si le précédent expire.
-    // Pour les campagnes > 1h, re-lancez depuis l'app pour rafraîchir le token.
 
-    // Cadence (top-level pour que le Worker y accède directement)
-    rate_per_minute: c.ratePerHour,
+    // Cadence — rate_per_minute = messages envoyés par minute par le Worker
+    rate_per_minute: effectiveRpm,
 
     // Planification horaire
     schedule: {
-      enabled:          c.schedEnabled,
-      days:             c.days,
-      daySchedules:     c.daySchedules || {},
+      enabled:      c.schedEnabled,
+      days:         c.days,
+      daySchedules: c.daySchedules || {},
     },
 
     // Limites et durée
@@ -4012,10 +4330,13 @@ async function launchCamp(id) {
     },
 
     // Délais anti-bannissement
-    delayMin: c.delayMin || 2,
-    delayMax: c.delayMax || 8,
+    delayMin: c.delayMin || 0,
+    delayMax: c.delayMax || 1,
 
-    // URL du Worker lui-même (pour les liens de désinscription)
+    // Pièces jointes (base64) — envoyées à chaque destinataire
+    attachments: c.attachments || [],
+
+    // URL du Worker lui-même (pour les liens de désinscription + tracking ouverture)
     _workerOrigin: S.wurl ? S.wurl.replace(/\/+$/, '') : ''
   });
   saveCamps();
@@ -4029,16 +4350,93 @@ function pauseCamp(id) {
   const c = S.camps.find(x => x.id === id);
   if (!c) return;
   c.status = 'paused';
-  c.pausePosition = c.sent; // Save exact position
+  c.pausePosition = c.sent;
   syncW('/campaign/pause', {id, status: 'paused', pausePosition: c.pausePosition});
   saveCamps();
   renderCampList(c.type);
   openCamp(id, c.type);
-  toast('⏸ Pause — reprendra depuis le contact ' + c.pausePosition, 'info');
+  toast('⏸ Pause — ' + c.sent + ' envoyés. Cliquez ▶ Reprendre pour continuer.', 'info');
 }
 
-function delCamp(id, type) {
-  if (!confirm('Supprimer cette campagne ?')) return;
+
+/* ── Recalculer la cadence effective depuis les contraintes cochées ── */
+function recalcRate(id) {
+  var camp = S.camps.find(function(x){ return x.id === id; });
+  if (!camp) return;
+
+  // Convertir toutes les contraintes activées en emails/minute
+  var constraintsPerMin = [];
+
+  if (camp.rateSecEnabled && camp.rateSec > 0) {
+    constraintsPerMin.push(camp.rateSec * 60); // /s → /min
+  }
+  if (camp.rateMinEnabled !== false && camp.rateMin > 0) {
+    constraintsPerMin.push(camp.rateMin);
+  }
+  if (camp.rateHEnabled && camp.rateH > 0) {
+    constraintsPerMin.push(camp.rateH / 60); // /h → /min
+  }
+
+  // Calculer la cadence effective (minimum des contraintes)
+  var effectivePerMin = constraintsPerMin.length > 0
+    ? Math.max(0.001, Math.min.apply(null, constraintsPerMin))
+    : (camp.rateMin || 10);
+
+  // Arrondir intelligemment
+  var rounded = effectivePerMin >= 1
+    ? Math.round(effectivePerMin)
+    : Math.max(0.01, Math.round(effectivePerMin * 100) / 100);
+
+  camp.ratePerHour = rounded;
+
+  // Limite journalière depuis rateDay si activé
+  if (camp.rateDEnabled !== false && camp.rateDay > 0) {
+    camp.dailyLimit = camp.rateDay;
+  }
+
+  // Afficher
+  var disp = $('rate-display-' + id);
+  if (disp) {
+    var label = '';
+    if (rounded >= 60) label = Math.round(rounded/60) + '/h (' + rounded + '/min)';
+    else if (rounded < 1) label = (1/rounded).toFixed(0) + 's entre envois';
+    else label = rounded + '/min';
+    if (camp.dailyLimit) label += ' · max ' + camp.dailyLimit.toLocaleString() + '/j';
+    disp.textContent = label;
+    disp.style.color = rounded > 30 ? 'var(--yel)' : rounded > 8 ? 'var(--grn)' : 'var(--cyan)';
+  }
+
+  saveCamps();
+}
+
+async function resumeCamp(id) {
+  const c = S.camps.find(x => x.id === id);
+  if (!c) return;
+
+  const remaining = c.emailList.filter(x => x.status === 'pending').length;
+  if (!remaining) {
+    toast('Tous les contacts ont déjà été envoyés. Utilisez ↺ Tout relancer.', 'warn');
+    return;
+  }
+
+  c.status = 'running';
+  c.resumedAt = new Date().toISOString();
+
+  // ── REPRISE PROPRE : on appelle UNIQUEMENT /campaign/resume
+  // Le Worker change status→running et reprend les contacts pending
+  // sans toucher à dailySent, durationStarted, ni aucun compteur
+  await syncW('/campaign/resume', { id });
+
+  saveCamps();
+  renderCampList(c.type);
+  openCamp(id, c.type);
+  renderActiveCamps();
+  track('campaign_resume', { campaign_id: id, remaining });
+  toast('▶ Reprise — ' + remaining.toLocaleString() + ' contact(s) restant(s), compteurs préservés', 'success');
+}
+
+async function delCamp(id, type) {
+  if (!await pgiConfirm('Supprimer cette campagne ?')) return;
   S.camps = S.camps.filter(c => c.id !== id);
   if (type === 'sms') S.activeSMS = null; else S.activeCamp = null;
   saveCamps();
@@ -4385,17 +4783,21 @@ function importSMSQSFromContacts() {
 }
 
 function updateQSEmailCnt() {
-  const ta = $('qs-email-to');
+  const ta  = $('qs-email-to');
   const cnt = $('qs-email-cnt');
   if (!ta || !cnt) return;
-  cnt.textContent = parseQSEmails(ta.value).length + ' destinataire(s)';
+  const n = parseQSEmails(ta.value).length;
+  cnt.textContent = n > 0 ? n.toLocaleString() + ' destinataire(s)' : '';
+  cnt.style.color = n > 0 ? 'var(--grn)' : 'var(--text3)';
 }
 
 function updateQSSMSToCnt() {
-  const ta = $('qs-sms-to');
+  const ta  = $('qs-sms-to');
   const cnt = $('qs-sms-to-cnt');
   if (!ta || !cnt) return;
-  cnt.textContent = parseQSPhones(ta.value).length + ' numéro(s)';
+  const n = parseQSPhones(ta.value).length;
+  cnt.textContent = n > 0 ? n.toLocaleString() + ' numéro(s)' : '';
+  cnt.style.color = n > 0 ? 'var(--grn)' : 'var(--text3)';
 }
 
 function updQSSMSCnt() {
@@ -4422,26 +4824,47 @@ async function sendQuickEmail() {
   const toText = $('qs-email-to')?.value.trim();
   const emails = parseQSEmails(toText);
   if (!emails.length) { toast('Aucun email valide dans la zone destinataires', 'error'); return; }
-  // Récupère le corps depuis l'éditeur actif (visuel ou HTML brut)
+
   let body = getQSBody();
-  // Si un template est sélectionné, il écrase l'éditeur
-  if (tplId) {
-    const tpl = S.tpls.find(t => t.id == tplId);
-    if (tpl) body = tpl.content;
-  }
+  if (tplId) { const tpl = S.tpls.find(t => t.id == tplId); if (tpl) body = tpl.content; }
   if (!body || body === '<br>') { toast('Le corps du message est vide', 'error'); return; }
-  // ── Tracking GA4
+
+  const campName = 'Envoi rapide — ' + new Date().toLocaleDateString('fr-FR');
   track('quick_send_email', { recipients_count: emails.length, has_template: !!tplId });
   toast('Envoi en cours vers ' + emails.length + ' destinataire(s)...', 'info');
-  // Record in analytics
-  const campName = 'Envoi rapide — ' + new Date().toLocaleDateString('fr-FR');
+
+  // Enregistrement local analytics
   emails.forEach(email => {
-    S.analytics.push({type:'email', email, campaign:campName, date:new Date().toISOString(), status:'sent', opened:false, unsubscribed:false});
+    S.analytics.push({
+      type:'email', email, campaign:campName,
+      date:new Date().toISOString(), status:'sent',
+      opened:false, unsubscribed:false
+    });
   });
   lsS(SK.analytics, S.analytics);
-  await syncW('/quick-send', {type:'email', to:emails, subject:subj, body, accessToken:S.tok, provider:S.prov});
+
+  // Récupérer les pièces jointes si présentes
+  const attachments = S._qsAttachments || [];
+
+  await syncW('/quick-send', {
+    type:          'email',
+    to:            emails,
+    subject:       subj,
+    body,
+    accessToken:   S.tok,
+    provider:      S.prov,
+    fromEmail:     S.ce || S.email || '',
+    campName,
+    _workerOrigin: S.wurl ? S.wurl.replace(/\/+$/, '') : '',
+    attachments,
+  });
+
+  // Réinitialiser les pièces jointes après envoi
+  S._qsAttachments = [];
+  renderQSAttachments();
+
   updateStats();
-  toast('✓ ' + emails.length + ' email(s) envoyé(s)', 'success');
+  toast('✓ ' + emails.length + ' email(s) en file d\'envoi — tracking activé', 'success');
 }
 
 async function sendQuickSMS() {
@@ -4451,23 +4874,35 @@ async function sendQuickSMS() {
   const phones   = parseQSPhones(toText);
   if (!phones.length) { toast('Aucun numéro valide dans la zone destinataires', 'error'); return; }
   if (!body) { toast('Le message SMS est vide', 'error'); return; }
-  const isMMS = !!mediaUrl;
-  toast((isMMS?'MMS':'SMS')+' en cours vers ' + phones.length + ' numéro(s)...', 'info');
+  const isMMS    = !!mediaUrl;
+  const campName = (isMMS ? 'MMS' : 'SMS') + ' rapide — ' + new Date().toLocaleDateString('fr-FR');
+  toast((isMMS?'MMS':'SMS') + ' en cours vers ' + phones.length + ' numéro(s)...', 'info');
   track('quick_send_sms', { recipients_count: phones.length, is_mms: isMMS });
-  const campName = (isMMS?'MMS':'SMS') + ' rapide — ' + new Date().toLocaleDateString('fr-FR');
   phones.forEach(p => {
-    S.analytics.push({type:'sms', email:p, campaign:campName, date:new Date().toISOString(), status:'sent', opened:false, unsubscribed:false});
+    S.analytics.push({
+      type: 'sms', email: p, campaign: campName,
+      date: new Date().toISOString(), status: 'sent',
+      opened: false, unsubscribed: false
+    });
   });
   lsS(SK.analytics, S.analytics);
   await syncW('/quick-send', {
-    type: 'sms',
-    to: phones,
+    type:      'sms',
+    to:        phones,
     body,
-    mediaUrl,           // null si SMS texte, URL si MMS image
-    smsConfig: {provider:S.smsProv, apiKey:S.smsKey, apiSecret:S.smsSecret, from:S.smsFrom}
+    campName,
+    mediaUrl,
+    smsConfig: {
+      provider:    S.smsProv,
+      apiKey:      S.smsKey,
+      apiSecret:   S.smsSecret,
+      from:        S.smsFrom,
+      webhookUrl:  S.smsWebhook  || null,
+      webhookBody: S.smsWebhookBody || null
+    }
   });
   updateStats();
-  toast('✓ ' + phones.length + ' ' + (isMMS?'MMS':'SMS') + ' envoyé(s)', 'success');
+  toast('✓ ' + phones.length + ' ' + (isMMS?'MMS':'SMS') + ' en file d\'envoi', 'success');
 }
 
 // Attach live count events
@@ -4492,6 +4927,8 @@ function saveTpls(notify = true) {
   lsS(SK.tpls, S.tpls);
   updateStats();
   updateQSTplSelect();
+  // Templates = stockage localStorage uniquement (pas de route /data/save dans Worker v5.0)
+  // Export JSON disponible dans Réglages pour transférer entre appareils
   if (notify) {
     const dot = $('save-dot');
     if (dot) { dot.classList.add('show'); setTimeout(() => dot.classList.remove('show'), 2500); }
@@ -4532,10 +4969,10 @@ function closeTplPanel() {
 }
 
 /* Supprimer un template par son ID directement depuis la liste */
-function delTplById(id) {
+async function delTplById(id) {
   var t = S.tpls.find(function(x){return x.id===id;});
   if (!t) return;
-  if (!confirm('Supprimer le template "' + t.name + '" ?')) return;
+  if (!await pgiConfirm('Supprimer le template "' + t.name + '" ?')) return;
   S.tpls = S.tpls.filter(function(x){return x.id!==id;});
   if (S.activeTpl === id) {
     S.activeTpl = null;
@@ -4583,9 +5020,9 @@ function saveTpl(notify) {
   if (notify) toast('✓ Template sauvegardé — accessible depuis les campagnes', 'success');
 }
 
-function delTpl() {
+async function delTpl() {
   if (!S.activeTpl) return;
-  if (!confirm('Supprimer ce template ?')) return;
+  if (!await pgiConfirm('Supprimer ce template ?')) return;
   S.tpls = S.tpls.filter(t => t.id !== S.activeTpl);
   S.activeTpl = null;
   saveTpls(false);
@@ -4919,10 +5356,194 @@ function saveListEmails() {
   toast('✓ Liste "' + list.name + '" : ' + list.emails.length.toLocaleString() + ' emails sauvegardés', 'success');
 }
 
-function clearListEmails() {
-  if (!confirm('Vider tous les emails de cette liste ?')) return;
+async function clearListEmails() {
+  if (!await pgiConfirm('Vider tous les emails de cette liste ?')) return;
   var ta = $('mlv-emails');
   if (ta) { ta.value = ''; mlvCount(); }
+}
+
+/* ================================================================
+   PIÈCES JOINTES — Envoi rapide + Campagnes
+================================================================ */
+
+// État pièces jointes envoi rapide — initialisé dans S
+S._qsAttachments = S._qsAttachments || [];
+
+/* Convertir un File en base64 */
+function fileToBase64(file) {
+  return new Promise(function(resolve, reject) {
+    var r = new FileReader();
+    r.onload = function(e) {
+      var b64 = e.target.result.split(',')[1];
+      resolve(b64);
+    };
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+/* Icône selon le type de fichier */
+function attIcon(contentType) {
+  if (!contentType) return '📎';
+  if (contentType.startsWith('image/'))          return '🖼';
+  if (contentType === 'application/pdf')          return '📄';
+  if (contentType.startsWith('video/'))           return '🎬';
+  if (contentType.includes('spreadsheet') || contentType.includes('excel')) return '📊';
+  if (contentType.includes('word') || contentType.includes('document'))     return '📝';
+  return '📎';
+}
+
+/* Rendre la liste des pièces jointes de l'envoi rapide */
+function renderQSAttachments() {
+  var el = $('qs-attachments-list');
+  if (!el) return;
+  var list = S._qsAttachments || [];
+  if (!list.length) {
+    el.innerHTML = '<span style="font-size:10px;color:var(--text3);font-style:italic">Aucune pièce jointe — cliquez "+ Ajouter" pour en ajouter</span>';
+    return;
+  }
+  el.innerHTML = list.map(function(att, i) {
+    var sizeStr = att.size >= 1024*1024
+      ? (att.size/(1024*1024)).toFixed(1) + ' Mo'
+      : Math.round(att.size/1024) + ' Ko';
+    var icon = attIcon(att.contentType);
+    var isImg = att.contentType && att.contentType.startsWith('image/');
+    var preview = isImg
+      ? '<img src="data:' + att.contentType + ';base64,' + att.data + '" style="width:32px;height:32px;object-fit:cover;border-radius:4px;flex-shrink:0" alt="">'
+      : '<span style="font-size:22px;flex-shrink:0">' + icon + '</span>';
+    return '<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--pur-b);border-radius:8px;padding:8px 10px;min-width:0;flex:1 1 200px;max-width:280px">' +
+      preview +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + att.name + '">' + att.name + '</div>' +
+        '<div style="font-size:9px;color:var(--text3);margin-top:1px">' + sizeStr + '</div>' +
+      '</div>' +
+      '<button onclick="removeQSAttachment(' + i + ')" title="Supprimer cette pièce jointe" style="background:rgba(255,34,68,.1);border:1px solid rgba(255,34,68,.3);color:var(--red);border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;padding:3px 8px;flex-shrink:0;white-space:nowrap">✕ Retirer</button>' +
+    '</div>';
+  }).join('');
+}
+
+/* Ajouter des pièces jointes à l'envoi rapide */
+async function addQSAttachments(input) {
+  var files = Array.from(input.files || []);
+  if (!files.length) return;
+  if (!S._qsAttachments) S._qsAttachments = [];
+
+  var loaded = 0;
+  for (var f of files) {
+    if (f.size > 10 * 1024 * 1024) {
+      toast('❌ Fichier trop lourd : ' + f.name + ' (max 10 Mo)', 'error');
+      continue;
+    }
+    try {
+      var b64 = await fileToBase64(f);
+      S._qsAttachments.push({
+        name: f.name,
+        contentType: f.type || 'application/octet-stream',
+        data: b64,
+        size: f.size
+      });
+      loaded++;
+    } catch(e) {
+      toast('❌ Erreur lecture : ' + f.name, 'error');
+    }
+  }
+  renderQSAttachments();
+  // Mettre à jour le compteur dans le titre
+  var cntEl = $('qs-att-count');
+  if (cntEl) {
+    var n = S._qsAttachments.length;
+    cntEl.textContent = n > 0 ? '— ' + n + ' fichier' + (n > 1 ? 's' : '') : '';
+    cntEl.style.color = n > 0 ? 'var(--grn)' : 'var(--text3)';
+  }
+  if (loaded > 0) toast('✓ ' + loaded + ' pièce' + (loaded > 1 ? 's jointes' : ' jointe') + ' ajoutée' + (loaded > 1 ? 's' : '') + ' — visible ci-dessous', 'success');
+  input.value = '';
+}
+
+function removeQSAttachment(i) {
+  if (!S._qsAttachments) return;
+  var name = S._qsAttachments[i] ? S._qsAttachments[i].name : '';
+  S._qsAttachments.splice(i, 1);
+  renderQSAttachments();
+  var cntEl = $('qs-att-count');
+  if (cntEl) {
+    var n = S._qsAttachments.length;
+    cntEl.textContent = n > 0 ? '— ' + n + ' fichier' + (n > 1 ? 's' : '') : '';
+    cntEl.style.color = n > 0 ? 'var(--grn)' : 'var(--text3)';
+  }
+  if (name) toast('Pièce jointe "' + name + '" retirée', 'info');
+}
+
+/* Rendre la liste des pièces jointes d'une campagne */
+function renderCampAttachments(campId) {
+  var el = $('camp-attachments-' + campId);
+  if (!el) return;
+  var c = S.camps.find(function(x){ return x.id === campId; });
+  var list = (c && c.attachments) ? c.attachments : [];
+  if (!list.length) {
+    el.innerHTML = '<span style="font-size:10px;color:var(--text3);font-style:italic">Aucune pièce jointe — cliquez "+ Ajouter"</span>';
+    return;
+  }
+  el.innerHTML = list.map(function(att, i) {
+    var sizeStr = att.size >= 1024*1024
+      ? (att.size/(1024*1024)).toFixed(1) + ' Mo'
+      : Math.round(att.size/1024) + ' Ko';
+    var icon = attIcon(att.contentType);
+    var isImg = att.contentType && att.contentType.startsWith('image/');
+    var preview = isImg
+      ? '<img src="data:' + att.contentType + ';base64,' + att.data + '" style="width:32px;height:32px;object-fit:cover;border-radius:4px;flex-shrink:0" alt="">'
+      : '<span style="font-size:22px;flex-shrink:0">' + icon + '</span>';
+    return '<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--pur-b);border-radius:8px;padding:8px 10px;min-width:0;flex:1 1 200px;max-width:280px">' +
+      preview +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + att.name + '">' + att.name + '</div>' +
+        '<div style="font-size:9px;color:var(--text3);margin-top:1px">' + sizeStr + ' · sera envoyée à chaque destinataire</div>' +
+      '</div>' +
+      '<button onclick="removeCampAttachment(' + campId + ',' + i + ')" title="Supprimer cette pièce jointe" style="background:rgba(255,34,68,.1);border:1px solid rgba(255,34,68,.3);color:var(--red);border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;padding:3px 8px;flex-shrink:0;white-space:nowrap">✕ Retirer</button>' +
+    '</div>';
+  }).join('');
+}
+
+/* Ajouter des pièces jointes à une campagne */
+async function addCampAttachments(input, campId) {
+  var files = Array.from(input.files || []);
+  if (!files.length) return;
+  var c = S.camps.find(function(x){ return x.id === campId; });
+  if (!c) return;
+  if (!c.attachments) c.attachments = [];
+
+  var loaded = 0;
+  for (var f of files) {
+    if (f.size > 10 * 1024 * 1024) {
+      toast('❌ Fichier trop lourd : ' + f.name + ' (max 10 Mo)', 'error');
+      continue;
+    }
+    try {
+      var b64 = await fileToBase64(f);
+      c.attachments.push({
+        name: f.name,
+        contentType: f.type || 'application/octet-stream',
+        data: b64,
+        size: f.size
+      });
+      loaded++;
+    } catch(e) {
+      toast('❌ Erreur lecture : ' + f.name, 'error');
+    }
+  }
+  saveCamps();
+  renderCampAttachments(campId);
+  if (loaded > 0) toast('✓ ' + loaded + ' pièce' + (loaded > 1 ? 's jointes' : ' jointe') + ' ajoutée' + (loaded > 1 ? 's' : '') + ' à la campagne — visible ci-dessous', 'success');
+  input.value = '';
+}
+
+function removeCampAttachment(campId, i) {
+  var c = S.camps.find(function(x){ return x.id === campId; });
+  if (!c || !c.attachments) return;
+  var name = c.attachments[i] ? c.attachments[i].name : '';
+  c.attachments.splice(i, 1);
+  saveCamps();
+  renderCampAttachments(campId);
+  if (name) toast('Pièce jointe "' + name + '" retirée', 'info');
 }
 
 function exportListEmails() {
@@ -4939,12 +5560,200 @@ function exportListEmails() {
   toast('✓ Export ' + list.emails.length + ' emails', 'success');
 }
 
+/* ================================================================
+   IMPORT DANS UNE LISTE — modal-list-view (liste existante)
+================================================================ */
+
+/* Utilitaire : extraire les emails depuis un texte brut */
+function extractEmailsFromText(text) {
+  var lines = text.split(/[\n,;\t\r]+/);
+  var emails = [];
+  lines.forEach(function(line) {
+    var parts = line.trim().split(/\s+/);
+    parts.forEach(function(part) {
+      var clean = part.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '');
+      if (isEmail(clean)) emails.push(clean.toLowerCase());
+    });
+  });
+  return [...new Set(emails)];
+}
+
+/* Ajouter des emails à la textarea mlv-emails et mettre à jour le compteur */
+function appendEmailsToMlv(emails) {
+  var ta = $('mlv-emails');
+  if (!ta) return;
+  var existing = ta.value.trim();
+  ta.value = existing ? existing + '\n' + emails.join('\n') : emails.join('\n');
+  mlvCount();
+}
+
+/* Ajouter des emails à la textarea list-emails-inp (modal création) */
+function appendEmailsToListModal(emails) {
+  var ta = $('list-emails-inp');
+  if (!ta) return;
+  var existing = ta.value.trim();
+  ta.value = existing ? existing + '\n' + emails.join('\n') : emails.join('\n');
+  countListModalEmails();
+}
+
+/* Import CSV/TXT → liste existante */
+function importFileIntoList(input) {
+  var file = input.files[0]; if (!file) return;
+  var r = new FileReader();
+  r.onload = function(e) {
+    var emails = extractEmailsFromText(e.target.result);
+    if (!emails.length) { toast('Aucun email valide trouvé dans le fichier', 'warn'); return; }
+    appendEmailsToMlv(emails);
+    toast('✓ ' + emails.length.toLocaleString() + ' email(s) ajouté(s) depuis ' + file.name, 'success');
+  };
+  r.readAsText(file, 'UTF-8');
+  input.value = '';
+}
+
+/* Import Excel → liste existante */
+function importExcelIntoList(input) {
+  var file = input.files[0]; if (!file) return;
+  if (!window.XLSX) { toast('SheetJS non chargé — réessayez', 'warn'); return; }
+  var r = new FileReader();
+  r.onload = function(e) {
+    try {
+      var wb = XLSX.read(e.target.result, {type:'binary'});
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      var text = rows.map(function(row) { return row.join(' '); }).join('\n');
+      var emails = extractEmailsFromText(text);
+      if (!emails.length) { toast('Aucun email valide trouvé dans le fichier Excel', 'warn'); return; }
+      appendEmailsToMlv(emails);
+      toast('✓ ' + emails.length.toLocaleString() + ' email(s) importé(s) depuis ' + file.name, 'success');
+    } catch(err) { toast('Erreur lecture Excel : ' + err.message, 'error'); }
+  };
+  r.readAsBinaryString(file);
+  input.value = '';
+}
+
+/* Import Word .docx → liste existante */
+function importDocxIntoList(input) {
+  var file = input.files[0]; if (!file) return;
+  if (!window.mammoth) { toast('Librairie Word non chargée — réessayez', 'warn'); return; }
+  var r = new FileReader();
+  r.onload = function(e) {
+    mammoth.extractRawText({arrayBuffer: e.target.result}).then(function(result) {
+      var emails = extractEmailsFromText(result.value);
+      if (!emails.length) { toast('Aucun email valide trouvé dans le document Word', 'warn'); return; }
+      appendEmailsToMlv(emails);
+      toast('✓ ' + emails.length.toLocaleString() + ' email(s) importé(s) depuis ' + file.name, 'success');
+    }).catch(function(err) { toast('Erreur lecture Word : ' + err.message, 'error'); });
+  };
+  r.readAsArrayBuffer(file);
+  input.value = '';
+}
+
+/* Import Google Sheets public → liste existante
+   Fonctionne uniquement si le Sheet est partagé en lecture publique.
+   L'URL de partage est convertie en URL d'export CSV. */
+async function importGSheetsIntoList() {
+  var url = prompt('Collez l\'URL de votre Google Sheet (doit être public ou accessible via lien) :');
+  if (!url) return;
+  // Convertir URL Sheet en URL export CSV
+  var csvUrl = '';
+  var m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (!m) { toast('URL Google Sheets non reconnue', 'error'); return; }
+  var sheetId = m[1];
+  var gidMatch = url.match(/gid=(\d+)/);
+  var gid = gidMatch ? gidMatch[1] : '0';
+  csvUrl = 'https://docs.google.com/spreadsheets/d/' + sheetId + '/export?format=csv&gid=' + gid;
+  toast('Chargement du Google Sheet...', 'info');
+  try {
+    var resp = await fetch(csvUrl);
+    if (!resp.ok) throw new Error('Accès refusé — vérifiez que le Sheet est partagé en lecture publique');
+    var text = await resp.text();
+    var emails = extractEmailsFromText(text);
+    if (!emails.length) { toast('Aucun email valide trouvé dans le Google Sheet', 'warn'); return; }
+    appendEmailsToMlv(emails);
+    toast('✓ ' + emails.length.toLocaleString() + ' email(s) importé(s) depuis Google Sheets', 'success');
+  } catch(err) { toast('Erreur : ' + err.message, 'error'); }
+}
+
+/* ================================================================
+   IMPORT DANS UNE LISTE — modal-list (création de liste)
+================================================================ */
+
+function importFileIntoListModal(input) {
+  var file = input.files[0]; if (!file) return;
+  var r = new FileReader();
+  r.onload = function(e) {
+    var emails = extractEmailsFromText(e.target.result);
+    if (!emails.length) { toast('Aucun email valide trouvé', 'warn'); return; }
+    appendEmailsToListModal(emails);
+    toast('✓ ' + emails.length.toLocaleString() + ' email(s) chargé(s)', 'success');
+  };
+  r.readAsText(file, 'UTF-8');
+  input.value = '';
+}
+
+function importExcelIntoListModal(input) {
+  var file = input.files[0]; if (!file) return;
+  if (!window.XLSX) { toast('SheetJS non chargé — réessayez', 'warn'); return; }
+  var r = new FileReader();
+  r.onload = function(e) {
+    try {
+      var wb = XLSX.read(e.target.result, {type:'binary'});
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      var text = rows.map(function(row) { return row.join(' '); }).join('\n');
+      var emails = extractEmailsFromText(text);
+      if (!emails.length) { toast('Aucun email valide dans le fichier Excel', 'warn'); return; }
+      appendEmailsToListModal(emails);
+      toast('✓ ' + emails.length.toLocaleString() + ' email(s) importé(s)', 'success');
+    } catch(err) { toast('Erreur Excel : ' + err.message, 'error'); }
+  };
+  r.readAsBinaryString(file);
+  input.value = '';
+}
+
+function importDocxIntoListModal(input) {
+  var file = input.files[0]; if (!file) return;
+  if (!window.mammoth) { toast('Librairie Word non chargée', 'warn'); return; }
+  var r = new FileReader();
+  r.onload = function(e) {
+    mammoth.extractRawText({arrayBuffer: e.target.result}).then(function(result) {
+      var emails = extractEmailsFromText(result.value);
+      if (!emails.length) { toast('Aucun email valide dans le document Word', 'warn'); return; }
+      appendEmailsToListModal(emails);
+      toast('✓ ' + emails.length.toLocaleString() + ' email(s) importé(s) depuis Word', 'success');
+    }).catch(function(err) { toast('Erreur Word : ' + err.message, 'error'); });
+  };
+  r.readAsArrayBuffer(file);
+  input.value = '';
+}
+
+async function importGSheetsIntoListModal() {
+  var url = prompt('URL de votre Google Sheet (partagé en lecture publique) :');
+  if (!url) return;
+  var m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (!m) { toast('URL Google Sheets non reconnue', 'error'); return; }
+  var sheetId = m[1];
+  var gidMatch = url.match(/gid=(\d+)/);
+  var gid = gidMatch ? gidMatch[1] : '0';
+  var csvUrl = 'https://docs.google.com/spreadsheets/d/' + sheetId + '/export?format=csv&gid=' + gid;
+  toast('Chargement du Google Sheet...', 'info');
+  try {
+    var resp = await fetch(csvUrl);
+    if (!resp.ok) throw new Error('Accès refusé — vérifiez le partage public du Sheet');
+    var text = await resp.text();
+    var emails = extractEmailsFromText(text);
+    if (!emails.length) { toast('Aucun email valide trouvé dans le Google Sheet', 'warn'); return; }
+    appendEmailsToListModal(emails);
+    toast('✓ ' + emails.length.toLocaleString() + ' email(s) importé(s) depuis Google Sheets', 'success');
+  } catch(err) { toast('Erreur : ' + err.message, 'error'); }
+}
+
 /* Créer une nouvelle liste directement (sans ouvrir modal) */
 function newSimpleList() {
   // Réinitialiser le modal
   if ($('list-name-inp')) $('list-name-inp').value = '';
   if ($('list-emails-inp')) $('list-emails-inp').value = '';
-  if ($('list-emails-cnt')) $('list-emails-cnt').textContent = '0 email(s) détecté(s)';
+  if ($('list-emails-cnt')) $('list-emails-cnt').textContent = '';
   showModal('modal-list');
 }
 
@@ -4954,7 +5763,7 @@ function countListModalEmails() {
   var cnt = $('list-emails-cnt');
   if (!ta || !cnt) return;
   var emails = ta.value.split(/[\n,;]+/).map(function(x){return x.trim();}).filter(isEmail);
-  cnt.textContent = emails.length.toLocaleString() + ' email(s) détecté(s)';
+  cnt.textContent = emails.length > 0 ? emails.length.toLocaleString() + ' email(s) détecté(s)' : '';
 }
 
 function setActiveList(id) { S.activeList = id; renderLists(); renderContacts(); }
@@ -4983,8 +5792,8 @@ function createList() {
   toast(msg + ' ✓', 'success');
 }
 
-function delList(id) {
-  if (!confirm('Supprimer cette liste ?')) return;
+async function delList(id) {
+  if (!await pgiConfirm('Supprimer cette liste ?')) return;
   S.lists = S.lists.filter(l => l.id !== id);
   S.contacts.forEach(c => { if (c.listIds) c.listIds = c.listIds.filter(x => x !== id); });
   lsS(SK.lists, S.lists);
@@ -5398,40 +6207,78 @@ function renderDashboard() {
 /* ── Campagnes actives — tableau complet ────────────── */
 function renderActiveCamps() {
   const tbody = $('active-camps-body'); if (!tbody) return;
-  const actives = S.camps.filter(c => c.status === 'running');
+  const actives = S.camps.filter(c => c.status === 'running' || c.status === 'paused');
   if (!actives.length) {
-    tbody.innerHTML = '<tr><td colspan="10"><div class="empty" style="padding:16px"><p>Aucune campagne en cours</p></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10"><div class="empty" style="padding:16px"><p>Aucune campagne en cours ou en pause</p></div></td></tr>';
     return;
   }
   tbody.innerHTML = actives.map(c => {
-    const pct   = c.emailList.length ? Math.round((c.sent/c.emailList.length)*100) : 0;
-    const isSMS = c.type === 'sms';
-    const openRate = c.sent > 0 && !isSMS ? Math.round(((c.opened||0)/c.sent)*100) : 0;
-    const started = c.startDate ? fDt(c.startDate) : '—';
+    const total  = c.emailList.length;
+    const sent   = c.sent || 0;
+    const pct    = total ? Math.round((sent/total)*100) : 0;
+    const isSMS  = c.type === 'sms';
+    const openRate = sent > 0 && !isSMS ? Math.round(((c.opened||0)/sent)*100) : 0;
+
+    // Position courante = 1er contact encore pending
+    const firstPendingIdx = c.emailList.findIndex(e => e.status === 'pending');
+    const currentPos = firstPendingIdx === -1 ? total : firstPendingIdx + 1;
+    const posLabel = total
+      ? `<span style="font-family:var(--mono);font-size:11px;color:var(--cyan)">${currentPos.toLocaleString()}</span><span style="font-size:9px;color:var(--text3)">/${total.toLocaleString()}</span>`
+      : '<span style="color:var(--text3);font-size:10px">—</span>';
+
+    // Cadence lisible
+    const rpm = c.ratePerHour || 10;
+    const rateLabel = rpm >= 60
+      ? Math.round(rpm/60) + '/h'
+      : rpm < 1 ? (1/rpm).toFixed(0) + 's/msg'
+      : rpm + '/min';
+
+    // Limite journalière
+    const todayStr = new Date().toDateString();
+    const sentToday = (c.dailyDate === todayStr) ? (c.dailySent || 0) : 0;
+    const limitLabel = c.dailyLimit ? `${sentToday.toLocaleString()}/${c.dailyLimit.toLocaleString()}/j` : '—';
+
     const progBar = `<div style="display:flex;align-items:center;gap:6px">
       <div style="flex:1;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;min-width:60px">
-        <div style="height:100%;border-radius:2px;background:${isSMS?'var(--pnk)':'var(--pur)'};width:${pct}%"></div>
+        <div style="height:100%;border-radius:2px;background:${isSMS?'var(--pnk)':c.status==='paused'?'var(--yel)':'var(--pur)'};width:${pct}%"></div>
       </div>
-      <span style="font-family:var(--mono);font-size:10px;color:var(--purl)">${pct}%</span>
+      <span style="font-family:var(--mono);font-size:10px;color:${c.status==='paused'?'var(--yel)':'var(--purl)'}">${pct}%</span>
     </div>`;
-    return `<tr>
-      <td style="font-weight:700;color:var(--text);cursor:pointer" onclick="showView('${isSMS?'sms':'email'}');setTimeout(()=>openCamp(${c.id},'${c.type}'),50)">${c.name}</td>
+
+    const statusBadge = c.status === 'paused'
+      ? '<span class="stbadge st-pause">⏸ PAUSE</span>'
+      : '<span class="stbadge st-run">▶ EN COURS</span>';
+
+    const actionBtn = c.status === 'running'
+      ? `<div style="display:flex;gap:4px;flex-wrap:wrap">
+           <button class="btn-sm" style="padding:3px 8px;font-size:9px" onclick="pauseCamp(${c.id})">⏸ Pause</button>
+           <button class="btn-sm" style="padding:3px 8px;font-size:9px;background:rgba(255,34,68,.08);border-color:rgba(255,34,68,.25);color:var(--red)" onclick="if(confirm('Arrêter la campagne ?'))syncW('/campaign/stop',{id:${c.id}}).then(()=>{var cc=S.camps.find(x=>x.id===${c.id});if(cc){cc.status='done';saveCamps();}})">■ Stop</button>
+         </div>`
+      : `<div style="display:flex;gap:4px;flex-wrap:wrap">
+           <button class="btn-sm" style="padding:3px 8px;font-size:9px;background:rgba(0,255,136,.12);border-color:rgba(0,255,136,.35);color:var(--grn)" onclick="resumeCamp(${c.id})">▶ Reprendre</button>
+           <button class="btn-sm" style="padding:3px 8px;font-size:9px" onclick="showView('${isSMS?'sms':'email'}');setTimeout(()=>openCamp(${c.id},'${c.type}'),50)">✎ Éditer</button>
+         </div>`;
+
+    return `<tr style="opacity:${c.status==='paused'?'.8':'1'}">
+      <td style="cursor:pointer" onclick="showView('${isSMS?'sms':'email'}');setTimeout(()=>openCamp(${c.id},'${c.type}'),50)">
+        <div style="font-weight:700;color:var(--text);margin-bottom:3px">${c.name}</div>
+        ${statusBadge}
+        <div style="font-size:9px;color:var(--text3);margin-top:2px">${limitLabel}</div>
+      </td>
       <td><span style="font-size:8px;font-weight:800;padding:2px 6px;border-radius:3px;background:${isSMS?'rgba(255,45,120,.1)':'var(--pur-bg)'};color:${isSMS?'var(--pnk)':'var(--purl)'}">${isSMS?'SMS':'EMAIL'}</span></td>
-      <td style="font-family:var(--mono);color:var(--grn)">${c.sent.toLocaleString()}</td>
-      <td style="font-family:var(--mono)">${c.emailList.length.toLocaleString()}</td>
-      <td style="min-width:140px">
-        <div style="font-size:9px;font-weight:700;color:var(--grn);margin-bottom:3px">
-          ${c.sent.toLocaleString()}/${c.emailList.length.toLocaleString()} envoi${c.sent>1?'s':''} réussi${c.sent>1?'s':''}
+      <td style="font-family:var(--mono);color:var(--grn)">${sent.toLocaleString()}</td>
+      <td>${posLabel}</td>
+      <td style="min-width:120px">
+        <div style="font-size:9px;font-weight:700;color:${c.status==='paused'?'var(--yel)':'var(--grn)'};margin-bottom:3px">
+          ${sent.toLocaleString()}/${total.toLocaleString()}
         </div>
         ${progBar}
       </td>
-      <td style="font-family:var(--mono);color:var(--yel)">${c.ratePerHour}/h</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--yel)">${rateLabel}</td>
       <td style="font-family:var(--mono);color:var(--purl)">${isSMS?'—':(c.opened||0).toLocaleString()+' ('+openRate+'%)'}</td>
       <td style="font-family:var(--mono);color:${c.errors?'var(--red)':'var(--text3)'}">${c.errors||0}</td>
       <td style="font-size:10px;color:var(--text3)">${c.durationInfinite?'∞':c.durationH+'h'}</td>
-      <td>
-        <button class="btn-sm" style="padding:3px 8px;font-size:9px" onclick="pauseCamp(${c.id})">⏸</button>
-      </td>
+      <td style="white-space:nowrap">${actionBtn}</td>
     </tr>`;
   }).join('');
 }
@@ -5532,7 +6379,6 @@ function renderContactsQuick() {
   const total  = S.contacts.length;
   const active = S.contacts.filter(c => c.status !== 'unsubscribed').length;
   const unsub  = S.contacts.filter(c => c.status === 'unsubscribed').length;
-  // Ajouter les emails email-only des listes
   const emailsOnly = S.lists.filter(l => !l.system && l.emails && l.emails.length)
     .reduce((s, l) => s + l.emails.length, 0);
   const se = (id,v) => { const el=$(id); if(el) el.textContent=v.toLocaleString(); };
@@ -5542,8 +6388,12 @@ function renderContactsQuick() {
     const userLists = S.lists.filter(l => !l.system);
     el.innerHTML = userLists.length
       ? userLists.map(l => {
-          const cnt = S.contacts.filter(c => c.listIds?.includes(l.id)).length;
-          return `<span style="background:${l.color}22;border:1px solid ${l.color}44;color:${l.color};font-size:9px;font-weight:700;padding:3px 9px;border-radius:4px">${l.name} (${cnt.toLocaleString()})</span>`;
+          // Contacts liés via listIds
+          const contactsCnt = S.contacts.filter(c => c.listIds?.includes(l.id)).length;
+          // Emails-only dans la liste
+          const emailsCnt = (l.emails && l.emails.length) ? l.emails.length : 0;
+          const total = contactsCnt + emailsCnt;
+          return `<span style="background:${l.color}22;border:1px solid ${l.color}44;color:${l.color};font-size:9px;font-weight:700;padding:3px 9px;border-radius:4px;cursor:default" title="${total} contact(s) dans cette liste">${l.name} (${total.toLocaleString()})</span>`;
         }).join('')
       : '<span style="font-size:10px;color:var(--text3)">Aucune liste créée</span>';
   }
@@ -5660,20 +6510,32 @@ function renderAnalytics() {
   if (abody) {
     const shown = emailLogs.slice(0, analyticsShownCount);
     if (!shown.length) {
-      abody.innerHTML = `<tr><td colspan="6"><div class="empty" style="padding:16px"><p>Aucun email correspondant</p></div></td></tr>`;
+      abody.innerHTML = `<tr><td colspan="7"><div class="empty" style="padding:16px"><p>Aucun email correspondant</p></div></td></tr>`;
     } else {
       abody.innerHTML = shown.map(l => {
-        const stag  = l.status==='error' ? '<span class="tg tg-err">Erreur</span>' : '<span class="tg tg-sent">Envoyé</span>';
-        const openLabel = l.opened ? ('✓ Ouvert' + (l.openedAt ? '<br><span style="font-size:9px;color:var(--text3)">' + fDt(l.openedAt) + '</span>' : '')) : '—';
-        const otag  = l.opened ? '<span class="tg tg-open" style="line-height:1.3">' + openLabel + '</span>' : '<span style="font-size:10px;color:var(--text3)">Non lu</span>';
-        const utag  = l.unsubscribed ? '<span class="tg tg-unsb">🚫</span>' : '—';
-        const time  = l.date ? fDt(l.date) : '—';
+        const stag = l.status==='error'
+          ? '<span class="tg tg-err">Erreur</span>'
+          : '<span class="tg tg-sent">Envoyé</span>';
+        const openLabel = l.opened
+          ? ('✓ Ouvert' + (l.openedAt ? '<br><span style="font-size:9px;color:var(--text3)">' + fDt(l.openedAt) + '</span>' : ''))
+          : '—';
+        const otag = l.opened
+          ? '<span class="tg tg-open" style="line-height:1.3">' + openLabel + '</span>'
+          : '<span style="font-size:10px;color:var(--text3)">Non lu</span>';
+        const utag = l.unsubscribed ? '<span class="tg tg-unsb">🚫</span>' : '—';
+        const time = l.date ? fDt(l.date) : '—';
+        // Clics
+        const clickCount = (l.clicks || []).length;
+        const clickTag = clickCount > 0
+          ? `<span class="tg" style="background:rgba(0,232,255,.1);color:var(--cyan);cursor:pointer" title="${(l.clicks||[]).map(c=>c.url).join('\n')}">🔗 ${clickCount} clic${clickCount>1?'s':''}</span>`
+          : '<span style="font-size:10px;color:var(--text3)">—</span>';
         return `<tr>
           <td class="em">${l.email||'—'}</td>
-          <td style="font-size:10px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.campaign||'—'}</td>
+          <td style="font-size:10px;max-width:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l.campaign||'—'}</td>
           <td style="font-size:10px;white-space:nowrap;color:var(--text2)">${time}</td>
           <td>${stag}</td>
           <td>${otag}</td>
+          <td>${clickTag}</td>
           <td style="text-align:center">${utag}</td>
         </tr>`;
       }).join('');
@@ -5713,7 +6575,6 @@ function renderAnalytics() {
 /* ── updateStats — KPIs globaux topbar + réglages ────── */
 function updateStats() {
   const emailSent   = S.camps.filter(c=>c.type!=='sms').reduce((a,c)=>a+c.sent,0);
-  // Ouverts : prendre le max entre compteur campagne et analytics Worker
   const openedFromCamps = S.camps.filter(c=>c.type!=='sms').reduce((a,c)=>a+(c.opened||0),0);
   const openedFromAnalytics = S.analytics.filter(x=>x.type==='email'&&x.opened).length;
   const emailOpened = Math.max(openedFromCamps, openedFromAnalytics);
@@ -5722,6 +6583,10 @@ function updateStats() {
   const smsRead     = S.camps.filter(c=>c.type==='sms').reduce((a,c)=>a+(c.opened||0),0);
   const emailNoOpen = Math.max(0, emailSent - emailOpened);
   const openRate    = emailSent > 0 ? Math.round((emailOpened/emailSent)*100) : 0;
+
+  // Clics : total de tous les clics + nombre d'emails ayant au moins 1 clic
+  const totalClics  = S.analytics.reduce((s,l) => s + ((l.clicks||[]).length), 0);
+  const emailsCliqués = S.analytics.filter(l => l.type==='email' && (l.clicks||[]).length > 0).length;
 
   const today = new Date().toDateString();
   if (S.stats.lastDay !== today) { S.stats.emailToday=0; S.stats.smsToday=0; S.stats.lastDay=today; }
@@ -5732,6 +6597,8 @@ function updateStats() {
   se('kv-op', openRate + '%');
   se('ks-op', emailOpened.toLocaleString() + ' ouverts');
   se('kv-no', emailNoOpen.toLocaleString());
+  se('kv-cl', totalClics.toLocaleString());
+  se('ks-cl', emailsCliqués.toLocaleString() + ' email' + (emailsCliqués > 1 ? 's' : '') + ' cliqué' + (emailsCliqués > 1 ? 's' : ''));
   se('kv-un', emailUnsub.toLocaleString());
   se('kv-sm', smsSent.toLocaleString());
   se('ks-sm', smsRead.toLocaleString() + ' lus');
@@ -5761,9 +6628,9 @@ function exportData() {
   toast('Données exportées ✓', 'success');
 }
 
-function resetData() {
-  if (!confirm('Supprimer TOUTES les données ? Action irréversible.')) return;
-  if (!confirm('Confirmer la suppression définitive.')) return;
+async function resetData() {
+  if (!await pgiConfirm('Supprimer TOUTES les données ? Action irréversible.')) return;
+  if (!await pgiConfirm('Confirmer la suppression définitive.')) return;
   Object.values(SK).forEach(k => localStorage.removeItem(k));
   location.reload();
 }
@@ -6217,7 +7084,7 @@ function qsInsertImgFile(input) {
 
 /* Insérer une variable dans l'éditeur de campagne email */
 function campInsertVar(id, v) {
-  var ed = document.getElementById('camp-editor-' + id);
+  var ed = document.getElementById('camp-rich-' + id);
   if (!ed) return; ed.focus();
   document.execCommand('insertText', false, v);
   saveCampBody(id);
@@ -6243,7 +7110,7 @@ function campInsertBlock(id, type) {
       '<a href="{{lien_desinscription}}" style="color:#999;text-decoration:underline;">Se désinscrire</a></div>';
   }
   if (!html) return;
-  var ed = document.getElementById('camp-editor-' + id);
+  var ed = document.getElementById('camp-rich-' + id);
   if (ed) { ed.focus(); document.execCommand('insertHTML', false, html); }
   saveCampBody(id);
 }
@@ -6252,7 +7119,7 @@ function campInsertBlock(id, type) {
 function saveCampBody(id) {
   var c = S.camps.find(function(x){return x.id===id;});
   if (!c) return;
-  var ed = document.getElementById('camp-editor-' + id);
+  var ed = document.getElementById('camp-rich-' + id);
   if (ed && ed.contentEditable) c.campBody = ed.innerHTML;
   saveCamps();
 }
@@ -6262,7 +7129,7 @@ function campInsertImgURL(id) {
   var inp = document.getElementById('camp-img-url-' + id);
   var url = inp ? inp.value.trim() : '';
   if (!url) { toast('Entrez une URL image', 'warn'); return; }
-  var ed = document.getElementById('camp-editor-' + id);
+  var ed = document.getElementById('camp-rich-' + id);
   if (ed) { ed.focus(); document.execCommand('insertHTML', false, '<img src="' + url + '" style="max-width:100%;height:auto;border-radius:4px;margin:6px 0;display:block;">'); }
   if (inp) inp.value = '';
   saveCampBody(id);
@@ -6272,7 +7139,7 @@ function campInsertImgFile(input, id) {
   var file = input.files[0]; if (!file) return;
   var reader = new FileReader();
   reader.onload = function(e) {
-    var ed = document.getElementById('camp-editor-' + id);
+    var ed = document.getElementById('camp-rich-' + id);
     if (ed) { ed.focus(); document.execCommand('insertHTML', false, '<img src="' + e.target.result + '" style="max-width:100%;height:auto;border-radius:4px;margin:6px 0;display:block;">'); }
     saveCampBody(id);
   };
@@ -6281,7 +7148,7 @@ function campInsertImgFile(input, id) {
 
 /* Basculer HTML brut dans éditeur campagne */
 function toggleCampHtmlMode(id) {
-  var ed   = document.getElementById('camp-editor-' + id);
+  var ed   = document.getElementById('camp-rich-' + id);
   var html = document.getElementById('camp-html-' + id);
   var btn  = document.getElementById('camp-mode-btn-' + id);
   var lbl  = document.getElementById('camp-mode-lbl-' + id);
@@ -6327,7 +7194,7 @@ function prevCampEmail(id) {
 
 /* SMS — fonctions éditeur */
 function updCampSMSCnt(id) {
-  var ta = document.getElementById('camp-editor-' + id);
+  var ta = document.getElementById('camp-rich-' + id);
   var cnt = document.getElementById('camp-sms-cnt-' + id);
   var c = S.camps.find(function(x){return x.id===id;});
   if (!ta || !cnt) return;
@@ -6338,7 +7205,7 @@ function updCampSMSCnt(id) {
 }
 
 function campSMSInsert(id, text) {
-  var ta = document.getElementById('camp-editor-' + id);
+  var ta = document.getElementById('camp-rich-' + id);
   if (!ta) return;
   var p = ta.selectionStart || ta.value.length;
   ta.value = ta.value.slice(0,p) + text + ta.value.slice(p);
@@ -6347,8 +7214,8 @@ function campSMSInsert(id, text) {
 }
 
 function campSMSInsertEmoji(id) {
-  _emojiTargetEditor = 'camp-editor-' + id;
-  showEmojiPicker('camp-editor-' + id);
+  _emojiTargetEditor = 'camp-rich-' + id;
+  showEmojiPicker('camp-rich-' + id);
 }
 
 function campSMSInsertLink(id) {
@@ -6359,8 +7226,8 @@ function campSMSInsertLink(id) {
 /* Auto-save du contenu éditeur quand on quitte la campagne */
 document.addEventListener('blur', function(e) {
   var el = e.target;
-  if (el && el.id && el.id.startsWith('camp-editor-') && el.contentEditable) {
-    var id = parseInt(el.id.replace('camp-editor-',''));
+  if (el && el.id && el.id.startsWith('camp-rich-') && el.contentEditable) {
+    var id = parseInt(el.id.replace('camp-rich-',''));
     if (!isNaN(id)) saveCampBody(id);
   }
 }, true);
@@ -6938,12 +7805,15 @@ function toggleUnsubList(listId, rowId) {
 /* ═══════════════════════════════════════════════════════
    FLOATING BLOCK TOOLBAR — éditeurs visuels
    Clic/tap sur image ou bloc → toolbar flottante
-   Boutons : ↑ monter · ↓ descendre · 🔗 lien · ✕ suppr
+   Boutons : ↑ monter · ↓ descendre · 🔗 lien · ✕ suppr · ✕fermer
+   Drag : poignée ⠿ pour déplacer partout
 ═══════════════════════════════════════════════════════ */
 (function() {
   var toolbar    = null;
-  var targetEl   = null;  // élément DOM actuellement ciblé
-  var targetEd   = null;  // éditeur contenteditable parent
+  var targetEl   = null;
+  var targetEd   = null;
+  var _isDragging = false;
+  var _dragOffX = 0, _dragOffY = 0;
 
   function init() {
     toolbar = document.getElementById('pgi-block-toolbar');
@@ -6955,6 +7825,16 @@ function toggleUnsubList(listId, rowId) {
     document.getElementById('pbt-del').addEventListener('click',   deleteBlock);
     document.getElementById('pbt-link-ok').addEventListener('click', applyLink);
     document.getElementById('pbt-link-rm').addEventListener('click', removeLink);
+    // Bouton fermer — ferme sans supprimer le bloc
+    var closeBtn = document.getElementById('pbt-close');
+    if (closeBtn) closeBtn.addEventListener('click', function(e) { e.stopPropagation(); hideToolbar(); });
+
+    // Drag via la poignée ⠿
+    var handle = document.getElementById('pbt-drag-handle');
+    if (handle) {
+      handle.addEventListener('mousedown', startDrag);
+      handle.addEventListener('touchstart', startDrag, {passive:false});
+    }
 
     // Cacher si clic dehors
     document.addEventListener('mousedown', function(e) {
@@ -6967,6 +7847,40 @@ function toggleUnsubList(listId, rowId) {
         hideToolbar();
       }
     }, {passive:true});
+
+    // Fonctions drag
+    function startDrag(e) {
+      if (e.cancelable) e.preventDefault();
+      _isDragging = true;
+      var src = e.touches ? e.touches[0] : e;
+      var rect = toolbar.getBoundingClientRect();
+      _dragOffX = src.clientX - rect.left;
+      _dragOffY = src.clientY - rect.top;
+      toolbar.style.transition = 'none';
+      document.addEventListener('mousemove', onDrag);
+      document.addEventListener('mouseup',   endDrag);
+      document.addEventListener('touchmove', onDrag, {passive:false});
+      document.addEventListener('touchend',  endDrag);
+    }
+    function onDrag(e) {
+      if (!_isDragging) return;
+      if (e.cancelable) e.preventDefault();
+      var src = e.touches ? e.touches[0] : e;
+      var x = src.clientX - _dragOffX;
+      var y = src.clientY - _dragOffY;
+      x = Math.max(4, Math.min(window.innerWidth  - toolbar.offsetWidth  - 4, x));
+      y = Math.max(4, Math.min(window.innerHeight - toolbar.offsetHeight - 4, y));
+      toolbar.style.left = x + 'px';
+      toolbar.style.top  = y + 'px';
+    }
+    function endDrag() {
+      _isDragging = false;
+      toolbar.style.transition = '';
+      document.removeEventListener('mousemove', onDrag);
+      document.removeEventListener('mouseup',   endDrag);
+      document.removeEventListener('touchmove', onDrag);
+      document.removeEventListener('touchend',  endDrag);
+    }
   }
 
   // Détecte clic/tap sur un img ou un bloc de niveau bloc dans un éditeur
@@ -7177,8 +8091,8 @@ function resumeSyncAfterReset() {
   toast('✓ Sync relancée', 'success');
 }
 
-function resetDashboard() {
-  if (!confirm('⚠️ Remettre le dashboard à zéro ?\n\nCeci efface tous les analytics (ouvertures, historique emails/SMS).\nLes campagnes et contacts ne sont PAS supprimés.')) return;
+async function resetDashboard() {
+  if (!await pgiConfirm('⚠️ Remettre le dashboard à zéro ?\n\nCeci efface tous les analytics (ouvertures, historique emails/SMS).\nLes campagnes et contacts ne sont PAS supprimés.')) return;
   // Stopper la sync auto pendant le reset pour éviter rechargement immédiat
   if (_syncInterval) { clearInterval(_syncInterval); _syncInterval = null; }
 
@@ -7206,7 +8120,7 @@ function resetDashboard() {
 }
 
 async function resetDashboardAndWorker() {
-  if (!confirm('⚠️ RESET COMPLET dashboard + Worker ?\n\nTous les analytics locaux ET ceux du Worker Cloudflare seront effacés.\nLes compteurs envoyés/ouverts seront remis à zéro.\nIrréversible.')) return;
+  if (!await pgiConfirm('⚠️ RESET COMPLET dashboard + Worker ?\n\nTous les analytics locaux ET ceux du Worker Cloudflare seront effacés.\nLes compteurs envoyés/ouverts seront remis à zéro.\nIrréversible.')) return;
 
   // 1 — Stopper la sync DEFINITVEMENT jusqu'à relance manuelle
   if (_syncInterval) { clearInterval(_syncInterval); _syncInterval = null; }
@@ -7252,10 +8166,10 @@ async function resetDashboardAndWorker() {
   // Sync volontairement stoppée — l'utilisateur relance via "▶ Relancer sync"
 }
 
-function resetCampStats(id) {
+async function resetCampStats(id) {
   var camp = S.camps.find(function(c){ return c.id === id; });
   if (!camp) return;
-  if (!confirm('⚠️ Remettre à zéro la campagne "' + camp.name + '" ?\n\nEnvoyés, ouverts, erreurs seront remis à 0.\nLes contacts repasseront en "en attente".')) return;
+  if (!await pgiConfirm('⚠️ Remettre à zéro la campagne "' + camp.name + '" ?\n\nEnvoyés, ouverts, erreurs seront remis à 0.\nLes contacts repasseront en "en attente".')) return;
   camp.sent = 0; camp.opened = 0; camp.errors = 0; camp.unsubscribed = 0;
   camp.status = 'draft';
   camp.emailList.forEach(function(e) { e.status = 'pending'; e.opened = false; e.unsubscribed = false; });
@@ -7266,8 +8180,8 @@ function resetCampStats(id) {
   toast('✓ Campagne "' + camp.name + '" remise à zéro', 'success');
 }
 
-function resetAllCamps() {
-  if (!confirm('⚠️ ATTENTION — Remettre TOUTES les campagnes à zéro ?\n\nTous les compteurs et historiques d\'envoi seront effacés.\nLes campagnes repasseront en brouillon.\n\nCette action est irréversible.')) return;
+async function resetAllCamps() {
+  if (!await pgiConfirm('⚠️ ATTENTION — Remettre TOUTES les campagnes à zéro ?\n\nTous les compteurs et historiques d\'envoi seront effacés.\nLes campagnes repasseront en brouillon.\n\nCette action est irréversible.')) return;
   if (_syncInterval) { clearInterval(_syncInterval); _syncInterval = null; }
   S.camps.forEach(function(camp) {
     camp.sent = 0; camp.opened = 0; camp.errors = 0; camp.unsubscribed = 0;
@@ -7285,8 +8199,8 @@ function resetAllCamps() {
   }, 120000);
 }
 
-function resetContacts() {
-  if (!confirm('⚠️ Supprimer TOUS les contacts ?\n\nCette action est irréversible.')) return;
+async function resetContacts() {
+  if (!await pgiConfirm('⚠️ Supprimer TOUS les contacts ?\n\nCette action est irréversible.')) return;
   S.contacts = [];
   lsS(SK.contacts, S.contacts);
   renderContacts(); updateStats();
