@@ -419,7 +419,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .camp-name-inp{flex:1;min-width:130px;background:none;border:none;border-bottom:2px solid var(--b2);color:var(--text);font-family:var(--sans);font-size:17px;font-weight:800;padding:3px 0;outline:none;transition:border-color .2s;}
 .camp-name-inp:focus{border-color:var(--pur);}
 .prog-row{display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid var(--b1);}
-.prc{padding:10px 14px;border-right:1px solid var(--b1);text-align:center;}
+.prc{padding:10px 14px;border-right:1px solid var(--b1);text-align:center;position:relative;overflow:hidden;}
+.prc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--b2);}
+.prc-c::before{background:linear-gradient(90deg,var(--cyan),transparent);}
+.prc-g::before{background:linear-gradient(90deg,var(--grn),transparent);}
+.prc-y::before{background:linear-gradient(90deg,var(--yel),transparent);}
+.prc-o::before{background:linear-gradient(90deg,var(--ora),transparent);}
 .prc:last-child{border-right:none;}
 .prv{font-family:var(--mono);font-size:17px;font-weight:700;line-height:1;margin-bottom:2px;}
 .prl{font-size:7px;font-weight:800;letter-spacing:1px;text-transform:uppercase;}
@@ -722,6 +727,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
   .sg{grid-template-columns:1fr;}
   /* SMS history below email on mobile */
   #analytics-grid{grid-template-columns:1fr !important;}
+  #period-stats{grid-template-columns:1fr 1fr !important;}
   /* Settings must scroll */
   #view-settings{overflow-y:auto !important;-webkit-overflow-scrolling:touch;}
 }
@@ -797,7 +803,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
     </div>
     <div class="kpi o" title="Emails envoyés mais pas encore ouverts">
       <div class="kl">⏳ Non ouverts</div>
-      <div class="kv" id="kv-no" style="color:var(--ora)">0</div>
+      <div class="kv" id="kv-no">0</div>
       <div class="ks">en attente lecture</div>
     </div>
     <div class="kpi c" title="Nombre total de clics sur les liens dans les emails">
@@ -853,7 +859,7 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
     </div>
 
     <!-- RÉSUMÉ DE LA PÉRIODE — 8 métriques -->
-    <div id="period-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px">
+    <div id="period-stats" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px">
       <div style="background:var(--bg3);border-radius:7px;padding:10px;text-align:center">
         <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--purl)" id="ps-sent">0</div>
         <div style="font-size:9px;color:var(--text3);margin-top:3px">ENVOYÉS</div>
@@ -861,6 +867,10 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
       <div style="background:var(--bg3);border-radius:7px;padding:10px;text-align:center">
         <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--grn)" id="ps-open">0%</div>
         <div style="font-size:9px;color:var(--text3);margin-top:3px">TAUX OUVERTURE</div>
+      </div>
+      <div style="background:var(--bg3);border-radius:7px;padding:10px;text-align:center">
+        <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--cyan)" id="ps-clicks">0</div>
+        <div style="font-size:9px;color:var(--text3);margin-top:3px">CLICS LIENS</div>
       </div>
       <div style="background:var(--bg3);border-radius:7px;padding:10px;text-align:center">
         <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--pnk)" id="ps-sms">0</div>
@@ -4483,18 +4493,20 @@ async function resumeCamp(id) {
 }
 
 async function delCamp(id, type) {
-  if (!await pgiConfirm('Supprimer définitivement cette campagne ?\n\nElle sera retirée de l\'interface et arrêtée côté Worker.')) return;
-  // Stopper côté Worker avant de supprimer localement
+  if (!await pgiConfirm('Supprimer définitivement cette campagne ?\n\nElle sera retirée de l\'interface et supprimée du Worker sans trace résiduelle.')) return;
+  // 1 — Suppression immédiate de la clé KV côté Worker (nouvelle route /campaign/delete)
   if (S.wurl) {
-    try { await fetch(S.wurl + '/campaign/stop', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id}) }); } catch(_) {}
+    try { await fetch(S.wurl + '/campaign/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id}) }); } catch(_) {}
   }
+  // 2 — Suppression locale
   S.camps = S.camps.filter(c => c.id !== id);
   if (type === 'sms') S.activeSMS = null; else S.activeCamp = null;
   lsS(SK.camps, S.camps);
-  // Sync Worker pour mettre à jour la liste côté serveur
+  // 3 — Mettre à jour campaigns_meta côté Worker (liste sans cette campagne)
   if (S.wurl) {
     try { await fetch(S.wurl + '/campaigns', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({campaigns: S.camps}) }); } catch(_) {}
   }
+  // 4 — Rafraîchir l'interface
   renderCampList(type);
   renderDashboard();
   refreshQuotaBanner();
@@ -6398,11 +6410,13 @@ function renderPeriodStats() {
   const sErr   = smsLogs.filter(l => l.status === 'error').length;
   const sSRate = sSent > 0 ? Math.round((sRead/sSent)*100) : 0;
 
+  const eClics = emailLogs.reduce(function(s,l){ return s + ((l.clicks||[]).length); }, 0);
   const se = (id,v) => { const el=$(id); if(el) el.textContent=v; };
-  se('ps-sent',  eSent.toLocaleString());
-  se('ps-open',  eRate + '%');
-  se('ps-sms',   sSent.toLocaleString());
-  se('ps-unsub', eUnsub.toLocaleString());
+  se('ps-sent',   eSent.toLocaleString());
+  se('ps-open',   eRate + '%');
+  se('ps-clicks', eClics.toLocaleString());
+  se('ps-sms',    sSent.toLocaleString());
+  se('ps-unsub',  eUnsub.toLocaleString());
 
   // Email stats bar
   const esb = $('email-stats-bar');
