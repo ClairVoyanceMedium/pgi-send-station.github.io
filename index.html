@@ -2442,11 +2442,16 @@ async function syncFromWorker() {
             local.dailyDate = new Date().toDateString();
             updated++;
           }
-          // Statut (running → paused → done, etc.) — le Worker prime
+          // Statut (running → paused → done → oauth_error, etc.) — le Worker prime
           var prevStatus = local.status;
           if (wc.status && wc.status !== local.status) {
             local.status = wc.status;
             updated++;
+            if (wc.status === 'oauth_error') {
+              toast('⚠️ Campagne « ' + (local.name||'') + ' » : erreur OAuth Gmail. '
+                + 'Vérifiez que GMAIL_REFRESH_TOKEN, GMAIL_CLIENT_ID et GMAIL_CLIENT_SECRET '
+                + 'sont configurés dans les secrets Cloudflare du Worker.', 'error');
+            }
           }
           // Mettre à jour les statuts des contacts individuels
           if (wc.contacts && Array.isArray(wc.contacts)) {
@@ -2601,6 +2606,11 @@ async function syncFromWorker() {
     var dot2 = $('wdot'); if (dot2) dot2.classList.add('p');
     var statusLbl2 = $('sync-status-lbl');
     if (statusLbl2) { statusLbl2.innerHTML = '⚠️ <strong style="color:var(--red)">Worker inaccessible</strong> — Vérifiez l\'URL dans Réglages'; statusLbl2.style.color = 'var(--red)'; }
+    // Mettre à jour les badges de campagnes en oauth_error
+    S.camps.filter(function(c){ return c.status === 'oauth_error'; }).forEach(function(c) {
+      var badge = document.querySelector('[data-campid="' + c.id + '"] .stbadge');
+      if (badge) { badge.textContent = '⚠ OAUTH ERREUR'; badge.className = 'stbadge st-pause'; }
+    });
   }
 
   _isSyncing = false;
@@ -4331,7 +4341,8 @@ async function launchCamp(id) {
   var _htmlContent = (tpl && tpl.content) ? tpl.content : (c.campBody || '');
   var _subject     = c.subject || (tpl && tpl.subject) || '(Sans objet)';
 
-  await syncW('/campaign/launch', {
+  // FIX v38 : vérification de la réponse du Worker (syncW ignorerait silencieusement les erreurs)
+  var _launchPayload = {
     campaign: c,
     contacts: c.emailList,
     template: tpl,
@@ -4382,7 +4393,28 @@ async function launchCamp(id) {
 
     // URL du Worker lui-même (pour les liens de désinscription + tracking ouverture)
     _workerOrigin: S.wurl ? S.wurl.replace(/\/+$/, '') : ''
-  });
+  };
+  // Envoi au Worker avec vérification de la réponse
+  if (S.wurl) {
+    try {
+      var _lr = await fetch(S.wurl + '/campaign/launch', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(_launchPayload)
+      });
+      var _lj = await _lr.json();
+      if (!_lj.ok) {
+        toast('⚠️ Worker a rejeté la campagne : ' + (_lj.error || 'erreur inconnue'), 'error');
+        return;
+      }
+    } catch(_le) {
+      toast('⚠️ Worker inaccessible : ' + _le.message + ' — vérifiez l’URL dans Réglages', 'error');
+      return;
+    }
+  } else {
+    toast('⚠️ Worker non configuré — allez dans Réglages pour configurer l’URL', 'warn');
+    return;
+  }
   saveCamps();
   renderCampList(c.type);
   openCamp(id, c.type);
@@ -4516,8 +4548,8 @@ async function delCamp(id, type) {
   toast('Campagne supprimée ✓', 'success');
 }
 
-function stCls(s) { return {running:'st-run',paused:'st-pause',done:'st-done',draft:'st-draft'}[s]||'st-draft'; }
-function stLbl(s) { return {running:'EN COURS',paused:'PAUSE',done:'TERMINÉ',draft:'BROUILLON'}[s]||s; }
+function stCls(s) { return {running:'st-run',paused:'st-pause',done:'st-done',draft:'st-draft',oauth_error:'st-pause'}[s]||'st-draft'; }
+function stLbl(s) { return {running:'EN COURS',paused:'PAUSE',done:'TERMINÉ',draft:'BROUILLON',oauth_error:'⚠ OAUTH ERREUR'}[s]||s; }
 
 // ═══════════════════════════════════════════════════════
 //  QUICK SEND
@@ -4896,7 +4928,11 @@ async function sendQuickEmail() {
   if (!emails.length) { toast('Aucun email valide dans la zone destinataires', 'error'); return; }
 
   let body = getQSBody();
-  if (tplId) { const tpl = S.tpls.find(t => t.id == tplId); if (tpl) body = tpl.content; }
+  var _qsTplSubj = '';
+  if (tplId) {
+    const tpl = S.tpls.find(t => t.id == tplId);
+    if (tpl) { body = tpl.content; _qsTplSubj = tpl.subject || ''; }
+  }
   if (!body || body === '<br>') { toast('Le corps du message est vide', 'error'); return; }
 
   const campName = 'Envoi rapide — ' + new Date().toLocaleDateString('fr-FR');
@@ -4916,10 +4952,13 @@ async function sendQuickEmail() {
   // Récupérer les pièces jointes si présentes
   const attachments = S._qsAttachments || [];
 
+  // FIX : subj enrichi du sujet du template si non rempli manuellement
+  var _finalSubj = subj || _qsTplSubj || '(Sans objet)';
   await syncW('/quick-send', {
     type:          'email',
     to:            emails,
-    subject:       subj,
+    subject:       _finalSubj,
+    html:          body,
     body,
     accessToken:   S.tok,
     provider:      S.prov,
