@@ -795,15 +795,15 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
       <div class="kv" id="kv-op">0%</div>
       <div class="ks" id="ks-op">0 ouverts</div>
     </div>
-    <div class="kpi c" title="Emails envoyés mais pas encore ouverts">
+    <div class="kpi o" title="Emails envoyés mais pas encore ouverts">
       <div class="kl">⏳ Non ouverts</div>
-      <div class="kv" id="kv-no">0</div>
+      <div class="kv" id="kv-no" style="color:var(--ora)">0</div>
       <div class="ks">en attente lecture</div>
     </div>
-    <div class="kpi" style="border-color:rgba(0,232,255,.25);background:rgba(0,232,255,.04)" title="Nombre total de clics sur les liens dans les emails">
-      <div class="kl" style="color:var(--cyan)">🔗 Clics liens</div>
-      <div class="kv" id="kv-cl" style="color:var(--cyan)">0</div>
-      <div class="ks" id="ks-cl" style="color:rgba(0,232,255,.5)">0 emails cliqués</div>
+    <div class="kpi c" title="Nombre total de clics sur les liens dans les emails">
+      <div class="kl">🔗 Clics liens</div>
+      <div class="kv" id="kv-cl">0</div>
+      <div class="ks" id="ks-cl">0 emails cliqués</div>
     </div>
     <div class="kpi r" title="Contacts désabonnés (STOP)">
       <div class="kl">🚫 Désabonnés</div>
@@ -1718,7 +1718,6 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
         <li>Copiez l'URL du Worker dans Réglages → Cloudflare Worker</li>
       </ol>
       <div class="notice-tip">💡 Le Worker stocke tout dans Cloudflare KV : campagnes, contacts envoyés, analytics, statuts. La synchronisation entre appareils est automatique.</div>
-      <div class="notice-tip">🔧 <strong>v5.3 — corrections</strong> : campagnes programmées (scheduled) qui ne partaient pas — corrigé. Token Gmail toujours rafraîchi depuis les secrets Cloudflare pour les envois rapides — corrigé. Noms de fichiers pièces jointes avec caractères spéciaux — corrigé (regex safeName).</div>
     </div>
 
     <div id="notice-sync" class="notice-section">
@@ -2470,7 +2469,6 @@ async function syncFromWorker() {
           renderDashboard();
           updateStats();
           refreshQuotaBanner();
-          // Mise à jour live Avancement + Clics dans campagnes ouvertes
           data.campaigns.forEach(function(wc) {
             var lc = S.camps.find(function(c){ return c.id == wc.id; });
             if (!lc || !lc.emailList || !lc.emailList.length) return;
@@ -2775,6 +2773,7 @@ function buildCampForm(c) {
   h += '<div style="font-size:9px;color:var(--text3);margin-top:2px" id="prc-clics-sub-' + c.id + '">' + _ce + ' email' + (_ce>1?'s':'') + ' cliqué' + (_ce>1?'s':'') + '</div>';
   h += '</div>';
   h += '</div>';
+  h += '<div class="pbar"><div class="pfill" id="pbar-' + c.id + '" style="width:' + pct + '%;' + (isSMS ? 'background:linear-gradient(90deg,var(--pnk),var(--pur));' : '') + '"></div></div>';
   h += '<div class="pbar"><div class="pfill" id="pbar-' + c.id + '" style="width:' + pct + '%;' + (isSMS ? 'background:linear-gradient(90deg,var(--pnk),var(--pur));' : '') + '"></div></div>';
 
   // ════════════════════════════════════════
@@ -4294,12 +4293,16 @@ async function launchCamp(id) {
   if (sEl && sEl.value) c.subject = sEl.value;
 
   // Priorité : contenu direct > template sauvegardé
+  // FIX v38 : résolution du template AVANT construction du payload pour éviter
+  // que l'ajout de pièces jointes n'écrase le contenu du message
   var tpl;
   if (c.campBody && c.campBody.trim() && c.campBody !== '<br>') {
     tpl = {id:'inline', name:c.name, subject:c.subject||'', content:c.campBody, mode:'rich'};
   } else {
     tpl = S.tpls.find(function(t){return t.id==c.templateId;}) || null;
   }
+  // S'assurer que le sujet est bien défini même avec template
+  if (tpl && tpl.subject && !c.subject) c.subject = tpl.subject;
 
   // ── Tracking GA4
   track('campaign_launch', {
@@ -4313,10 +4316,19 @@ async function launchCamp(id) {
   // Calcul du rate effectif en messages/minute depuis les contraintes cochées
   var effectiveRpm = c.ratePerHour || 10;
 
+  // FIX v38 : extraire le contenu HTML du template pour l'envoyer explicitement
+  // => garantit que template + pièces jointes coexistent toujours dans le même envoi
+  var _htmlContent = (tpl && tpl.content) ? tpl.content : (c.campBody || '');
+  var _subject     = c.subject || (tpl && tpl.subject) || '(Sans objet)';
+
   await syncW('/campaign/launch', {
     campaign: c,
     contacts: c.emailList,
     template: tpl,
+
+    // Contenu explicite — présent même si des pièces jointes sont jointes
+    html:    _htmlContent,
+    subject: _subject,
 
     // Authentification email
     accessToken:  S.tok,
@@ -4355,7 +4367,7 @@ async function launchCamp(id) {
     delayMin: c.delayMin || 0,
     delayMax: c.delayMax || 1,
 
-    // Pièces jointes (base64) — envoyées à chaque destinataire
+    // Pièces jointes (base64) — envoyées à chaque destinataire, n'écrasent PAS le template
     attachments: c.attachments || [],
 
     // URL du Worker lui-même (pour les liens de désinscription + tracking ouverture)
@@ -4365,6 +4377,19 @@ async function launchCamp(id) {
   renderCampList(c.type);
   openCamp(id, c.type);
   refreshQuotaBanner();
+  // Logger le lancement dans analytics pour que le dashboard compte bien cette campagne
+  var _launchDate = new Date().toISOString();
+  pending.forEach(function(contact) {
+    S.analytics.push({
+      type: c.type === 'sms' ? 'sms' : 'email',
+      email: contact.email,
+      campaign: c.name,
+      date: _launchDate,
+      status: 'pending_send',
+      opened: false, unsubscribed: false, clicks: []
+    });
+  });
+  lsS(SK.analytics, S.analytics);
   toast('✓ Campagne lancée — ' + pending.length + ' en attente', 'success');
 }
 
@@ -4458,14 +4483,25 @@ async function resumeCamp(id) {
 }
 
 async function delCamp(id, type) {
-  if (!await pgiConfirm('Supprimer cette campagne ?')) return;
+  if (!await pgiConfirm('Supprimer définitivement cette campagne ?\n\nElle sera retirée de l\'interface et arrêtée côté Worker.')) return;
+  // Stopper côté Worker avant de supprimer localement
+  if (S.wurl) {
+    try { await fetch(S.wurl + '/campaign/stop', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id}) }); } catch(_) {}
+  }
   S.camps = S.camps.filter(c => c.id !== id);
   if (type === 'sms') S.activeSMS = null; else S.activeCamp = null;
-  saveCamps();
+  lsS(SK.camps, S.camps);
+  // Sync Worker pour mettre à jour la liste côté serveur
+  if (S.wurl) {
+    try { await fetch(S.wurl + '/campaigns', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({campaigns: S.camps}) }); } catch(_) {}
+  }
   renderCampList(type);
+  renderDashboard();
+  refreshQuotaBanner();
+  updateStats();
   const det = $(type === 'sms' ? 'detail-sms' : 'detail-email');
   if (det) det.innerHTML = '<div class="empty"><svg width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg><p>Sélectionnez ou créez une campagne</p></div>';
-  toast('Campagne supprimée', 'info');
+  toast('Campagne supprimée ✓', 'success');
 }
 
 function stCls(s) { return {running:'st-run',paused:'st-pause',done:'st-done',draft:'st-draft'}[s]||'st-draft'; }
@@ -5405,13 +5441,27 @@ function fileToBase64(file) {
 }
 
 /* Icône selon le type de fichier */
-function attIcon(contentType) {
-  if (!contentType) return '📎';
-  if (contentType.startsWith('image/'))          return '🖼';
-  if (contentType === 'application/pdf')          return '📄';
-  if (contentType.startsWith('video/'))           return '🎬';
-  if (contentType.includes('spreadsheet') || contentType.includes('excel')) return '📊';
-  if (contentType.includes('word') || contentType.includes('document'))     return '📝';
+function attIcon(contentType, fileName) {
+  var ct = (contentType || '').toLowerCase();
+  var fn = (fileName || '').toLowerCase();
+  // Détection par extension si contentType vide/générique
+  if (!ct || ct === 'application/octet-stream') {
+    if (fn.endsWith('.pdf'))  return '📄';
+    if (fn.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/)) return '🖼';
+    if (fn.match(/\.(mp4|mov|avi|mkv|webm)$/)) return '🎬';
+    if (fn.match(/\.(docx|doc)$/)) return '📝';
+    if (fn.match(/\.(xlsx|xls|csv)$/)) return '📊';
+    if (fn.match(/\.(txt|md|log)$/)) return '📃';
+    if (fn.endsWith('.zip')) return '🗜';
+    return '📎';
+  }
+  if (ct.startsWith('image/'))          return '🖼';
+  if (ct === 'application/pdf')          return '📄';
+  if (ct.startsWith('video/'))           return '🎬';
+  if (ct.startsWith('text/'))            return '📃';
+  if (ct.includes('spreadsheet') || ct.includes('excel') || ct.includes('csv')) return '📊';
+  if (ct.includes('word') || ct.includes('document') || fn.match(/\.docx?$/)) return '📝';
+  if (ct.includes('zip') || ct.includes('compressed')) return '🗜';
   return '📎';
 }
 
@@ -5428,10 +5478,10 @@ function renderQSAttachments() {
     var sizeStr = att.size >= 1024*1024
       ? (att.size/(1024*1024)).toFixed(1) + ' Mo'
       : Math.round(att.size/1024) + ' Ko';
-    var icon = attIcon(att.contentType);
-    var isImg = att.contentType && att.contentType.startsWith('image/');
-    var preview = isImg
-      ? '<img src="data:' + att.contentType + ';base64,' + att.data + '" style="width:32px;height:32px;object-fit:cover;border-radius:4px;flex-shrink:0" alt="">'
+    var icon = attIcon(att.contentType, att.name);
+    var isImg = (att.contentType && att.contentType.startsWith('image/')) || (att.name||"").match(/\.(jpg|jpeg|png|gif|webp)$/i);
+    var preview = isImg && att.data
+      ? '<img src="data:' + (att.contentType||'image/jpeg') + ';base64,' + att.data + '" style="width:32px;height:32px;object-fit:cover;border-radius:4px;flex-shrink:0" alt="">'
       : '<span style="font-size:22px;flex-shrink:0">' + icon + '</span>';
     return '<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--pur-b);border-radius:8px;padding:8px 10px;min-width:0;flex:1 1 200px;max-width:280px">' +
       preview +
@@ -5509,10 +5559,10 @@ function renderCampAttachments(campId) {
     var sizeStr = att.size >= 1024*1024
       ? (att.size/(1024*1024)).toFixed(1) + ' Mo'
       : Math.round(att.size/1024) + ' Ko';
-    var icon = attIcon(att.contentType);
-    var isImg = att.contentType && att.contentType.startsWith('image/');
-    var preview = isImg
-      ? '<img src="data:' + att.contentType + ';base64,' + att.data + '" style="width:32px;height:32px;object-fit:cover;border-radius:4px;flex-shrink:0" alt="">'
+    var icon = attIcon(att.contentType, att.name);
+    var isImg = (att.contentType && att.contentType.startsWith('image/')) || (att.name||"").match(/\.(jpg|jpeg|png|gif|webp)$/i);
+    var preview = isImg && att.data
+      ? '<img src="data:' + (att.contentType||'image/jpeg') + ';base64,' + att.data + '" style="width:32px;height:32px;object-fit:cover;border-radius:4px;flex-shrink:0" alt="">'
       : '<span style="font-size:22px;flex-shrink:0">' + icon + '</span>';
     return '<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--pur-b);border-radius:8px;padding:8px 10px;min-width:0;flex:1 1 200px;max-width:280px">' +
       preview +
@@ -6423,36 +6473,40 @@ function renderContactsQuick() {
 
 /* ── Sources de données ──────────────────────────────── */
 function getAllEmailLogs() {
-  // Source principale : analytics Worker — vérité absolue pour opened
-  const workerLogs = S.analytics.filter(x => x.type === 'email');
+  // Analytics Worker = source principale (opened, clics, désabonnements)
+  const workerLogs = S.analytics.filter(x => x.type === 'email' && x.status !== 'pending_send');
 
-  // Index Worker par email pour lookup rapide
-  const workerByEmail = {};
-  workerLogs.forEach(function(x) {
-    var key = x.email + '|' + (x.campaign || '');
-    if (!workerByEmail[key] || x.opened) workerByEmail[key] = x;
-  });
+  // Index pour dédoublonnage rapide
+  const workerKeys = new Set(workerLogs.map(x => x.email + '|' + (x.campaign || '')));
 
-  // Compléter avec emailList locaux (envois récents pas encore dans Worker)
+  // Entrées locales depuis les emailList des campagnes (confirmées envoyées)
   const localLogs = [];
   S.camps.filter(c => c.type !== 'sms').forEach(c => {
-    c.emailList.filter(e => e.status === 'sent' || e.status === 'opened' || e.status === 'error').forEach(e => {
+    c.emailList.filter(e => e.status === 'sent' || e.status === 'opened').forEach(e => {
       var key = e.email + '|' + c.name;
-      var workerEntry = workerByEmail[key] ||
-        // Fallback : chercher par email seul (campName peut différer)
-        workerLogs.find(function(w){ return w.email === e.email; });
-      if (!workerEntry) {
-        localLogs.push({email:e.email, campaign:c.name,
-          date:e.sentAt||c.startDate||c.created,
-          status:e.status,
-          opened:e.status==='opened'||e.opened||false,
-          unsubscribed:e.unsubscribed||false, type:'email'});
+      if (!workerKeys.has(key)) {
+        localLogs.push({
+          email: e.email, campaign: c.name,
+          date: e.sentAt || c.launchedAt || c.startDate || c.created || new Date().toISOString(),
+          status: 'sent',
+          opened: e.status === 'opened' || e.opened || false,
+          unsubscribed: e.unsubscribed || false,
+          type: 'email', clicks: e.clicks || []
+        });
       }
     });
   });
 
-  // Fusionner en évitant les doublons : Worker gagne toujours
-  return [...workerLogs, ...localLogs].sort((a,b) => new Date(b.date) - new Date(a.date));
+  // Entrées analytics locales "pending_send" → deviennent 'sent' si pas encore confirmées par Worker
+  const pendingLogs = S.analytics.filter(x => x.type === 'email' && x.status === 'pending_send');
+  const pendingFiltered = pendingLogs.filter(function(p) {
+    return !workerKeys.has(p.email + '|' + (p.campaign || ''));
+  }).map(function(p) {
+    return Object.assign({}, p, { status: 'sent' });
+  });
+
+  return [...workerLogs, ...localLogs, ...pendingFiltered]
+    .sort((a,b) => new Date(b.date) - new Date(a.date));
 }
 
 function getAllSMSLogs() {
@@ -6596,19 +6650,20 @@ function renderAnalytics() {
 
 /* ── updateStats — KPIs globaux topbar + réglages ────── */
 function updateStats() {
-  const emailSent   = S.camps.filter(c=>c.type!=='sms').reduce((a,c)=>a+c.sent,0);
-  const openedFromCamps = S.camps.filter(c=>c.type!=='sms').reduce((a,c)=>a+(c.opened||0),0);
-  const openedFromAnalytics = S.analytics.filter(x=>x.type==='email'&&x.opened).length;
-  const emailOpened = Math.max(openedFromCamps, openedFromAnalytics);
-  const emailUnsub  = S.contacts.filter(c=>c.status==='unsubscribed').length;
-  const smsSent     = S.camps.filter(c=>c.type==='sms').reduce((a,c)=>a+c.sent,0);
-  const smsRead     = S.camps.filter(c=>c.type==='sms').reduce((a,c)=>a+(c.opened||0),0);
+  // Source unique : getAllEmailLogs() fusionne campagnes + envoi rapide + analytics Worker
+  const allEmailLogs = getAllEmailLogs();
+  const emailSent   = allEmailLogs.length;
+  const emailOpened = allEmailLogs.filter(l => l.opened).length;
+  const emailUnsub  = S.contacts.filter(c=>c.status==='unsubscribed').length
+                    + S.analytics.filter(x=>x.unsubscribed).length;
+  const smsSent     = getAllSMSLogs().length;
+  const smsRead     = getAllSMSLogs().filter(l=>l.opened).length;
   const emailNoOpen = Math.max(0, emailSent - emailOpened);
   const openRate    = emailSent > 0 ? Math.round((emailOpened/emailSent)*100) : 0;
 
   // Clics : total de tous les clics + nombre d'emails ayant au moins 1 clic
-  const totalClics  = S.analytics.reduce((s,l) => s + ((l.clicks||[]).length), 0);
-  const emailsCliqués = S.analytics.filter(l => l.type==='email' && (l.clicks||[]).length > 0).length;
+  const totalClics  = allEmailLogs.reduce((s,l) => s + ((l.clicks||[]).length), 0);
+  const emailsCliqués = allEmailLogs.filter(l => (l.clicks||[]).length > 0).length;
 
   const today = new Date().toDateString();
   if (S.stats.lastDay !== today) { S.stats.emailToday=0; S.stats.smsToday=0; S.stats.lastDay=today; }
