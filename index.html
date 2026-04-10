@@ -2683,7 +2683,7 @@ function newCamp(type) {
     sent: 0, opened: 0, errors: 0, unsubscribed: 0,
     campProvider: '',      // Provider spécifique à cette campagne (vide = défaut des Réglages)
     campFromEmail: '',     // Adresse email spécifique à cette campagne
-    attachments: [],       // Pièces jointes [{name, contentType, data(base64), size}]
+    attachments: [],       // Pièces jointes [{name, contentType, data(base64), size}] — toujours un tableau
     created: new Date().toISOString()
   };
   S.camps.push(c);
@@ -4297,7 +4297,13 @@ async function launchCamp(id) {
   }
 
   c.status = 'running';
-  c.startDate = c.startDate || new Date().toISOString().split('T')[0];
+  // Définir startDate: null si aujourd'hui ou passé → Worker démarre immédiatement
+  // Une date future → status='scheduled' jusqu'au cron qui passe la date
+  if (c.startDate) {
+    var _sd = new Date(c.startDate + 'T00:00:00');
+    var _today = new Date(); _today.setHours(0,0,0,0);
+    if (_sd <= _today) c.startDate = ''; // date passée ou aujourd'hui → running immédiat
+  }
 
   // Mélanger les contacts si ordre = au hasard
   if (c.sendOrder === 'random') {
@@ -4338,8 +4344,9 @@ async function launchCamp(id) {
   });
 
   // Calcul du rate effectif en messages/minute — recalculé au moment du lancement
-  // pour garantir que la valeur est à jour même si recalcRate n'a pas été appelé
-  recalcRate(c.id); // met à jour c.ratePerHour depuis les contraintes cochées
+  recalcRate(c.id); // met à jour c.ratePerHour et c.dailyLimit depuis les contraintes
+  // Relire après recalcRate pour être sûr d'avoir les valeurs à jour
+  c = S.camps.find(function(x){ return x.id === id; });
   var effectiveRpm = c.ratePerHour || 10;
 
   // FIX v38 : extraire le contenu HTML du template pour l'envoyer explicitement
@@ -4347,9 +4354,16 @@ async function launchCamp(id) {
   var _htmlContent = (tpl && tpl.content) ? tpl.content : (c.campBody || '');
   var _subject     = c.subject || (tpl && tpl.subject) || '(Sans objet)';
 
-  // FIX v38 : vérification de la réponse du Worker (syncW ignorerait silencieusement les erreurs)
+  // FIX payload : créer une copie légère du campaign sans les champs lourds
+  // (emailList et attachments sont envoyés séparément → évite la double sérialisation)
+  var _campLight = Object.assign({}, c);
+  delete _campLight.emailList;    // envoyé séparément dans contacts:
+  delete _campLight.campBody;     // envoyé séparément dans html:
+  // Note: _campLight.attachments est supprimé aussi — envoyé séparément dans attachments:
+  delete _campLight.attachments;
+
   var _launchPayload = {
-    campaign: c,
+    campaign: _campLight,
     contacts: c.emailList,
     template: tpl,
 
@@ -4526,8 +4540,9 @@ function recalcRate(id) {
     disp.style.color = effectivePerMin > 10 ? 'var(--grn)' : effectivePerMin > 1 ? 'var(--yel)' : 'var(--cyan)';
   }
 
-  saveCamps();
-  // Rafraîchir aussi le résumé automatisation
+  // Sauvegarder uniquement si l'état a changé (pas de syncW inutile)
+  lsS(SK.camps, S.camps);
+  // Rafraîchir le résumé automatisation
   var as = $('as-' + id); if (as) as.innerHTML = buildAS(camp);
 }
 
@@ -5665,7 +5680,8 @@ async function addCampAttachments(input, campId) {
   if (!files.length) return;
   var c = S.camps.find(function(x){ return x.id === campId; });
   if (!c) return;
-  if (!c.attachments) c.attachments = [];
+  // Initialiser avec un nouveau tableau (évite le partage de référence)
+  if (!c.attachments || !Array.isArray(c.attachments)) c.attachments = [];
 
   var loaded = 0;
   for (var f of files) {
