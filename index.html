@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#8B0000">
-<title>PGI Send Station</title>
+<title>PGI Send Station v38</title>
 <!-- Favicon -->
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="apple-touch-icon" sizes="180x180" href="https://i.imgur.com/GmyGlKk.webp">
@@ -2484,6 +2484,7 @@ async function syncFromWorker() {
           renderDashboard();
           updateStats();
           refreshQuotaBanner();
+          _refreshOpenCampMetrics(); // métriques page Email = même source que dashboard
           data.campaigns.forEach(function(wc) {
             var lc = S.camps.find(function(c){ return c.id == wc.id; });
             if (!lc || !lc.emailList || !lc.emailList.length) return;
@@ -2546,6 +2547,9 @@ async function syncFromWorker() {
           lsS(SK.camps, S.camps);
           renderDashboard();
           updateStats();
+          // Mettre à jour les métriques de la campagne actuellement ouverte dans la page Email/SMS
+          // (même source de vérité que le dashboard)
+          _refreshOpenCampMetrics();
         }
       }
     }
@@ -2614,6 +2618,64 @@ async function syncFromWorker() {
   }
 
   _isSyncing = false;
+}
+
+/* ================================================================
+   _refreshOpenCampMetrics — met à jour les métriques de la campagne
+   ouverte dans la page Email/SMS en temps réel, à partir des mêmes
+   données que le dashboard (S.analytics + S.camps).
+   Appelée après chaque sync analytics depuis le Worker.
+================================================================ */
+function _refreshOpenCampMetrics() {
+  // Déterminer la campagne actuellement ouverte
+  var campId = S.activeCamp || S.activeSMS;
+  if (!campId) return;
+  var c = S.camps.find(function(x){ return x.id === campId; });
+  if (!c || !c.emailList || !c.emailList.length) return;
+
+  // Calcul des métriques depuis S.analytics (même logique que dashboard)
+  var campAnalytics = S.analytics.filter(function(a){
+    return a.type === 'email' && a.campaign === c.name;
+  });
+
+  var totalSent   = campAnalytics.length;
+  var totalOpened = campAnalytics.filter(function(a){ return a.opened; }).length;
+  var totalClics  = campAnalytics.reduce(function(s,a){ return s + ((a.clicks||[]).length); }, 0);
+  var totalCliqués = campAnalytics.filter(function(a){ return (a.clicks||[]).length > 0; }).length;
+  var totalErrors = campAnalytics.filter(function(a){ return a.status === 'error'; }).length;
+
+  // Utiliser le max entre analytics et le compteur Worker (le plus élevé est le vrai)
+  var sentCount   = Math.max(totalSent, c.sent || 0);
+  var openedCount = Math.max(totalOpened, c.opened || 0);
+  var errCount    = Math.max(totalErrors, c.errors || 0);
+  var total       = c.emailList.length;
+  var pct         = total ? Math.round((sentCount / total) * 100) : 0;
+
+  // Mettre à jour le DOM directement (IDs définis dans buildCampForm)
+  var els = {
+    'prc-sent-'      : sentCount.toLocaleString(),
+    'prc-open-'      : openedCount.toLocaleString(),
+    'prc-pct-'       : pct + '%',
+    'prc-contacts-'  : total.toLocaleString()
+  };
+  Object.keys(els).forEach(function(prefix) {
+    var el = document.getElementById(prefix + campId);
+    if (el) el.textContent = els[prefix];
+  });
+
+  // Barre de progression
+  var pbarEl = document.getElementById('pbar-' + campId);
+  if (pbarEl) pbarEl.style.width = pct + '%';
+
+  // Clics
+  var clicsEl    = document.getElementById('prc-clics-'     + campId);
+  var clicsSubEl = document.getElementById('prc-clics-sub-' + campId);
+  if (clicsEl)    clicsEl.textContent    = totalClics;
+  if (clicsSubEl) clicsSubEl.textContent = totalCliqués + ' email' + (totalCliqués>1?'s':'') + ' cliqué' + (totalCliqués>1?'s':'');
+
+  // Résumé automatisation (buildAS relit c depuis S.camps)
+  var asEl = document.getElementById('as-' + campId);
+  if (asEl) asEl.innerHTML = buildAS(c);
 }
 
 /* Lancer la synchronisation automatique toutes les 60 secondes */
