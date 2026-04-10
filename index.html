@@ -2663,6 +2663,10 @@ function _refreshOpenCampMetrics() {
     if (el) el.textContent = els[prefix];
   });
 
+  // FIX v39 : mettre à jour les erreurs (cellule prc-err-{id} ajoutée dans buildCampForm)
+  var errEl = document.getElementById('prc-err-' + campId);
+  if (errEl) errEl.textContent = errCount > 0 ? errCount + ' err' : '';
+
   // Barre de progression
   var pbarEl = document.getElementById('pbar-' + campId);
   if (pbarEl) pbarEl.style.width = pct + '%';
@@ -2847,7 +2851,10 @@ function buildCampForm(c) {
   h += '<div class="prog-row" id="prog-row-' + c.id + '">';
   h += '<div class="prc prc-c"><div class="prv" id="prc-contacts-' + c.id + '">' + c.emailList.length.toLocaleString() + '</div><div class="prl">CONTACTS</div></div>';
   h += '<div class="prc prc-g"><div class="prv" id="prc-sent-' + c.id + '">' + c.sent.toLocaleString() + '</div><div class="prl">ENVOYÉS</div></div>';
-  h += '<div class="prc prc-y"><div class="prv" id="prc-open-' + c.id + '">' + (isSMS ? (c.errors||0) : (c.opened||0)) + '</div><div class="prl">' + (isSMS ? 'ERREURS' : 'OUVERTS') + '</div></div>';
+  h += '<div class="prc prc-y"><div class="prv" id="prc-open-' + c.id + '">' + (isSMS ? (c.errors||0) : (c.opened||0)) + '</div><div class="prl">' + (isSMS ? 'ERREURS' : 'OUVERTS') + '</div>';
+  // FIX v39 : afficher les erreurs en sous-ligne pour les campagnes email (parité dashboard)
+  if (!isSMS) { h += '<div style="font-size:9px;color:rgba(255,34,68,.75);margin-top:2px;font-family:var(--mono);" id="prc-err-' + c.id + '">' + ((c.errors||0) > 0 ? (c.errors||0) + ' err' : '') + '</div>'; }
+  h += '</div>';
   h += '<div class="prc prc-o" style="position:relative">';
   h += '<div class="prv" id="prc-pct-' + c.id + '">' + pct + '%</div><div class="prl">AVANCEMENT</div>';
   h += '<button style="position:absolute;top:4px;right:4px;background:rgba(255,34,68,.09);border:1px solid rgba(255,34,68,.25);color:var(--red);border-radius:4px;font-size:9px;padding:2px 5px;cursor:pointer;font-family:var(--sans);font-weight:700;line-height:1" onclick="event.stopPropagation();resetCampStats(' + c.id + ')" title="Remettre les stats à zéro">🗑</button>';
@@ -4344,7 +4351,8 @@ function toggleSlot(id, slot, btn) {
 }
 
 async function launchCamp(id) {
-  const c = S.camps.find(x => x.id === id);
+  // FIX v39 : let (pas const) car c est réaffecté après recalcRate()
+  let c = S.camps.find(x => x.id === id);
   if (!c) return;
   const pending = c.emailList.filter((x, i) => x.status === 'pending' && i >= c.pausePosition);
   if (!pending.length) {
@@ -4353,9 +4361,14 @@ async function launchCamp(id) {
   }
 
   // ── Vérification quota global (alerte rouge, pas de blocage)
+  // FIX v39 : exclure la campagne courante du calcul "committed"
+  // (elle peut déjà être 'running' dans S.camps si relance ou sync Worker → double-comptage sinon)
   const q = getGlobalQuota();
-  if (q.committed + c.dailyLimit > q.limit) {
-    toast(`⚠️ Quota dépassé : ${(q.committed + c.dailyLimit).toLocaleString()}/${q.limit.toLocaleString()} — Campagne lancée mais risque de bannissement`, 'warn');
+  const _otherCommitted = S.camps
+    .filter(function(x){ return x.id !== c.id && x.status === 'running' && x.type !== 'sms'; })
+    .reduce(function(s, x){ return s + (x.dailyLimit || 0); }, 0);
+  if (_otherCommitted + (c.dailyLimit || 0) > q.limit) {
+    toast('⚠️ Quota : les autres campagnes actives (' + (_otherCommitted + (c.dailyLimit||0)).toLocaleString() + '/' + q.limit.toLocaleString() + '/j) dépassent la limite provider — risque de bannissement', 'warn');
   }
 
   c.status = 'running';
