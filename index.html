@@ -2653,7 +2653,11 @@ function newCamp(type) {
     subject: '',
     smsText: '',
     emailList: [],      // [{email, status:'pending'|'sent'|'error'|'opened', sentAt, openedAt}]
-    ratePerHour: 10,
+    ratePerHour: 10,     // calculé par recalcRate — ne pas modifier directement
+    rateSecEnabled: false, rateSec: 1,
+    rateMinEnabled: false, rateMin: 10,
+    rateHEnabled:   false, rateH:   600,
+    rateDEnabled:   true,  rateDay: 300,  // Seul 'par jour' actif par défaut
     dailyLimit: 100,
     durationH: 24,
     durationInfinite: false,
@@ -2917,10 +2921,10 @@ function buildCampForm(c) {
     // Pièces jointes pour campagnes email
     h += '<div style="margin-top:8px;background:var(--bg3);border:1px solid var(--pur-b);border-radius:8px;padding:10px;">';
     h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
-    h += '<div>';
+    h += '<div style="display:flex;align-items:center;gap:6px">';
     h += '<span style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--purl);">📎 Pièces jointes</span>';
-    var attCount = (c.attachments && c.attachments.length) ? ' <span style="background:var(--pur);color:#fff;border-radius:10px;padding:1px 6px;font-size:9px;font-weight:800">' + c.attachments.length + '</span>' : '';
-    h += attCount;
+    var attCount = (c.attachments && c.attachments.length) ? c.attachments.length : 0;
+    h += '<span id="camp-att-count-' + c.id + '" style="font-size:9px;color:' + (attCount?'var(--grn)':'var(--text3)') + ';font-weight:700">' + (attCount ? '— ' + attCount + ' fichier' + (attCount>1?'s':'') : '') + '</span>';
     h += '</div>';
     h += '<label class="btn-sm" style="cursor:pointer;background:var(--pur-bg);border-color:var(--pur-b);color:var(--purl)">+ Ajouter<input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.mp4,.mov,.docx,.xlsx,.csv,.txt,.zip" multiple style="display:none" onchange="addCampAttachments(this,' + c.id + ')"></label>';
     h += '</div>';
@@ -2963,9 +2967,9 @@ function buildCampForm(c) {
 
   // ─── CADENCE INTELLIGENTE
   var rSecEnabled = c.rateSecEnabled || false;
-  var rMinEnabled = (c.rateMinEnabled !== false);
+  var rMinEnabled = (c.rateMinEnabled === true);  // FIX: false par défaut, pas true
   var rHEnabled   = c.rateHEnabled  || false;
-  var rDEnabled   = (c.rateDEnabled !== false);
+  var rDEnabled   = (c.rateDEnabled === true);    // FIX: false par défaut, pas true
   var rSec = c.rateSec || 1;
   var rMin = c.rateMin || (c.ratePerHour||10);
   var rH   = c.rateH   || Math.ceil((c.ratePerHour||10)*60);
@@ -4333,7 +4337,9 @@ async function launchCamp(id) {
     daily_limit: c.dailyLimit
   });
 
-  // Calcul du rate effectif en messages/minute depuis les contraintes cochées
+  // Calcul du rate effectif en messages/minute — recalculé au moment du lancement
+  // pour garantir que la valeur est à jour même si recalcRate n'a pas été appelé
+  recalcRate(c.id); // met à jour c.ratePerHour depuis les contraintes cochées
   var effectiveRpm = c.ratePerHour || 10;
 
   // FIX v38 : extraire le contenu HTML du template pour l'envoyer explicitement
@@ -4453,49 +4459,76 @@ function recalcRate(id) {
   var camp = S.camps.find(function(x){ return x.id === id; });
   if (!camp) return;
 
-  // Convertir toutes les contraintes activées en emails/minute
+  // ── Lire les cases réellement cochées et convertir en emails/minute ──
   var constraintsPerMin = [];
+  var anyChecked = false;
 
+  // Par seconde : rateSec /s → /min = rateSec * 60
   if (camp.rateSecEnabled && camp.rateSec > 0) {
-    constraintsPerMin.push(camp.rateSec * 60); // /s → /min
+    constraintsPerMin.push(camp.rateSec * 60);
+    anyChecked = true;
   }
-  if (camp.rateMinEnabled !== false && camp.rateMin > 0) {
+  // Par minute : rateMin /min (direct)
+  if (camp.rateMinEnabled && camp.rateMin > 0) {
     constraintsPerMin.push(camp.rateMin);
+    anyChecked = true;
   }
+  // Par heure : rateH /h → /min = rateH / 60
   if (camp.rateHEnabled && camp.rateH > 0) {
-    constraintsPerMin.push(camp.rateH / 60); // /h → /min
+    constraintsPerMin.push(camp.rateH / 60);
+    anyChecked = true;
   }
-
-  // Calculer la cadence effective (minimum des contraintes)
-  var effectivePerMin = constraintsPerMin.length > 0
-    ? Math.max(0.001, Math.min.apply(null, constraintsPerMin))
-    : (camp.rateMin || 10);
-
-  // Arrondir intelligemment
-  var rounded = effectivePerMin >= 1
-    ? Math.round(effectivePerMin)
-    : Math.max(0.01, Math.round(effectivePerMin * 100) / 100);
-
-  camp.ratePerHour = rounded;
-
-  // Limite journalière depuis rateDay si activé
-  if (camp.rateDEnabled !== false && camp.rateDay > 0) {
+  // Par jour : rateDay /jour → /min = rateDay / 1440
+  // FIX : rateDay était absent de ce calcul — c'est la cause du bug "8 secondes figé"
+  if (camp.rateDEnabled && camp.rateDay > 0) {
+    constraintsPerMin.push(camp.rateDay / 1440);
+    anyChecked = true;
     camp.dailyLimit = camp.rateDay;
   }
 
-  // Afficher
+  // Cadence effective = contrainte la plus restrictive (minimum)
+  // Si aucune case cochée → fallback sécurisé = 10/min
+  var effectivePerMin;
+  if (constraintsPerMin.length > 0) {
+    effectivePerMin = Math.max(0.001, Math.min.apply(null, constraintsPerMin));
+  } else {
+    effectivePerMin = 10; // fallback explicite si aucune case cochée
+  }
+
+  // Stocker la cadence effective dans ratePerHour (utilisé par le Worker)
+  camp.ratePerHour = effectivePerMin;
+
+  // ── Affichage clair de la cadence effective ──
   var disp = $('rate-display-' + id);
   if (disp) {
     var label = '';
-    if (rounded >= 60) label = Math.round(rounded/60) + '/h (' + rounded + '/min)';
-    else if (rounded < 1) label = (1/rounded).toFixed(0) + 's entre envois';
-    else label = rounded + '/min';
-    if (camp.dailyLimit) label += ' · max ' + camp.dailyLimit.toLocaleString() + '/j';
+    if (effectivePerMin >= 60) {
+      label = Math.round(effectivePerMin / 60) + '/h (' + Math.round(effectivePerMin) + '/min)';
+    } else if (effectivePerMin >= 1) {
+      label = effectivePerMin.toFixed(effectivePerMin === Math.round(effectivePerMin) ? 0 : 1) + '/min';
+    } else {
+      // Moins d'1 email/min → afficher l'intervalle en secondes ou minutes
+      var secsBetween = 60 / effectivePerMin;
+      if (secsBetween < 120) {
+        label = Math.round(secsBetween) + 's entre envois';
+      } else {
+        label = Math.round(secsBetween / 60) + ' min entre envois';
+      }
+    }
+    // Estimation journalière
+    var perDay = Math.round(effectivePerMin * 1440);
+    label += ' ≈ ' + perDay.toLocaleString() + '/jour';
+    if (camp.dailyLimit && camp.dailyLimit < perDay) {
+      label += ' (limité à ' + camp.dailyLimit.toLocaleString() + '/j)';
+    }
     disp.textContent = label;
-    disp.style.color = rounded > 30 ? 'var(--yel)' : rounded > 8 ? 'var(--grn)' : 'var(--cyan)';
+    // Couleur selon vitesse : rapide=vert, moyen=jaune, lent=cyan
+    disp.style.color = effectivePerMin > 10 ? 'var(--grn)' : effectivePerMin > 1 ? 'var(--yel)' : 'var(--cyan)';
   }
 
   saveCamps();
+  // Rafraîchir aussi le résumé automatisation
+  var as = $('as-' + id); if (as) as.innerHTML = buildAS(camp);
 }
 
 async function resumeCamp(id) {
@@ -5655,6 +5688,14 @@ async function addCampAttachments(input, campId) {
   }
   saveCamps();
   renderCampAttachments(campId);
+  // Mettre à jour le badge compteur (identique à QS)
+  var _camp = S.camps.find(function(x){ return x.id === campId; });
+  var _cntEl = $('camp-att-count-' + campId);
+  if (_cntEl && _camp) {
+    var _n = (_camp.attachments||[]).length;
+    _cntEl.textContent = _n > 0 ? '— ' + _n + ' fichier' + (_n>1?'s':'') : '';
+    _cntEl.style.color = _n > 0 ? 'var(--grn)' : 'var(--text3)';
+  }
   if (loaded > 0) toast('✓ ' + loaded + ' pièce' + (loaded > 1 ? 's jointes' : ' jointe') + ' ajoutée' + (loaded > 1 ? 's' : '') + ' à la campagne — visible ci-dessous', 'success');
   input.value = '';
 }
@@ -5666,6 +5707,13 @@ function removeCampAttachment(campId, i) {
   c.attachments.splice(i, 1);
   saveCamps();
   renderCampAttachments(campId);
+  // Mettre à jour le badge compteur (identique à removeQSAttachment)
+  var _cntEl = $('camp-att-count-' + campId);
+  if (_cntEl) {
+    var _n = c.attachments.length;
+    _cntEl.textContent = _n > 0 ? '— ' + _n + ' fichier' + (_n>1?'s':'') : '';
+    _cntEl.style.color = _n > 0 ? 'var(--grn)' : 'var(--text3)';
+  }
   if (name) toast('Pièce jointe "' + name + '" retirée', 'info');
 }
 
