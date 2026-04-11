@@ -2525,8 +2525,10 @@ async function syncFromWorker() {
         changed = true;
 
         // Propager le statut "opened" vers les emailList des campagnes locales
+        // FIX v39 : filtrer AUSSI par camp.name === a.campaign pour éviter les faux positifs
+        // cross-campagnes (même adresse email dans plusieurs campagnes)
         workerLogs.filter(function(a){ return a.opened && a.type === 'email'; }).forEach(function(a) {
-          S.camps.filter(function(camp){ return camp.type !== 'sms'; }).forEach(function(camp) {
+          S.camps.filter(function(camp){ return camp.type !== 'sms' && camp.name === a.campaign; }).forEach(function(camp) {
             var contact = camp.emailList.find(function(e){ return e.email === a.email; });
             if (contact && contact.status === 'sent') {
               contact.status = 'opened';
@@ -2662,8 +2664,7 @@ function _refreshOpenCampMetrics() {
     var el = document.getElementById(prefix + campId);
     if (el) el.textContent = els[prefix];
   });
-
-  // FIX v39 : mettre à jour les erreurs (cellule prc-err-{id} ajoutée dans buildCampForm)
+  // FIX v39 : erreurs (parité dashboard)
   var errEl = document.getElementById('prc-err-' + campId);
   if (errEl) errEl.textContent = errCount > 0 ? errCount + ' err' : '';
 
@@ -2852,8 +2853,7 @@ function buildCampForm(c) {
   h += '<div class="prc prc-c"><div class="prv" id="prc-contacts-' + c.id + '">' + c.emailList.length.toLocaleString() + '</div><div class="prl">CONTACTS</div></div>';
   h += '<div class="prc prc-g"><div class="prv" id="prc-sent-' + c.id + '">' + c.sent.toLocaleString() + '</div><div class="prl">ENVOYÉS</div></div>';
   h += '<div class="prc prc-y"><div class="prv" id="prc-open-' + c.id + '">' + (isSMS ? (c.errors||0) : (c.opened||0)) + '</div><div class="prl">' + (isSMS ? 'ERREURS' : 'OUVERTS') + '</div>';
-  // FIX v39 : afficher les erreurs en sous-ligne pour les campagnes email (parité dashboard)
-  if (!isSMS) { h += '<div style="font-size:9px;color:rgba(255,34,68,.75);margin-top:2px;font-family:var(--mono);" id="prc-err-' + c.id + '">' + ((c.errors||0) > 0 ? (c.errors||0) + ' err' : '') + '</div>'; }
+  if (!isSMS) { h += '<div style="font-size:9px;color:rgba(255,34,68,.75);margin-top:2px;font-family:var(--mono)" id="prc-err-' + c.id + '">' + ((c.errors||0)>0?(c.errors||0)+' err':'') + '</div>'; }
   h += '</div>';
   h += '<div class="prc prc-o" style="position:relative">';
   h += '<div class="prv" id="prc-pct-' + c.id + '">' + pct + '%</div><div class="prl">AVANCEMENT</div>';
@@ -3193,9 +3193,8 @@ function buildCampForm(c) {
     });
     h += '</div>';
   }
-  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
-  h += '<div class="fc"><label class="fl">Délai min entre envois (sec)</label><input type="number" class="fi" value="' + (c.delayMin||0) + '" min="0" onchange="updC(' + c.id + ',\'delayMin\',+this.value)"></div>';
-  h += '<div class="fc"><label class="fl">Délai max entre envois (sec)</label><input type="number" class="fi" value="' + (c.delayMax||1) + '" min="0" onchange="updC(' + c.id + ',\'delayMax\',+this.value)"></div>';
+  h += '<div style="margin-top:8px;padding:10px;background:rgba(0,232,255,.05);border:1px solid rgba(0,232,255,.12);border-radius:8px;font-size:10px;color:var(--text2);line-height:1.7;">';
+  h += '💡 <strong style="color:var(--cyan);">Cadence anti-bannissement</strong> : gérez l\'espacement entre les envois directement via le <strong>slider de cadence</strong> dans la section Automatisation ci-dessus (Par heure / Par minute). C\'est la méthode la plus précise et prévisible.';
   h += '</div>';
   h += '</div></div>';
 
@@ -3705,12 +3704,17 @@ function buildAS(c) {
     schedSummary = '<span style="color:var(--text3)">24h/24 (planification désactivée)</span>';
   }
 
-  // Cadence effective lisible
+  // Cadence effective lisible — FIX v39 : unité correcte (rpm < 1 → minutes entre envois, pas secondes)
   const rpm = c.ratePerHour || 10;
-  const cadenceLabel = rpm >= 60
-    ? Math.round(rpm/60) + '/h (' + rpm + '/min)'
-    : rpm < 1 ? (1/rpm).toFixed(0) + 's entre envois'
-    : rpm + '/min';
+  const cadenceLabel = (function() {
+    if (rpm >= 60) return Math.round(rpm/60) + '/h';
+    if (rpm >= 1)  return rpm + '/min';
+    // rpm < 1 : temps entre envois en minutes
+    var secsBetween = (1/rpm) * 60; // 1/rpm minutes × 60 = secondes entre envois
+    if (secsBetween < 90)   return Math.round(secsBetween) + 's entre envois';
+    if (secsBetween < 3600) return Math.round(secsBetween/60) + ' min entre envois';
+    return (secsBetween/3600).toFixed(1) + 'h entre envois';
+  })();
 
   // Durée estimée en jours
   const daysEst = (typeof t === 'number' && t > 0 && !c.durationInfinite && c.dailyLimit > 0)
@@ -4218,10 +4222,15 @@ function refreshQuotaBanner() {
   runningCamps.forEach(function(camp) {
     const pct = camp.emailList.length ? Math.round((camp.sent/camp.emailList.length)*100) : 0;
     const remaining = camp.emailList.filter(function(e){return e.status==='pending';}).length;
-    const rateLabel = camp.ratePerHour >= 60
-      ? Math.round(camp.ratePerHour/60)+'/h'
-      : camp.ratePerHour < 1 ? (1/camp.ratePerHour).toFixed(0)+'s/email'
-      : camp.ratePerHour+'/min';
+    const rateLabel = (function(){
+      var r = camp.ratePerHour;
+      if (r >= 60) return Math.round(r/60)+'/h';
+      if (r >= 1)  return r+'/min';
+      var s = (1/r)*60;
+      if (s < 90)   return Math.round(s)+'s/email';
+      if (s < 3600) return Math.round(s/60)+' min/email';
+      return (s/3600).toFixed(1)+'h/email';
+    })();
 
     rows += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,230,0,.1);flex-wrap:wrap">';
     rows += '<span style="font-weight:800;color:var(--yel);min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">▶ ' + camp.name + '</span>';
@@ -4351,7 +4360,7 @@ function toggleSlot(id, slot, btn) {
 }
 
 async function launchCamp(id) {
-  // FIX v39 : let (pas const) car c est réaffecté après recalcRate()
+  // FIX v39 : let car c est réaffecté après recalcRate() — const lèverait un TypeError silencieux
   let c = S.camps.find(x => x.id === id);
   if (!c) return;
   const pending = c.emailList.filter((x, i) => x.status === 'pending' && i >= c.pausePosition);
@@ -4360,15 +4369,14 @@ async function launchCamp(id) {
     return;
   }
 
-  // ── Vérification quota global (alerte rouge, pas de blocage)
-  // FIX v39 : exclure la campagne courante du calcul "committed"
-  // (elle peut déjà être 'running' dans S.camps si relance ou sync Worker → double-comptage sinon)
+  // ── Vérification quota global
+  // FIX v39 : exclure la campagne courante du committed (peut déjà être 'running' → double-comptage)
   const q = getGlobalQuota();
   const _otherCommitted = S.camps
     .filter(function(x){ return x.id !== c.id && x.status === 'running' && x.type !== 'sms'; })
-    .reduce(function(s, x){ return s + (x.dailyLimit || 0); }, 0);
-  if (_otherCommitted + (c.dailyLimit || 0) > q.limit) {
-    toast('⚠️ Quota : les autres campagnes actives (' + (_otherCommitted + (c.dailyLimit||0)).toLocaleString() + '/' + q.limit.toLocaleString() + '/j) dépassent la limite provider — risque de bannissement', 'warn');
+    .reduce(function(s,x){ return s + (x.dailyLimit||0); }, 0);
+  if (_otherCommitted + (c.dailyLimit||0) > q.limit) {
+    toast('⚠️ Quota : les campagnes actives (' + (_otherCommitted+(c.dailyLimit||0)).toLocaleString() + '/' + q.limit.toLocaleString() + '/j) dépassent la limite provider — risque de bannissement', 'warn');
   }
 
   c.status = 'running';
@@ -4479,9 +4487,10 @@ async function launchCamp(id) {
       webhookBody: S.smsWebhookBody || null
     },
 
-    // Délais anti-bannissement
-    delayMin: c.delayMin || 0,
-    delayMax: c.delayMax || 1,
+    // Délais anti-bannissement : désactivés — la cadence est gérée par rate_per_minute
+    // (suppression des champs UI v39 : plus de conflit possible entre délai et cadence)
+    delayMin: 0,
+    delayMax: 0,
 
     // Pièces jointes (base64) — envoyées à chaque destinataire, n'écrasent PAS le template
     attachments: c.attachments || [],
@@ -6488,12 +6497,16 @@ function renderActiveCamps() {
       ? `<span style="font-family:var(--mono);font-size:11px;color:var(--cyan)">${currentPos.toLocaleString()}</span><span style="font-size:9px;color:var(--text3)">/${total.toLocaleString()}</span>`
       : '<span style="color:var(--text3);font-size:10px">—</span>';
 
-    // Cadence lisible
+    // Cadence lisible — FIX v39 : unité correcte pour cadences lentes
     const rpm = c.ratePerHour || 10;
-    const rateLabel = rpm >= 60
-      ? Math.round(rpm/60) + '/h'
-      : rpm < 1 ? (1/rpm).toFixed(0) + 's/msg'
-      : rpm + '/min';
+    const rateLabel = (function(){
+      if (rpm >= 60) return Math.round(rpm/60)+'/h';
+      if (rpm >= 1)  return rpm+'/min';
+      var s = (1/rpm)*60;
+      if (s < 90)   return Math.round(s)+'s/msg';
+      if (s < 3600) return Math.round(s/60)+' min/msg';
+      return (s/3600).toFixed(1)+'h/msg';
+    })();
 
     // Limite journalière
     const todayStr = new Date().toDateString();
