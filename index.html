@@ -2436,6 +2436,8 @@ async function syncFromWorker() {
           if (wc.opened    !== undefined && wc.opened    > (local.opened||0)) { local.opened    = wc.opened; updated++; }
           if (wc.errors    !== undefined && wc.errors    > (local.errors||0)) { local.errors    = wc.errors; updated++; }
           if (wc.unsubscribed !== undefined) { local.unsubscribed = wc.unsubscribed; }
+          // Stocker le pending réel du Worker (source de vérité pour le resume)
+          if (wc.pending !== undefined) { local.workerPending = wc.pending; }
           // Synchroniser dailySent SANS remettre à zéro (le Worker est la source de vérité)
           if (wc.dailySent !== undefined) {
             local.dailySent = wc.dailySent;
@@ -2726,8 +2728,8 @@ function newCamp(type) {
     rateHEnabled:   false, rateH:   600,
     rateDEnabled:   true,  rateDay: 300,  // Seul 'par jour' actif par défaut
     dailyLimit: 100,
-    durationH: 24,
-    durationInfinite: false,
+    durationH: -1,
+    durationInfinite: true,
     startDate: '', endDate: '',
     sendOrder: 'inorder',   // 'inorder'|'random'|'loop'
     endOfList: 'stop',      // 'stop'|'restart'|'resume'
@@ -4634,7 +4636,10 @@ async function resumeCamp(id) {
   const c = S.camps.find(x => x.id === id);
   if (!c) return;
 
-  const remaining = c.emailList.filter(x => x.status === 'pending').length;
+  // Utiliser le pending du Worker (source de vérité) si disponible, sinon count local
+  const remaining = (c.workerPending !== undefined)
+    ? c.workerPending
+    : c.emailList.filter(x => x.status === 'pending').length;
   if (!remaining) {
     toast('Tous les contacts ont déjà été envoyés. Utilisez ↺ Tout relancer.', 'warn');
     return;
