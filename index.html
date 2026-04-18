@@ -2436,8 +2436,10 @@ async function syncFromWorker() {
           if (wc.opened    !== undefined && wc.opened    > (local.opened||0)) { local.opened    = wc.opened; updated++; }
           if (wc.errors    !== undefined && wc.errors    > (local.errors||0)) { local.errors    = wc.errors; updated++; }
           if (wc.unsubscribed !== undefined) { local.unsubscribed = wc.unsubscribed; }
-          // Stocker le pending réel du Worker (source de vérité pour le resume)
-          if (wc.pending !== undefined) { local.workerPending = wc.pending; }
+          // Source de vérité Worker pour le pending réel (chunks KV)
+          if (wc.pending !== undefined) { local.workerPending = wc.pending; updated++; }
+          // nextSendAt : afficher dans le debug quand le prochain envoi est prévu
+          if (wc.nextSendAt !== undefined) { local.nextSendAt = wc.nextSendAt; }
           // Synchroniser dailySent SANS remettre à zéro (le Worker est la source de vérité)
           if (wc.dailySent !== undefined) {
             local.dailySent = wc.dailySent;
@@ -4636,7 +4638,8 @@ async function resumeCamp(id) {
   const c = S.camps.find(x => x.id === id);
   if (!c) return;
 
-  // Utiliser le pending du Worker (source de vérité) si disponible, sinon count local
+  // Pending réel depuis le Worker (source de vérité chunks KV)
+  // Si absent (première reprise sans sync), on compte localement
   const remaining = (c.workerPending !== undefined)
     ? c.workerPending
     : c.emailList.filter(x => x.status === 'pending').length;
