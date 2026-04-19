@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#8B0000">
-<title>PGI Send Station v39</title>
+<title>PGI Send Station v39.1</title>
 <!-- Favicon -->
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="apple-touch-icon" sizes="180x180" href="https://i.imgur.com/GmyGlKk.webp">
@@ -2436,10 +2436,9 @@ async function syncFromWorker() {
           if (wc.opened    !== undefined && wc.opened    > (local.opened||0)) { local.opened    = wc.opened; updated++; }
           if (wc.errors    !== undefined && wc.errors    > (local.errors||0)) { local.errors    = wc.errors; updated++; }
           if (wc.unsubscribed !== undefined) { local.unsubscribed = wc.unsubscribed; }
-          // Source de vérité Worker pour le pending réel (chunks KV)
-          if (wc.pending !== undefined) { local.workerPending = wc.pending; updated++; }
-          // nextSendAt : afficher dans le debug quand le prochain envoi est prévu
-          if (wc.nextSendAt !== undefined) { local.nextSendAt = wc.nextSendAt; }
+          // Source de vérité Worker : pending réel dans les chunks KV
+          if (wc.pending   !== undefined) { local.workerPending = wc.pending;   updated++; }
+          if (wc.nextSendAt!== undefined) { local.nextSendAt    = wc.nextSendAt; }
           // Synchroniser dailySent SANS remettre à zéro (le Worker est la source de vérité)
           if (wc.dailySent !== undefined) {
             local.dailySent = wc.dailySent;
@@ -2724,17 +2723,17 @@ function newCamp(type) {
     subject: '',
     smsText: '',
     emailList: [],      // [{email, status:'pending'|'sent'|'error'|'opened', sentAt, openedAt}]
-    ratePerHour: 10,     // calculé par recalcRate — ne pas modifier directement
+    rateEffectivePerMin: 10,  // msgs/min — calculé par recalcRate — ne pas modifier directement
     rateSecEnabled: false, rateSec: 1,
     rateMinEnabled: false, rateMin: 10,
     rateHEnabled:   false, rateH:   600,
-    rateDEnabled:   true,  rateDay: 300,  // Seul 'par jour' actif par défaut
-    dailyLimit: 100,
-    durationH: -1,
-    durationInfinite: true,
+    rateDEnabled:   false, rateDay: 300,   // désactivé par défaut → pas de plafond journalier artificiel
+    dailyLimit: 9999,                      // FIX v11: limite haute par défaut (pratiquement illimité)
+    durationH: -1,                         // FIX v11: pas de durée fixe par défaut
+    durationInfinite: true,                // FIX v11: durée infinie par défaut
     startDate: '', endDate: '',
     sendOrder: 'inorder',   // 'inorder'|'random'|'loop'
-    endOfList: 'stop',      // 'stop'|'restart'|'resume'
+    endOfList: 'loop',      // FIX v11: 'loop' par défaut — la campagne recommence au lieu de s'arrêter
     pausePosition: 0,
     schedEnabled: false,
     days: [1,2,3,4,5,6,7], // Tous les jours par défaut, désactivez ceux que vous voulez
@@ -3044,8 +3043,8 @@ function buildCampForm(c) {
   var rHEnabled   = c.rateHEnabled  || false;
   var rDEnabled   = (c.rateDEnabled === true);    // FIX: false par défaut, pas true
   var rSec = c.rateSec || 1;
-  var rMin = c.rateMin || (c.ratePerHour||10);
-  var rH   = c.rateH   || Math.ceil((c.ratePerHour||10)*60);
+  var rMin = c.rateMin || (c.rateEffectivePerMin||10);
+  var rH   = c.rateH   || Math.ceil((c.rateEffectivePerMin||10)*60);
   var rDay = c.rateDay || (c.dailyLimit||300);
 
   h += '<div style="background:var(--bg3);border:1px solid var(--b2);border-radius:10px;padding:14px;margin-bottom:14px;">';
@@ -3134,9 +3133,9 @@ function buildCampForm(c) {
   // Explication mode actif
   h += '<div id="sched-explain-' + c.id + '" style="font-size:10px;color:var(--text2);background:' + (!c.schedEnabled?'rgba(0,232,255,.05)':'rgba(255,122,0,.05)') + ';border:1px solid ' + (!c.schedEnabled?'rgba(0,232,255,.15)':'rgba(255,122,0,.15)') + ';border-radius:7px;padding:8px 12px;margin-bottom:10px;line-height:1.6;">';
   if (!c.schedEnabled) {
-    h += '⚡ <strong style="color:var(--cyan);">Mode continu :</strong> Le Worker envoie ' + c.ratePerHour + ' ' + (isSMS?'SMS':'emails') + '/h en permanence, jusqu\'à la limite journalière ou la fin de liste.';
+    h += '⚡ <strong style="color:var(--cyan);">Mode continu :</strong> Le Worker envoie ' + (c.rateEffectivePerMin >= 1 ? c.rateEffectivePerMin.toFixed(1) + ' msg/min' : Math.round(60/c.rateEffectivePerMin) + 's entre envois') + ' (isSMS?'SMS':'emails') + ' en permanence, jusqu\'à la limite journalière ou la fin de liste.';
   } else {
-    h += '📅 <strong style="color:var(--ora);">Mode planifié :</strong> Le Worker envoie uniquement dans les créneaux définis ci-dessous à raison de ' + c.ratePerHour + ' ' + (isSMS?'SMS':'emails') + '/h. En dehors des créneaux = aucun envoi.';
+    h += '📅 <strong style="color:var(--ora);">Mode planifié :</strong> Le Worker envoie uniquement dans les créneaux définis ci-dessous à raison de ' + (c.rateEffectivePerMin>=1?c.rateEffectivePerMin.toFixed(1)+' msg/min':Math.round(60/c.rateEffectivePerMin)+'s entre envois') + '. En dehors des créneaux = aucun envoi.';
   }
   h += '</div>';
 
@@ -3148,7 +3147,7 @@ function buildCampForm(c) {
     var dn = idx + 1;
     var active = c.days.indexOf(dn) > -1;
     var ds = (c.daySchedules && c.daySchedules['day'+dn]) || {from:'09:00', to:'18:00'};
-    var maxSend = calcDayMax(ds, c.ratePerHour);
+    var maxSend = calcDayMax(ds, c.rateEffectivePerMin);
     h += '<div class="day-sched-row ' + (active?'on':'') + '" id="dayrow-' + c.id + '-' + dn + '" style="margin-bottom:5px;">';
     h += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">';
     h += '<div class="dchip ' + (active?'on':'') + '" onclick="toggleDaySchedule(\'' + c.id + '\',' + dn + ',this)" style="min-width:44px;font-size:10px;font-weight:700;">' + dayName + '</div>';
@@ -3633,8 +3632,8 @@ function setSchedMode(campId, enabled) {
     expl.style.background   = !enabled ? 'rgba(0,232,255,.05)' : 'rgba(255,122,0,.05)';
     expl.style.borderColor  = !enabled ? 'rgba(0,232,255,.15)' : 'rgba(255,122,0,.15)';
     expl.innerHTML = !enabled
-      ? '⚡ <strong style="color:var(--cyan);">Mode continu :</strong> Le Worker envoie ' + c.ratePerHour + ' ' + (c.type==='sms'?'SMS':'emails') + '/min en permanence, jusqu\'à la limite journalière ou la fin de liste.'
-      : '📅 <strong style="color:var(--ora);">Mode planifié :</strong> Le Worker envoie uniquement dans les créneaux définis à raison de ' + c.ratePerHour + ' ' + (c.type==='sms'?'SMS':'emails') + '/min.';
+      ? '⚡ <strong style="color:var(--cyan);">Mode continu :</strong> Le Worker envoie ' + c.rateEffectivePerMin + ' ' + (c.type==='sms'?'SMS':'emails') + '/min en permanence, jusqu\'à la limite journalière ou la fin de liste.'
+      : '📅 <strong style="color:var(--ora);">Mode planifié :</strong> Le Worker envoie uniquement dans les créneaux définis à raison de ' + c.rateEffectivePerMin + ' ' + (c.type==='sms'?'SMS':'emails') + '/min.';
   }
   saveCamps();
   var as = document.getElementById('as-' + campId); if (as) as.innerHTML = buildAS(c);
@@ -3709,7 +3708,7 @@ function buildAS(c) {
   }
 
   // Cadence effective lisible — FIX v39 : unité correcte (rpm < 1 → minutes entre envois, pas secondes)
-  const rpm = c.ratePerHour || 10;
+  const rpm = c.rateEffectivePerMin || 10;
   const cadenceLabel = (function() {
     if (rpm >= 60) return Math.round(rpm/60) + '/h';
     if (rpm >= 1)  return rpm + '/min';
@@ -4193,7 +4192,7 @@ function calcRangeMax(c) {
   const [fh, fm] = c.timeFrom.split(':').map(Number);
   const [th, tm] = c.timeTo.split(':').map(Number);
   const hours = Math.max(0, (th * 60 + tm - fh * 60 - fm) / 60);
-  return hours * c.ratePerHour;
+  return hours * c.rateEffectivePerMin;
 }
 
 /* ────────────────────────────────────────────────────
@@ -4227,7 +4226,7 @@ function refreshQuotaBanner() {
     const pct = camp.emailList.length ? Math.round((camp.sent/camp.emailList.length)*100) : 0;
     const remaining = camp.emailList.filter(function(e){return e.status==='pending';}).length;
     const rateLabel = (function(){
-      var r = camp.ratePerHour;
+      var r = camp.rateEffectivePerMin;
       if (r >= 60) return Math.round(r/60)+'/h';
       if (r >= 1)  return r+'/min';
       var s = (1/r)*60;
@@ -4331,21 +4330,21 @@ function updDaySchedule(campId, dayNum, field, val) {
 }
 
 /* Calcule le nombre maximum d'envois sur un créneau horaire donné */
-function calcDayMax(daySchedule, ratePerHour) {
+function calcDayMax(daySchedule, rateEffectivePerMin) {
   if (!daySchedule || !daySchedule.from || !daySchedule.to) return 0;
   const [fh, fm] = daySchedule.from.split(':').map(Number);
   const [th, tm] = daySchedule.to.split(':').map(Number);
   const durationH = Math.max(0, (th * 60 + tm - fh * 60 - fm) / 60);
-  return Math.round(durationH * (ratePerHour || 0));
+  return Math.round(durationH * (rateEffectivePerMin || 0));
 }
 
 /* Calcule le max total par semaine selon la planification */
 function calcWeekMax(c) {
-  if (!c.schedEnabled) return c.ratePerHour * 24 * 7;
+  if (!c.schedEnabled) return c.rateEffectivePerMin * 24 * 7;
   if (!c.days.length) return 0;
   return c.days.reduce((total, dayNum) => {
     const ds = c.daySchedules && c.daySchedules['day'+dayNum] || {from:'09:00',to:'18:00'};
-    return total + calcDayMax(ds, c.ratePerHour);
+    return total + calcDayMax(ds, c.rateEffectivePerMin);
   }, 0);
 }
 
@@ -4426,15 +4425,15 @@ async function launchCamp(id) {
     campaign_type: c.type,
     campaign_name: c.name,
     contacts_count: c.emailList.length,
-    rate_per_minute: c.ratePerHour || 10,
+    rate_per_minute: c.rateEffectivePerMin || 10,
     daily_limit: c.dailyLimit
   });
 
   // Calcul du rate effectif en messages/minute — recalculé au moment du lancement
-  recalcRate(c.id); // met à jour c.ratePerHour et c.dailyLimit depuis les contraintes
+  recalcRate(c.id); // met à jour c.rateEffectivePerMin et c.dailyLimit depuis les contraintes
   // Relire après recalcRate pour être sûr d'avoir les valeurs à jour
   c = S.camps.find(function(x){ return x.id === id; });
-  var effectiveRpm = c.ratePerHour || 10;
+  var effectiveRpm = c.rateEffectivePerMin || 10;
 
   // FIX v38 : extraire le contenu HTML du template pour l'envoyer explicitement
   // => garantit que template + pièces jointes coexistent toujours dans le même envoi
@@ -4474,9 +4473,13 @@ async function launchCamp(id) {
     },
 
     // Limites et durée
-    dailyLimit:       c.dailyLimit,
-    durationH:        c.durationH        || null,
+    dailyLimit:       c.dailyLimit || 9999,
+    durationH:        c.durationInfinite ? null : (c.durationH > 0 ? c.durationH : null),
     durationInfinite: c.durationInfinite || false,
+
+    // Fin de liste — 'loop' = recommencer indéfiniment, 'stop' = terminer, 'restart' = repartir même ordre
+    // Transmis explicitement pour éviter que le Worker utilise son propre défaut
+    endOfList:        c.endOfList || 'loop',
 
     // MMS (image dans les SMS)
     mediaUrl: c.mmsUrl || null,
@@ -4597,8 +4600,8 @@ function recalcRate(id) {
     effectivePerMin = 10; // fallback explicite si aucune case cochée
   }
 
-  // Stocker la cadence effective dans ratePerHour (utilisé par le Worker)
-  camp.ratePerHour = effectivePerMin;
+  // Stocker la cadence effective (msgs/min) — transmise au Worker dans rate_per_minute
+  camp.rateEffectivePerMin = effectivePerMin;
 
   // ── Affichage clair de la cadence effective ──
   var disp = $('rate-display-' + id);
@@ -4638,8 +4641,7 @@ async function resumeCamp(id) {
   const c = S.camps.find(x => x.id === id);
   if (!c) return;
 
-  // Pending réel depuis le Worker (source de vérité chunks KV)
-  // Si absent (première reprise sans sync), on compte localement
+  // pending réel depuis le Worker (source de vérité) — prioritaire sur le comptage local
   const remaining = (c.workerPending !== undefined)
     ? c.workerPending
     : c.emailList.filter(x => x.status === 'pending').length;
@@ -6506,7 +6508,7 @@ function renderActiveCamps() {
       : '<span style="color:var(--text3);font-size:10px">—</span>';
 
     // Cadence lisible — FIX v39 : unité correcte pour cadences lentes
-    const rpm = c.ratePerHour || 10;
+    const rpm = c.rateEffectivePerMin || 10;
     const rateLabel = (function(){
       if (rpm >= 60) return Math.round(rpm/60)+'/h';
       if (rpm >= 1)  return rpm+'/min';
@@ -6929,6 +6931,23 @@ async function resetData() {
 //  INIT
 // ═══════════════════════════════════════════════════════
 function init() {
+  // ── Migration rétrocompatible : ratePerHour → rateEffectivePerMin ──────
+  // Les campagnes sauvegardées avant v12 utilisent camp.ratePerHour (msgs/min).
+  // On migre silencieusement sans perte de données.
+  S.camps.forEach(function(c) {
+    if (c.ratePerHour !== undefined && c.rateEffectivePerMin === undefined) {
+      c.rateEffectivePerMin = c.ratePerHour;
+      delete c.ratePerHour;
+    }
+    if (c.rateEffectivePerMin === undefined) c.rateEffectivePerMin = 10;
+    // Assurer les nouveaux défauts sur les ancienne campagnes
+    if (c.endOfList === undefined)  c.endOfList  = 'loop';
+    if (c.dailyLimit === undefined || c.dailyLimit <= 0) c.dailyLimit = 9999;
+    if (c.durationH === undefined)  c.durationH  = -1;
+    if (c.durationInfinite === undefined) c.durationInfinite = true;
+  });
+  lsS(SK.camps, S.camps); // sauvegarder la migration
+
   setProv(S.prov);
   setSMSP(S.smsProv);
   updateWorkerUI();
