@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#8B0000">
-<title>PGI Send Station v39.1</title>
+<title>PGI Send Station v39.2</title>
 <!-- Favicon -->
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="apple-touch-icon" sizes="180x180" href="https://i.imgur.com/GmyGlKk.webp">
@@ -2768,12 +2768,13 @@ function saveCamps() {
   lsS(SK.camps, S.camps);
   // Sync Worker différée : regroupe les modifications rapides (ex: sliders, toggles)
   if (_saveCampsTimer) clearTimeout(_saveCampsTimer);
+  // 15s debounce : /campaigns est des métadonnées — le Worker runtime est autonome
   _saveCampsTimer = setTimeout(function() {
     if (S.wurl) {
       syncW('/campaigns', { campaigns: S.camps, accessToken: S.tok, provider: S.prov });
     }
     _saveCampsTimer = null;
-  }, 2000); // Attend 2s d'inactivité avant d'envoyer
+  }, 15000); // 15s debounce — /campaigns = métadonnées UI, le runtime est géré par le Worker
   renderDashboard();
   updateStats();
 }
