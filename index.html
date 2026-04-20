@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#8B0000">
-<title>PGI Send Station v39.6</title>
+<title>PGI Send Station v39.7</title>
 <!-- Favicon -->
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="apple-touch-icon" sizes="180x180" href="https://i.imgur.com/GmyGlKk.webp">
@@ -2806,6 +2806,14 @@ function openCamp(id, type) {
   if (!c) return;
   const det = $(type === 'sms' ? 'detail-sms' : 'detail-email');
   if (!det) return;
+  // FIX v19 : si la campagne est terminée/stoppée, remettre les métriques à 0
+  // dans l'objet local avant l'affichage. buildCampForm() les utilisera directement.
+  // Ces valeurs seront correctement mises à jour par le Worker dès le prochain lancement.
+  var _inactive = c.status === 'done' || c.status === 'completed' || c.status === 'stopped';
+  if (_inactive) {
+    c.sent = 0; c.opened = 0; c.errors = 0; c.clicks = 0; c.unsubscribed = 0;
+    lsS(SK.camps, S.camps); // persister le reset
+  }
   det.innerHTML = buildCampForm(c);
   refreshEList(c);
   if (type !== 'sms') {
@@ -2832,7 +2840,17 @@ function openCamp(id, type) {
 ================================================================ */
 function buildCampForm(c) {
   var isSMS = c.type === 'sms';
-  var pct   = c.emailList.length ? Math.round((c.sent / c.emailList.length) * 100) : 0;
+  // FIX v19 : si la campagne est terminée/stoppée/brouillon → remettre les métriques à 0
+  // pour éviter que les chiffres d'une ancienne exécution s'affichent sur une nouvelle campagne.
+  // Les métriques sont remises à 0 dans l'objet local pour l'affichage uniquement.
+  // Elles seront écrasées par le Worker dès la première sync après lancement.
+  var _isInactiveStatus = (c.status === 'done' || c.status === 'completed' || c.status === 'stopped' || c.status === 'draft');
+  var _displaySent   = _isInactiveStatus ? 0 : (c.sent   || 0);
+  var _displayOpened = _isInactiveStatus ? 0 : (c.opened || 0);
+  var _displayErrors = _isInactiveStatus ? 0 : (c.errors || 0);
+  var _displayClicks = _isInactiveStatus ? 0 : (c.clicks || 0);
+  // Progression : 0% si inactif, calculée depuis le Worker sinon
+  var pct = _isInactiveStatus ? 0 : (c.emailList.length ? Math.round((_displaySent / c.emailList.length) * 100) : 0);
   var dayNames = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
   var h = '';
 
@@ -2855,9 +2873,9 @@ function buildCampForm(c) {
   // ─── PROGRESSION avec IDs pour mise à jour live
   h += '<div class="prog-row" id="prog-row-' + c.id + '">';
   h += '<div class="prc prc-c"><div class="prv" id="prc-contacts-' + c.id + '">' + c.emailList.length.toLocaleString() + '</div><div class="prl">CONTACTS</div></div>';
-  h += '<div class="prc prc-g"><div class="prv" id="prc-sent-' + c.id + '">' + c.sent.toLocaleString() + '</div><div class="prl">ENVOYÉS</div></div>';
-  h += '<div class="prc prc-y"><div class="prv" id="prc-open-' + c.id + '">' + (isSMS ? (c.errors||0) : (c.opened||0)) + '</div><div class="prl">' + (isSMS ? 'ERREURS' : 'OUVERTS') + '</div>';
-  if (!isSMS) { h += '<div style="font-size:9px;color:rgba(255,34,68,.75);margin-top:2px;font-family:var(--mono)" id="prc-err-' + c.id + '">' + ((c.errors||0)>0?(c.errors||0)+' err':'') + '</div>'; }
+  h += '<div class="prc prc-g"><div class="prv" id="prc-sent-' + c.id + '">' + _displaySent.toLocaleString() + '</div><div class="prl">ENVOYÉS</div></div>';
+  h += '<div class="prc prc-y"><div class="prv" id="prc-open-' + c.id + '">' + (isSMS ? _displayErrors : _displayOpened) + '</div><div class="prl">' + (isSMS ? 'ERREURS' : 'OUVERTS') + '</div>';
+  if (!isSMS) { h += '<div style="font-size:9px;color:rgba(255,34,68,.75);margin-top:2px;font-family:var(--mono)" id="prc-err-' + c.id + '">' + (_displayErrors>0?_displayErrors+' err':'') + '</div>'; }
   h += '</div>';
   h += '<div class="prc prc-o" style="position:relative">';
   h += '<div class="prv" id="prc-pct-' + c.id + '">' + pct + '%</div><div class="prl">AVANCEMENT</div>';
@@ -2865,8 +2883,8 @@ function buildCampForm(c) {
   h += '</div>';
   // FIX v14 : clics depuis c.clicks (propagé par /sync/campaigns, source Worker)
   // Pas de S.analytics pour éviter le double-comptage et le drift local.
-  var _cc = c.clicks || 0;
-  var _ce = _cc > 0 ? Math.min(_cc, c.sent || _cc) : 0; // approximation: au plus 1 clic / email envoyé
+  var _cc = _displayClicks;
+  var _ce = _cc > 0 ? Math.min(_cc, _displaySent || _cc) : 0;
   h += '<div class="prc" style="border-right:none">';
   h += '<div class="prv" id="prc-clics-' + c.id + '" style="color:var(--cyan)">' + _cc + '</div>';
   h += '<div class="prl" style="color:rgba(0,232,255,.4)">CLICS LIENS</div>';
@@ -4552,6 +4570,8 @@ async function launchCamp(id) {
   // FIX v14 : plus de push local 'pending_send' — le Worker est la source de vérité.
   // Nettoyer les entrées pending_send résiduelles + remettre les compteurs d'affichage à zéro.
   // Cela évite d'afficher les chiffres d'une campagne précédente pendant le démarrage.
+  // FIX v19 : reset PERSISTÉ en localStorage immédiatement
+  // → si on rouvre la campagne depuis un autre appareil, les métriques sont à 0
   S.analytics = S.analytics.filter(function(a) {
     return !(a.campaign === c.name && a.status === 'pending_send');
   });
@@ -4560,6 +4580,8 @@ async function launchCamp(id) {
   c.errors      = 0;
   c.clicks      = 0;
   c.unsubscribed= 0;
+  c.workerPending = (c.emailList || []).filter(function(e){ return e.status === 'pending'; }).length;
+  lsS(SK.camps, S.camps);  // persister le reset maintenant
   lsS(SK.analytics, S.analytics);
   var _launchMsg = status === 'scheduled'
     ? '📅 Campagne programmée — démarrage le ' + new Date(c.startDate).toLocaleString('fr-FR')
