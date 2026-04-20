@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#8B0000">
-<title>PGI Send Station v39.4</title>
+<title>PGI Send Station v39.6</title>
 <!-- Favicon -->
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="apple-touch-icon" sizes="180x180" href="https://i.imgur.com/GmyGlKk.webp">
@@ -2447,15 +2447,26 @@ async function syncFromWorker() {
             local.dailyDate = new Date().toDateString();
             updated++;
           }
-          // Statut (running → paused → done → oauth_error, etc.) — le Worker prime
+          // Statut (running → paused → completed → stopped → oauth_error) — le Worker prime
           var prevStatus = local.status;
           if (wc.status && wc.status !== local.status) {
             local.status = wc.status;
             updated++;
+            // FIX v17: campagne scheduled → remettre les compteurs d'affichage à 0
+            if (wc.status === 'scheduled') {
+              local.sent = 0; local.opened = 0; local.errors = 0;
+              local.clicks = 0; local.unsubscribed = 0;
+              local.workerPending = wc.total || (local.emailList||[]).length;
+            }
             if (wc.status === 'oauth_error') {
-              toast('⚠️ Campagne « ' + (local.name||'') + ' » : erreur OAuth Gmail. '
-                + 'Vérifiez que GMAIL_REFRESH_TOKEN, GMAIL_CLIENT_ID et GMAIL_CLIENT_SECRET '
-                + 'sont configurés dans les secrets Cloudflare du Worker.', 'error');
+              var _oauthMsg = 'Campagne « ' + (local.name||'') + ' » : erreur OAuth Gmail. Vérifiez les secrets Cloudflare.';
+              toast(_oauthMsg, 'error');
+            }
+            if (wc.status === 'completed') {
+              toast('✅ Campagne « ' + (local.name||'') + ' » terminée — tous les contacts traités !', 'success');
+            }
+            if (wc.status === 'stopped') {
+              toast('⏹ Campagne « ' + (local.name||'') + ' » arrêtée manuellement.', 'info');
             }
           }
           // Mettre à jour les statuts des contacts individuels
@@ -4495,8 +4506,13 @@ async function launchCamp(id) {
     delayMin: 0,
     delayMax: 0,
 
-    // Pièces jointes (base64) — envoyées à chaque destinataire, n'écrasent PAS le template
-    attachments: c.attachments || [],
+    // Pièces jointes — si att.key existe (déjà dans KV), envoyer seulement la référence
+    // Sinon envoyer la data base64 complète pour que le Worker la stocke dans KV
+    // Cela évite de renvoyer des fichiers lourds déjà persistés côté Worker
+    attachments: (c.attachments || []).map(function(att) {
+      if (att.key) return { key: att.key, name: att.name, contentType: att.contentType };
+      return att; // data complète → Worker la stocke dans att_xxx
+    }),
 
     // URL du Worker lui-même (pour les liens de désinscription + tracking ouverture)
     _workerOrigin: S.wurl ? S.wurl.replace(/\/+$/, '') : ''
@@ -4514,6 +4530,13 @@ async function launchCamp(id) {
         toast('⚠️ Worker a rejeté la campagne : ' + (_lj.error || 'erreur inconnue'), 'error');
         return;
       }
+      // FIX v17 : mémoriser les clés KV des PJ → évite le re-upload lors d'une relance
+      if (_lj.attachmentKeys && Array.isArray(_lj.attachmentKeys)) {
+        _lj.attachmentKeys.forEach(function(kInfo) {
+          var att = (c.attachments||[]).find(function(a){ return a.name === kInfo.name; });
+          if (att && kInfo.key) att.key = kInfo.key;
+        });
+      }
     } catch(_le) {
       toast('⚠️ Worker inaccessible : ' + _le.message + ' — vérifiez l’URL dans Réglages', 'error');
       return;
@@ -4527,13 +4550,21 @@ async function launchCamp(id) {
   openCamp(id, c.type);
   refreshQuotaBanner();
   // FIX v14 : plus de push local 'pending_send' — le Worker est la source de vérité.
-  // Les analytics réels arrivent via /sync/analytics au prochain syncFromWorker().
-  // Nettoyer les éventuelles entrées pending_send résiduelles de cette campagne.
+  // Nettoyer les entrées pending_send résiduelles + remettre les compteurs d'affichage à zéro.
+  // Cela évite d'afficher les chiffres d'une campagne précédente pendant le démarrage.
   S.analytics = S.analytics.filter(function(a) {
     return !(a.campaign === c.name && a.status === 'pending_send');
   });
+  c.sent        = 0;
+  c.opened      = 0;
+  c.errors      = 0;
+  c.clicks      = 0;
+  c.unsubscribed= 0;
   lsS(SK.analytics, S.analytics);
-  toast('✓ Campagne lancée — ' + pending.length + ' en attente', 'success');
+  var _launchMsg = status === 'scheduled'
+    ? '📅 Campagne programmée — démarrage le ' + new Date(c.startDate).toLocaleString('fr-FR')
+    : '✓ Campagne lancée — ' + pending.length + ' en attente';
+  toast(_launchMsg, 'success');
 }
 
 function pauseCamp(id) {
