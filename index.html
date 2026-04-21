@@ -2044,7 +2044,15 @@ const EX = {
 // ─── HELPERS ────────────────────────────────────────────
 const ls  = k => localStorage.getItem(k) || '';
 const lsJ = (k,d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch { return d; } };
-const lsS = (k,v) => localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+// FIX v20 : wrap dans un try/catch — localStorage.setItem lève QuotaExceededError
+// sur mobile (Samsung Internet = ~5 Mo) quand les campagnes contiennent des PJ en base64.
+const lsS = (k, v) => {
+  try {
+    localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+  } catch(e) {
+    console.warn('[PGI] localStorage plein — clé non sauvegardée :', k, e.message);
+  }
+};
 const $   = id => document.getElementById(id);
 const fDt = iso => { if(!iso) return '—'; try { const d=new Date(iso); return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'})+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}); } catch { return '—'; } };
 const applyVars = (str, vars) => str.replace(/\{\{(\w+)\}\}/g, (_,k) => vars[k] !== undefined ? vars[k] : `{{${k}}}`);
@@ -2431,6 +2439,10 @@ async function syncFromWorker() {
         data.campaigns.forEach(function(wc) {
           var local = S.camps.find(function(c){ return c.id == wc.id; });
           if (!local) return;
+          // FIX v20 : ne jamais écraser les compteurs d'un brouillon depuis le Worker.
+          // Le Worker peut encore avoir en KV les données d'une campagne supprimée
+          // si le /campaign/delete a échoué. On protège les nouvelles campagnes.
+          if (local.status === 'draft') return;
           // Mettre à jour les compteurs depuis le Worker (prendre la valeur la plus haute)
           if (wc.sent      !== undefined && wc.sent      > (local.sent||0))   { local.sent      = wc.sent;   updated++; }
           if (wc.opened    !== undefined && wc.opened    > (local.opened||0)) { local.opened    = wc.opened; updated++; }
@@ -2494,7 +2506,7 @@ async function syncFromWorker() {
           }
         });
         if (updated > 0) {
-          lsS(SK.camps, S.camps);
+          persistCamps();
           renderCampList('email');
           renderCampList('sms');
           renderDashboard();
@@ -2539,8 +2551,15 @@ async function syncFromWorker() {
         if (data2.compact) {
           // Mode compact : mettre à jour les compteurs par campagne
           data2.analytics.forEach(function(wc) {
-            var local = S.camps.find(function(c){ return c.name === wc.campaign; });
+            // FIX v20 : cherche d'abord par ID, puis par nom en fallback
+            var local = S.camps.find(function(c){ return c.id == wc.id; });
+            if (!local && wc.campaign) local = S.camps.find(function(c){ return c.name === wc.campaign; });
             if (!local) return;
+            // FIX v20 : ne jamais injecter des métriques Worker dans un brouillon.
+            // Un brouillon n'a pas encore été lancé — ses compteurs doivent rester à 0.
+            // Ceci évite qu'une nouvelle campagne hérite des chiffres d'une ancienne
+            // supprimée portant le même nom par défaut ("Nouvelle campagne email").
+            if (local.status === 'draft') return;
             if (wc.sent      > (local.sent||0))    { local.sent    = wc.sent;    changed = true; }
             if (wc.opened    > (local.opened||0))  { local.opened  = wc.opened;  changed = true; }
             if (wc.clicks    > (local.clicks||0))  { local.clicks  = wc.clicks;  changed = true; }
@@ -2554,7 +2573,7 @@ async function syncFromWorker() {
           changed = true;
         }
         if (changed) {
-          lsS(SK.camps, S.camps);
+          persistCamps();
           renderDashboard();
           updateStats();
           _refreshOpenCampMetrics();
@@ -2643,11 +2662,15 @@ function _refreshOpenCampMetrics() {
 
   var total = c.emailList ? c.emailList.length : (c.workerTotal || 0);
 
+  // FIX v20 : respecter le statut — une campagne draft/done/stopped affiche 0
+  // même si l'objet contient encore des anciennes valeurs (ex: juste avant le reset)
+  var _isLive = (c.status === 'running' || c.status === 'paused' || c.status === 'oauth_error');
+
   // Source de vérité : compteurs synchronisés depuis /sync/campaigns
-  var sentCount   = c.sent    || 0;
-  var openedCount = c.opened  || 0;
-  var errCount    = c.errors  || 0;
-  var pct         = total ? Math.round((sentCount / total) * 100) : 0;
+  var sentCount   = _isLive ? (c.sent    || 0) : 0;
+  var openedCount = _isLive ? (c.opened  || 0) : 0;
+  var errCount    = _isLive ? (c.errors  || 0) : 0;
+  var pct         = _isLive && total ? Math.round((sentCount / total) * 100) : 0;
 
   // Clics : utiliser c.clicks (propagé depuis wc.clicks dans syncFromWorker)
   // Fallback : compter dans S.analytics si c.clicks absent
@@ -2763,10 +2786,35 @@ function newCamp(type) {
   openCamp(c.id, type);
 }
 
+// FIX v20 : persistCamps — sauvegarde S.camps en localStorage SANS la data base64 des PJ.
+// La data (potentiellement plusieurs Mo) reste en mémoire pour l'envoi en cours de session.
+// Seuls les métadonnées (name, contentType, size) et la clé KV (key) sont persistées.
+// Cela évite :
+//   1. QuotaExceededError sur mobile (Samsung Internet ≈ 5 Mo de quota)
+//   2. Attachements invisibles dans l'UI (lsS jetait une exception non catchée)
+//   3. localStorage gonflé inutilement après chaque ajout de fichier
+function persistCamps() {
+  var toStore = S.camps.map(function(c) {
+    if (!c.attachments || !c.attachments.length) return c;
+    var needsStrip = c.attachments.some(function(a){ return !!a.data; });
+    if (!needsStrip) return c; // pas de data à écrire → retourner tel quel (évite une copie inutile)
+    var c2 = Object.assign({}, c);
+    c2.attachments = c.attachments.map(function(a) {
+      // Garder : name, contentType, size, key (référence KV Worker)
+      // Supprimer : data (base64, volumineuse) — reste en mémoire dans S.camps
+      return a.data
+        ? { name: a.name, contentType: a.contentType, size: a.size, key: a.key || null }
+        : a;
+    });
+    return c2;
+  });
+  lsS(SK.camps, toStore);
+}
+
 // Debounce de la sync /campaigns — évite les dizaines d'appels lors des modifications
 var _saveCampsTimer = null;
 function saveCamps() {
-  lsS(SK.camps, S.camps);
+  persistCamps();  // FIX v20 : était lsS(SK.camps, S.camps) — ne stocke plus la data base64
   // Sync Worker différée : regroupe les modifications rapides (ex: sliders, toggles)
   if (_saveCampsTimer) clearTimeout(_saveCampsTimer);
   // FIX v15 : /campaigns supprimé — le Worker n'écrit plus campaigns_meta.
@@ -2806,13 +2854,14 @@ function openCamp(id, type) {
   if (!c) return;
   const det = $(type === 'sms' ? 'detail-sms' : 'detail-email');
   if (!det) return;
-  // FIX v19 : si la campagne est terminée/stoppée, remettre les métriques à 0
+  // FIX v20 : si la campagne est terminée/stoppée/brouillon, remettre les métriques à 0
   // dans l'objet local avant l'affichage. buildCampForm() les utilisera directement.
-  // Ces valeurs seront correctement mises à jour par le Worker dès le prochain lancement.
-  var _inactive = c.status === 'done' || c.status === 'completed' || c.status === 'stopped';
+  // 'draft' inclus → évite qu'une nouvelle campagne hérite des métriques d'une ancienne
+  // via la sync Worker (qui peut matcher par nom si noms identiques).
+  var _inactive = c.status === 'done' || c.status === 'completed' || c.status === 'stopped' || c.status === 'draft';
   if (_inactive) {
     c.sent = 0; c.opened = 0; c.errors = 0; c.clicks = 0; c.unsubscribed = 0;
-    lsS(SK.camps, S.camps); // persister le reset
+    persistCamps(); // persister le reset
   }
   det.innerHTML = buildCampForm(c);
   refreshEList(c);
@@ -2891,7 +2940,6 @@ function buildCampForm(c) {
   h += '<div style="font-size:9px;color:var(--text3);margin-top:2px" id="prc-clics-sub-' + c.id + '">' + _ce + ' email' + (_ce>1?'s':'') + ' cliqué' + (_ce>1?'s':'') + '</div>';
   h += '</div>';
   h += '</div>';
-  h += '<div class="pbar"><div class="pfill" id="pbar-' + c.id + '" style="width:' + pct + '%;' + (isSMS ? 'background:linear-gradient(90deg,var(--pnk),var(--pur));' : '') + '"></div></div>';
   h += '<div class="pbar"><div class="pfill" id="pbar-' + c.id + '" style="width:' + pct + '%;' + (isSMS ? 'background:linear-gradient(90deg,var(--pnk),var(--pur));' : '') + '"></div></div>';
 
   // ════════════════════════════════════════
@@ -3028,6 +3076,16 @@ function buildCampForm(c) {
     }
     h += '</div>';
     h += '<div style="font-size:9px;color:var(--text3);margin-top:7px;border-top:1px solid var(--b1);padding-top:6px">PDF, JPG, PNG, WebP, MP4, Word .docx, Excel .xlsx — Max 10 Mo/fichier · Envoyée à chaque membre de la liste</div>';
+    // FIX v20 : info quota navigateur — avertissement visible pour éviter la perte silencieuse des PJ
+    h += '<div style="margin-top:7px;padding:7px 10px;background:rgba(255,230,0,.06);border:1px solid rgba(255,230,0,.18);border-radius:6px;font-size:9px;line-height:1.7;color:var(--yel)">';
+    h += '<span style="font-weight:800;letter-spacing:.5px;">⚠ QUOTA STOCKAGE NAVIGATEUR</span><br>';
+    h += '<span style="color:var(--text2);">';
+    h += '• <strong style="color:var(--yel)">Samsung Internet / Android</strong> : ~5 Mo total pour toutes les PJ<br>';
+    h += '• <strong style="color:var(--yel)">Chrome / Edge</strong> : ~10 Mo · <strong style="color:var(--yel)">Safari iOS</strong> : ~5 Mo · <strong style="color:var(--yel)">Firefox</strong> : ~10 Mo<br>';
+    h += '• Dépasser la limite = PJ perdue sans message d\'erreur visible<br>';
+    h += '• <strong style="color:#fff">Conseil :</strong> max 1–2 fichiers légers (PDF ≤ 1 Mo recommandé)<br>';
+    h += '• Une fois lancée, la PJ est stockée dans Cloudflare KV — quota libéré';
+    h += '</span></div>';
     h += '</div>';
 
   } else {
@@ -4535,6 +4593,26 @@ async function launchCamp(id) {
     // URL du Worker lui-même (pour les liens de désinscription + tracking ouverture)
     _workerOrigin: S.wurl ? S.wurl.replace(/\/+$/, '') : ''
   };
+
+  // FIX v20 : détection des PJ fantômes — ni key ni data (page rechargée sans Worker configuré)
+  // Ces PJ seraient silencieusement omises de l'email sans ce contrôle.
+  var _ghostAtts = (c.attachments || []).filter(function(a){ return !a.key && !a.data; });
+  if (_ghostAtts.length) {
+    var _ghostNames = _ghostAtts.map(function(a){ return '"' + a.name + '"'; }).join(', ');
+    var _proceed = await pgiConfirm(
+      '⚠️ Pièce(s) jointe(s) inaccessible(s)\n\n' +
+      _ghostNames + '\n\n' +
+      'Ces fichiers ne sont plus en mémoire (page rechargée ?) et n\'ont pas de clé Cloudflare KV.\n' +
+      'Ils ne seront PAS envoyés avec l\'email.\n\n' +
+      'Continuer quand même sans ces pièces jointes ?'
+    );
+    if (!_proceed) return; // l'utilisateur annule pour ré-ajouter les fichiers
+    // Nettoyer les fantômes de l'objet campagne pour éviter la confusion
+    c.attachments = c.attachments.filter(function(a){ return a.key || a.data; });
+    _launchPayload.attachments = _launchPayload.attachments.filter(function(a){ return a.key || a.data; });
+    persistCamps();
+  }
+
   // Envoi au Worker avec vérification de la réponse
   if (S.wurl) {
     try {
@@ -4581,7 +4659,7 @@ async function launchCamp(id) {
   c.clicks      = 0;
   c.unsubscribed= 0;
   c.workerPending = (c.emailList || []).filter(function(e){ return e.status === 'pending'; }).length;
-  lsS(SK.camps, S.camps);  // persister le reset maintenant
+  persistCamps();  // persister le reset maintenant
   lsS(SK.analytics, S.analytics);
   var _launchMsg = status === 'scheduled'
     ? '📅 Campagne programmée — démarrage le ' + new Date(c.startDate).toLocaleString('fr-FR')
@@ -4675,7 +4753,7 @@ function recalcRate(id) {
   }
 
   // Sauvegarder uniquement si l'état a changé (pas de syncW inutile)
-  lsS(SK.camps, S.camps);
+  persistCamps();
   // Rafraîchir le résumé automatisation
   var as = $('as-' + id); if (as) as.innerHTML = buildAS(camp);
 }
@@ -4716,9 +4794,17 @@ async function delCamp(id, type) {
     try { await fetch(S.wurl + '/campaign/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id}) }); } catch(_) {}
   }
   // 2 — Suppression locale
+  var _deletedName = (S.camps.find(c => c.id === id) || {}).name || null;
   S.camps = S.camps.filter(c => c.id !== id);
   if (type === 'sms') S.activeSMS = null; else S.activeCamp = null;
-  lsS(SK.camps, S.camps);
+  // FIX v20 : purger aussi les analytics locaux pour éviter que la sync
+  // analytics (mode compact, matching par nom) les réinjecte dans une
+  // nouvelle campagne portant le même nom par défaut.
+  if (_deletedName && S.analytics) {
+    S.analytics = S.analytics.filter(function(a){ return a.campaign !== _deletedName; });
+    lsS(SK.analytics, S.analytics);
+  }
+  persistCamps();
   // 3 — Mettre à jour campaigns_meta côté Worker (liste sans cette campagne)
   if (S.wurl) {
     try { await fetch(S.wurl + '/campaigns', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({campaigns: S.camps}) }); } catch(_) {}
@@ -5715,55 +5801,67 @@ function renderQSAttachments() {
       ? (att.size/(1024*1024)).toFixed(1) + ' Mo'
       : Math.round(att.size/1024) + ' Ko';
     var icon = attIcon(att.contentType, att.name);
-    var isImg = (att.contentType && att.contentType.startsWith('image/')) || (att.name||"").match(/\.(jpg|jpeg|png|gif|webp)$/i);
+    var isImg = (att.contentType && att.contentType.startsWith('image/')) || (att.name||'').match(/\.(jpg|jpeg|png|gif|webp)$/i);
     var preview = isImg && att.data
       ? '<img src="data:' + (att.contentType||'image/jpeg') + ';base64,' + att.data + '" style="width:32px;height:32px;object-fit:cover;border-radius:4px;flex-shrink:0" alt="">'
       : '<span style="font-size:22px;flex-shrink:0">' + icon + '</span>';
-    return '<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--pur-b);border-radius:8px;padding:8px 10px;min-width:0;flex:1 1 200px;max-width:280px">' +
+    var statusBadge = att.key
+      ? '<span title="Sauvegardé dans Cloudflare KV" style="font-size:9px;color:var(--grn);font-weight:700">☁️ KV</span>'
+      : '<span title="En mémoire uniquement" style="font-size:9px;color:var(--yel);font-weight:700">⚡ RAM</span>';
+    return '<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid ' + (att.key ? 'rgba(0,255,136,.2)' : 'rgba(255,230,0,.2)') + ';border-radius:8px;padding:8px 10px;min-width:0;flex:1 1 200px;max-width:300px">' +
       preview +
       '<div style="flex:1;min-width:0">' +
         '<div style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + att.name + '">' + att.name + '</div>' +
-        '<div style="font-size:9px;color:var(--text3);margin-top:1px">' + sizeStr + '</div>' +
+        '<div style="font-size:9px;color:var(--text3);margin-top:1px;display:flex;gap:6px;align-items:center">' + sizeStr + ' · ' + statusBadge + '</div>' +
       '</div>' +
-      '<button onclick="removeQSAttachment(' + i + ')" title="Supprimer cette pièce jointe" style="background:rgba(255,34,68,.1);border:1px solid rgba(255,34,68,.3);color:var(--red);border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;padding:3px 8px;flex-shrink:0;white-space:nowrap">✕ Retirer</button>' +
+      '<button onclick="removeQSAttachment(' + i + ')" title="Supprimer" style="background:rgba(255,34,68,.1);border:1px solid rgba(255,34,68,.3);color:var(--red);border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;padding:3px 8px;flex-shrink:0;white-space:nowrap">✕</button>' +
     '</div>';
   }).join('');
 }
 
-/* Ajouter des pièces jointes à l'envoi rapide */
+/* Ajouter des pièces jointes à l'envoi rapide — SENIOR FIX v20 (même logique que campagne) */
 async function addQSAttachments(input) {
   var files = Array.from(input.files || []);
   if (!files.length) return;
   if (!S._qsAttachments) S._qsAttachments = [];
 
-  var loaded = 0;
-  for (var f of files) {
+  var loaded = 0, kvCount = 0;
+  for (var fi = 0; fi < files.length; fi++) {
+    var f = files[fi];
     if (f.size > 10 * 1024 * 1024) {
-      toast('❌ Fichier trop lourd : ' + f.name + ' (max 10 Mo)', 'error');
+      toast('❌ ' + f.name + ' trop lourd (max 10 Mo)', 'error');
       continue;
     }
     try {
       var b64 = await fileToBase64(f);
-      S._qsAttachments.push({
-        name: f.name,
-        contentType: f.type || 'application/octet-stream',
-        data: b64,
-        size: f.size
-      });
+      var ct  = f.type || 'application/octet-stream';
+      var kvKey = await uploadAttToWorker(f.name, ct, b64);
+      if (kvKey) {
+        S._qsAttachments.push({ name: f.name, contentType: ct, size: f.size, key: kvKey });
+        kvCount++;
+      } else {
+        S._qsAttachments.push({ name: f.name, contentType: ct, size: f.size, data: b64 });
+      }
       loaded++;
     } catch(e) {
       toast('❌ Erreur lecture : ' + f.name, 'error');
     }
   }
+
   renderQSAttachments();
-  // Mettre à jour le compteur dans le titre
   var cntEl = $('qs-att-count');
   if (cntEl) {
     var n = S._qsAttachments.length;
     cntEl.textContent = n > 0 ? '— ' + n + ' fichier' + (n > 1 ? 's' : '') : '';
     cntEl.style.color = n > 0 ? 'var(--grn)' : 'var(--text3)';
   }
-  if (loaded > 0) toast('✓ ' + loaded + ' pièce' + (loaded > 1 ? 's jointes' : ' jointe') + ' ajoutée' + (loaded > 1 ? 's' : '') + ' — visible ci-dessous', 'success');
+  if (loaded > 0) {
+    if (kvCount === loaded) {
+      toast('✓ ' + loaded + ' PJ ' + (loaded>1?'sauvegardées':'sauvegardée') + ' dans Cloudflare KV ☁️', 'success');
+    } else {
+      toast('⚠️ ' + loaded + ' PJ ajoutée' + (loaded>1?'s':'') + ' en mémoire uniquement' + (S.wurl ? ' (Worker inaccessible)' : ' (Worker non configuré)'), 'warn');
+    }
+  }
   input.value = '';
 }
 
@@ -5796,60 +5894,108 @@ function renderCampAttachments(campId) {
       ? (att.size/(1024*1024)).toFixed(1) + ' Mo'
       : Math.round(att.size/1024) + ' Ko';
     var icon = attIcon(att.contentType, att.name);
-    var isImg = (att.contentType && att.contentType.startsWith('image/')) || (att.name||"").match(/\.(jpg|jpeg|png|gif|webp)$/i);
+    var isImg = (att.contentType && att.contentType.startsWith('image/')) || (att.name||'').match(/\.(jpg|jpeg|png|gif|webp)$/i);
     var preview = isImg && att.data
       ? '<img src="data:' + (att.contentType||'image/jpeg') + ';base64,' + att.data + '" style="width:32px;height:32px;object-fit:cover;border-radius:4px;flex-shrink:0" alt="">'
       : '<span style="font-size:22px;flex-shrink:0">' + icon + '</span>';
-    return '<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--pur-b);border-radius:8px;padding:8px 10px;min-width:0;flex:1 1 200px;max-width:280px">' +
+    // Indicateur de statut : ☁️ KV = persisté, ⚡ = mémoire uniquement (rechargement = perte)
+    var statusBadge = att.key
+      ? '<span title="Sauvegardé dans Cloudflare KV — persistera après rechargement" style="font-size:9px;color:var(--grn);font-weight:700;white-space:nowrap">☁️ KV</span>'
+      : '<span title="En mémoire uniquement — sera perdu si vous rechargez la page avant de lancer" style="font-size:9px;color:var(--yel);font-weight:700;white-space:nowrap">⚡ RAM</span>';
+    return '<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid ' + (att.key ? 'rgba(0,255,136,.2)' : 'rgba(255,230,0,.2)') + ';border-radius:8px;padding:8px 10px;min-width:0;flex:1 1 200px;max-width:300px">' +
       preview +
       '<div style="flex:1;min-width:0">' +
         '<div style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + att.name + '">' + att.name + '</div>' +
-        '<div style="font-size:9px;color:var(--text3);margin-top:1px">' + sizeStr + ' · sera envoyée à chaque destinataire</div>' +
+        '<div style="font-size:9px;color:var(--text3);margin-top:1px;display:flex;gap:6px;align-items:center">' + sizeStr + ' · ' + statusBadge + '</div>' +
       '</div>' +
-      '<button onclick="removeCampAttachment(' + campId + ',' + i + ')" title="Supprimer cette pièce jointe" style="background:rgba(255,34,68,.1);border:1px solid rgba(255,34,68,.3);color:var(--red);border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;padding:3px 8px;flex-shrink:0;white-space:nowrap">✕ Retirer</button>' +
+      '<button onclick="removeCampAttachment(' + campId + ',' + i + ')" title="Supprimer cette pièce jointe" style="background:rgba(255,34,68,.1);border:1px solid rgba(255,34,68,.3);color:var(--red);border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;padding:3px 8px;flex-shrink:0;white-space:nowrap">✕</button>' +
     '</div>';
   }).join('');
 }
 
-/* Ajouter des pièces jointes à une campagne */
+/* ── uploadAttToWorker — helper partagé Camp + QS ──────────────────────────
+   Tente d'uploader une PJ vers Cloudflare KV via /attachment/upload.
+   Retourne la clé KV si succès, null si Worker absent ou inaccessible.
+   La data base64 ne touche JAMAIS localStorage : seule la clé est persistée.
+────────────────────────────────────────────────────────────────────────── */
+async function uploadAttToWorker(name, contentType, b64) {
+  if (!S.wurl) return null;
+  try {
+    var r = await fetch(S.wurl + '/attachment/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name, contentType: contentType, data: b64 })
+    });
+    if (!r.ok) { console.warn('[PGI] /attachment/upload HTTP', r.status, name); return null; }
+    var rj = await r.json();
+    return (rj.ok && rj.key) ? rj.key : null;
+  } catch(e) {
+    console.warn('[PGI] /attachment/upload réseau:', name, e.message);
+    return null;
+  }
+}
+
+/* Ajouter des pièces jointes à une campagne
+   SENIOR FIX v20 :
+   • Upload immédiat vers Cloudflare KV dès l'ajout
+   • Seule la clé KV est stockée dans l'objet (pas la data base64)
+   • La PJ survit à un rechargement de page
+   • Aucun risque de QuotaExceededError localStorage
+   • Fallback mémoire si Worker absent/inaccessible (avec avertissement clair) */
 async function addCampAttachments(input, campId) {
   var files = Array.from(input.files || []);
   if (!files.length) return;
   var c = S.camps.find(function(x){ return x.id === campId; });
   if (!c) return;
-  // Initialiser avec un nouveau tableau (évite le partage de référence)
   if (!c.attachments || !Array.isArray(c.attachments)) c.attachments = [];
 
-  var loaded = 0;
-  for (var f of files) {
+  var loaded = 0, kvCount = 0;
+  for (var fi = 0; fi < files.length; fi++) {
+    var f = files[fi];
     if (f.size > 10 * 1024 * 1024) {
-      toast('❌ Fichier trop lourd : ' + f.name + ' (max 10 Mo)', 'error');
+      toast('❌ ' + f.name + ' trop lourd (max 10 Mo)', 'error');
       continue;
     }
     try {
       var b64 = await fileToBase64(f);
-      c.attachments.push({
-        name: f.name,
-        contentType: f.type || 'application/octet-stream',
-        data: b64,
-        size: f.size
-      });
+      var ct  = f.type || 'application/octet-stream';
+      // Tentative d'upload immédiat vers Cloudflare KV
+      var kvKey = await uploadAttToWorker(f.name, ct, b64);
+      if (kvKey) {
+        // ✅ Stocké dans KV — on ne garde que la référence, pas la data
+        c.attachments.push({ name: f.name, contentType: ct, size: f.size, key: kvKey });
+        kvCount++;
+      } else {
+        // ⚠️ Worker absent / erreur réseau → mémoire uniquement (session courante)
+        c.attachments.push({ name: f.name, contentType: ct, size: f.size, data: b64 });
+      }
       loaded++;
     } catch(e) {
       toast('❌ Erreur lecture : ' + f.name, 'error');
     }
   }
-  saveCamps();
+
+  persistCamps();
   renderCampAttachments(campId);
-  // Mettre à jour le badge compteur (identique à QS)
-  var _camp = S.camps.find(function(x){ return x.id === campId; });
+
+  // Badge compteur
   var _cntEl = $('camp-att-count-' + campId);
-  if (_cntEl && _camp) {
-    var _n = (_camp.attachments||[]).length;
+  if (_cntEl) {
+    var _n = c.attachments.length;
     _cntEl.textContent = _n > 0 ? '— ' + _n + ' fichier' + (_n>1?'s':'') : '';
     _cntEl.style.color = _n > 0 ? 'var(--grn)' : 'var(--text3)';
   }
-  if (loaded > 0) toast('✓ ' + loaded + ' pièce' + (loaded > 1 ? 's jointes' : ' jointe') + ' ajoutée' + (loaded > 1 ? 's' : '') + ' à la campagne — visible ci-dessous', 'success');
+
+  // Toast informatif selon le résultat
+  if (loaded > 0) {
+    if (kvCount === loaded) {
+      toast('✓ ' + loaded + ' PJ ' + (loaded>1?'sauvegardées':'sauvegardée') + ' dans Cloudflare KV ☁️ — persistera après rechargement', 'success');
+    } else if (!S.wurl) {
+      toast('⚠️ ' + loaded + ' PJ ajoutée' + (loaded>1?'s':'') + ' en mémoire — Worker non configuré, elle' + (loaded>1?'s seront perdues':' sera perdue') + ' si vous rechargez', 'warn');
+    } else {
+      toast('⚠️ ' + loaded + ' PJ ajoutée' + (loaded>1?'s':'') + ' — Worker inaccessible, données en mémoire uniquement (rechargement = perte)', 'warn');
+    }
+  }
   input.value = '';
 }
 
@@ -6993,7 +7139,7 @@ function init() {
     if (c.durationH === undefined)  c.durationH  = -1;
     if (c.durationInfinite === undefined) c.durationInfinite = true;
   });
-  lsS(SK.camps, S.camps); // sauvegarder la migration
+  persistCamps(); // sauvegarder la migration
 
   setProv(S.prov);
   setSMSP(S.smsProv);
@@ -8462,7 +8608,7 @@ async function resetDashboard() {
       e.opened = false; e.unsubscribed = false;
     });
   });
-  lsS(SK.camps, S.camps);
+  persistCamps();
   renderDashboard();
   updateStats();
   toast('✓ Dashboard remis à zéro', 'success'); var brs=$('btn-resume-sync'); if(brs) brs.style.display='inline-flex';
@@ -8491,7 +8637,7 @@ async function resetDashboardAndWorker() {
       e.status = 'pending'; e.opened = false; e.unsubscribed = false;
     });
   });
-  lsS(SK.camps, S.camps);
+  persistCamps();
 
   // 3 — Reset Worker : analytics + tous les compteurs de campagnes
   if (S.wurl) {
@@ -8546,7 +8692,7 @@ async function resetAllCamps() {
   });
   S.analytics = [];
   lsS(SK.analytics, S.analytics);
-  lsS(SK.camps, S.camps);
+  persistCamps();
   renderCampList('email'); renderCampList('sms');
   renderDashboard(); updateStats();
   toast('✓ Toutes les campagnes remises à zéro', 'success'); var brs=$('btn-resume-sync'); if(brs) brs.style.display='inline-flex';
