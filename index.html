@@ -948,6 +948,22 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
   </div>
 
   <!-- ═══════════════════════════════════
+       TRACKING AVANCÉ WORKER v14.2 — OUVERTURES + CLICS
+  ════════════════════════════════════ -->
+  <div class="sec-box" style="margin-bottom:12px">
+    <div class="sec-ttl" style="color:var(--cyan)">
+      Suivi détaillé ouvertures et clics
+      <button class="btn-sm" style="margin-left:auto;padding:3px 10px;font-size:9px" onclick="forceSyncNow()">Synchroniser</button>
+    </div>
+    <div style="font-size:10px;color:var(--text3);line-height:1.5;margin-bottom:10px">
+      Affiche les emails qui ont ouvert les messages, les emails qui ont cliqué et les liens cliqués quand le Worker renvoie les champs <strong>openedList</strong>, <strong>clickedList</strong> et <strong>clickDetails</strong>.
+    </div>
+    <div id="tracking-detail-body">
+      <div class="empty" style="padding:16px"><p>Aucune donnée de tracking détaillée pour le moment</p></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════
        HISTORIQUE EMAILS — DÉTAILLÉ + FILTRÉ
   ════════════════════════════════════ -->
   <div class="sec-box" style="margin-bottom:12px">
@@ -2450,6 +2466,7 @@ async function syncFromWorker() {
           if (wc.unsubscribed !== undefined) { local.unsubscribed = wc.unsubscribed; }
           // FIX v14 : clics depuis le Worker — source de vérité unique pour éviter le double-comptage
           if (wc.clicks    !== undefined && wc.clicks    > (local.clicks||0)) { local.clicks    = wc.clicks; updated++; }
+          if (mergeWorkerCampaignTracking(wc, local)) { updated++; }
           // Source de vérité Worker : pending réel dans les chunks KV
           if (wc.pending   !== undefined) { local.workerPending = wc.pending;   updated++; }
           if (wc.nextSendAt!== undefined) { local.nextSendAt    = wc.nextSendAt; }
@@ -2537,6 +2554,34 @@ async function syncFromWorker() {
           });
         }
       }
+    }
+
+    // 1b — Dashboard v14.2 : listes détaillées ouvertures/clics
+    // Compatible avec le nouveau Worker : openedList, clickedList, clickDetails.
+    try {
+      const dashRes = await fetch(S.wurl + '/sync/dashboard?tracking=1');
+      if (dashRes.ok) {
+        const dash = await dashRes.json();
+        const dashCamps = Array.isArray(dash.campaigns) ? dash.campaigns : [];
+        var trackingChanged = false;
+        dashCamps.forEach(function(wc) {
+          var local = S.camps.find(function(c){ return String(c.id) === String(wc.id); });
+          if (!local && wc.name) local = S.camps.find(function(c){ return c.name === wc.name; });
+          if (!local || local.status === 'draft') return;
+          if (mergeWorkerCampaignTracking(wc, local)) trackingChanged = true;
+        });
+        if (dash.global) {
+          S.workerDashboard = dash.global;
+        }
+        if (trackingChanged) {
+          persistCamps();
+          renderDashboard();
+          updateStats();
+          _refreshOpenCampMetrics();
+        }
+      }
+    } catch(e) {
+      console.warn('Worker dashboard tracking:', e.message);
     }
 
     // 2 — Analytics compacts (FIX v15 : ne lit plus analytics_log complet)
@@ -2681,8 +2726,8 @@ function _refreshOpenCampMetrics() {
     totalClics   = campAn.reduce(function(s,a){ return s + ((a.clicks||[]).length); }, 0);
     totalCliqués = campAn.filter(function(a){ return (a.clicks||[]).length > 0; }).length;
   } else {
-    // Approximation : 1 clic = 1 email cliqué (conservateur)
-    totalCliqués = totalClics > 0 ? Math.min(totalClics, sentCount) : 0;
+    // Worker v14.2 : utiliser les cliqueurs uniques si disponibles.
+    totalCliqués = c.clickedUnique || c.uniqueClickers || ((c.clickedList||[]).length) || (totalClics > 0 ? Math.min(totalClics, sentCount) : 0);
   }
 
   var els = {
@@ -4623,7 +4668,7 @@ async function launchCamp(id) {
       });
       var _lj = await _lr.json();
       if (!_lj.ok) {
-        toast('⚠️ Worker a rejeté la campagne : ' + (_lj.error || 'erreur inconnue'), 'error');
+        toast('⚠️ Worker a rejeté la campagne : ' + (_lj.error || 'erreur inconnue'), 'error');
         return;
       }
       // FIX v17 : mémoriser les clés KV des PJ → évite le re-upload lors d'une relance
@@ -4634,7 +4679,7 @@ async function launchCamp(id) {
         });
       }
     } catch(_le) {
-      toast('⚠️ Worker inaccessible : ' + _le.message + ' — vérifiez l’URL dans Réglages', 'error');
+      toast('⚠️ Worker inaccessible : ' + _le.message + ' — vérifiez l’URL dans Réglages', 'error');
       return;
     }
   } else {
@@ -6664,6 +6709,7 @@ function renderDashboard() {
   renderContactsQuick();
   renderQuotaDash();
   renderUnsubPerCamp();
+  renderTrackingDashboard();
 
   // Badge campagnes actives
   const nb = S.camps.filter(c => c.status === 'running').length;
@@ -6672,6 +6718,139 @@ function renderDashboard() {
   // Prochain Worker
   const nl = $('lbl-next');
   if (nl) nl.textContent = S.wurl ? 'Worker configuré ✓' : '⚠ Worker non configuré';
+}
+
+
+/* ── Tracking avancé Worker v14.2 : ouvertures + clics ────────────── */
+function _firstDefined() {
+  for (var i=0; i<arguments.length; i++) {
+    if (arguments[i] !== undefined && arguments[i] !== null) return arguments[i];
+  }
+  return undefined;
+}
+function _sameEmail(a, b) {
+  return String(a||'').trim().toLowerCase() === String(b||'').trim().toLowerCase();
+}
+function mergeWorkerCampaignTracking(wc, local) {
+  if (!wc || !local) return false;
+  var changed = false;
+  function setIfDefined(k, v) {
+    if (v !== undefined && v !== null && local[k] !== v) { local[k] = v; changed = true; }
+  }
+  function maxIfDefined(k, v) {
+    if (v !== undefined && v !== null && Number(v) > Number(local[k]||0)) { local[k] = Number(v); changed = true; }
+  }
+  maxIfDefined('opened', _firstDefined(wc.openedUnique, wc.opened));
+  maxIfDefined('openedUnique', _firstDefined(wc.openedUnique, wc.opened));
+  maxIfDefined('openedTotal', _firstDefined(wc.openedTotal, wc.openTotal));
+  maxIfDefined('clicks', _firstDefined(wc.clicks, wc.clickTotal));
+  maxIfDefined('clickTotal', _firstDefined(wc.clickTotal, wc.clicks));
+  maxIfDefined('clickedUnique', _firstDefined(wc.clickedUnique, wc.uniqueClickers));
+  maxIfDefined('uniqueClickers', _firstDefined(wc.uniqueClickers, wc.clickedUnique));
+  setIfDefined('openRate', wc.openRate);
+  setIfDefined('clickRate', wc.clickRate);
+  setIfDefined('clickerRate', wc.clickerRate);
+  setIfDefined('lastOpenAt', wc.lastOpenAt);
+  setIfDefined('lastClickAt', wc.lastClickAt);
+  if (Array.isArray(wc.openedList)) { local.openedList = wc.openedList; changed = true; }
+  if (Array.isArray(wc.clickedList)) { local.clickedList = wc.clickedList; changed = true; }
+  if (Array.isArray(wc.clickDetails)) { local.clickDetails = wc.clickDetails; changed = true; }
+  if (local.emailList && Array.isArray(local.emailList)) {
+    (local.openedList || []).forEach(function(o) {
+      var em = o.email || o.e || o.to;
+      var ct = local.emailList.find(function(x){ return _sameEmail(x.email, em); });
+      if (!ct) return;
+      ct.opened = true;
+      if (ct.status === 'sent' || !ct.status) ct.status = 'opened';
+      ct.openedAt = ct.openedAt || o.firstAt || o.openedAt || o.date || o.at || o.lastAt || new Date().toISOString();
+      ct.lastOpenedAt = o.lastAt || o.lastOpenedAt || ct.openedAt;
+      ct.openCount = o.count || o.openCount || ct.openCount || 1;
+    });
+    (local.clickedList || []).forEach(function(cl) {
+      var em = cl.email || cl.e || cl.to;
+      var ct = local.emailList.find(function(x){ return _sameEmail(x.email, em); });
+      if (!ct) return;
+      ct.clickedAt = ct.clickedAt || cl.firstAt || cl.clickedAt || cl.date || cl.at || cl.lastAt || new Date().toISOString();
+      ct.lastClickedAt = cl.lastAt || cl.lastClickedAt || ct.clickedAt;
+      ct.clickCount = cl.count || cl.clickCount || ct.clickCount || 1;
+      ct.lastClickedUrl = cl.url || cl.lastUrl || cl.lastClickedUrl || ct.lastClickedUrl;
+    });
+  }
+  return changed;
+}
+function _trackingDate(item) {
+  return item && (item.lastAt || item.lastOpenedAt || item.lastClickedAt || item.firstAt || item.openedAt || item.clickedAt || item.date || item.at || item.createdAt);
+}
+function _trackingCount(item, fallback) {
+  return Number((item && (item.count || item.openCount || item.clickCount || item.total)) || fallback || 1);
+}
+function _trackingEmail(item) {
+  return (item && (item.email || item.e || item.to || item.recipient)) || '—';
+}
+function _trackingUrl(item) {
+  return (item && (item.url || item.lastUrl || item.lastClickedUrl || item.href || item.target)) || '';
+}
+function renderTrackingRows(list, type, maxRows) {
+  list = Array.isArray(list) ? list : [];
+  if (!list.length) return '<div style="font-size:10px;color:var(--text3);padding:8px 0">Aucune donnée</div>';
+  var rows = list.slice(0, maxRows || 500).map(function(item) {
+    var email = esc(_trackingEmail(item));
+    var date  = fDt(_trackingDate(item));
+    var count = _trackingCount(item, 1);
+    var url   = _trackingUrl(item);
+    var src   = item && (item.source || item.uaFamily || item.client || '');
+    var flags = [];
+    if (item && item.isProxy) flags.push('proxy');
+    if (item && item.isBot) flags.push('bot');
+    var meta = flags.length ? ' · ' + flags.join(' · ') : '';
+    if (type === 'click') {
+      return '<tr><td class="em">' + email + '</td><td style="font-size:10px;color:var(--text2);white-space:nowrap">' + date + '</td><td style="font-family:var(--mono);color:var(--cyan)">' + count + '</td><td style="font-size:10px;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + esc(url) + '">' + (url ? esc(url) : '—') + '</td><td style="font-size:9px;color:var(--text3)">' + esc(src + meta) + '</td></tr>';
+    }
+    return '<tr><td class="em">' + email + '</td><td style="font-size:10px;color:var(--text2);white-space:nowrap">' + date + '</td><td style="font-family:var(--mono);color:var(--purl)">' + count + '</td><td style="font-size:9px;color:var(--text3)">' + esc(src + meta) + '</td></tr>';
+  }).join('');
+  if (list.length > (maxRows || 500)) {
+    rows += '<tr><td colspan="5" style="font-size:10px;color:var(--text3);text-align:center;padding:8px">+' + (list.length - (maxRows || 500)).toLocaleString() + ' autre(s) entrée(s)</td></tr>';
+  }
+  return '<div style="max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:10px"><table class="atbl" style="margin:0"><tbody>' + rows + '</tbody></table></div>';
+}
+function renderTrackingDashboard() {
+  var box = $('tracking-detail-body'); if (!box) return;
+  var camps = S.camps.filter(function(c){
+    return c.type !== 'sms' && c.status !== 'draft' && ((c.openedList && c.openedList.length) || (c.clickedList && c.clickedList.length) || (c.clickDetails && c.clickDetails.length) || (c.openedUnique || c.opened || c.clickedUnique || c.uniqueClickers || c.clicks));
+  }).slice().reverse();
+  if (!camps.length) {
+    box.innerHTML = '<div class="empty" style="padding:16px"><p>Aucune ouverture ou clic détaillé synchronisé pour le moment</p></div>';
+    return;
+  }
+  box.innerHTML = camps.map(function(c){
+    var sent = c.sent || 0;
+    var openedUnique = Number(_firstDefined(c.openedUnique, c.opened, (c.openedList||[]).length, 0));
+    var openedTotal  = Number(_firstDefined(c.openedTotal, c.openTotal, openedUnique, 0));
+    var clickedUnique = Number(_firstDefined(c.clickedUnique, c.uniqueClickers, (c.clickedList||[]).length, 0));
+    var clickTotal = Number(_firstDefined(c.clickTotal, c.clicks, 0));
+    var openRate = sent > 0 ? Math.round((openedUnique / sent) * 100) : 0;
+    var clickRate = sent > 0 ? Math.round((clickedUnique / sent) * 100) : 0;
+    var clicksList = (c.clickDetails && c.clickDetails.length) ? c.clickDetails : (c.clickedList || []);
+    return '<div style="border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:10px;background:rgba(255,255,255,.02)"><div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:10px"><div style="flex:1;min-width:220px"><div style="font-weight:800;color:var(--text);font-size:13px">' + esc(c.name || ('Campagne #' + c.id)) + '</div><div style="font-size:10px;color:var(--text3);margin-top:2px">ID ' + esc(String(c.id)) + ' · envoyés ' + sent.toLocaleString() + '</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="stat-mini open">Ouverts uniques ' + openedUnique.toLocaleString() + ' · ' + openRate + '%</span><span class="stat-mini sent">Ouvertures totales ' + openedTotal.toLocaleString() + '</span><span class="stat-mini" style="background:rgba(0,232,255,.1);color:var(--cyan);border:1px solid rgba(0,232,255,.2)">Cliqueurs ' + clickedUnique.toLocaleString() + ' · ' + clickRate + '%</span><span class="stat-mini" style="background:rgba(255,180,0,.1);color:var(--yel);border:1px solid rgba(255,180,0,.2)">Clics totaux ' + clickTotal.toLocaleString() + '</span></div><button class="btn-sm" style="padding:3px 10px;font-size:9px" onclick="loadCampaignTracking(\'' + String(c.id).replace(/'/g, "\\'") + '\')">Actualiser détail</button></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px"><div><div style="font-size:10px;font-weight:800;color:var(--purl);margin-bottom:6px">Messages lus</div>' + renderTrackingRows(c.openedList || [], 'open', 500) + '</div><div><div style="font-size:10px;font-weight:800;color:var(--cyan);margin-bottom:6px">Personnes qui ont cliqué et liens cliqués</div>' + renderTrackingRows(clicksList, 'click', 500) + '</div></div></div>';
+  }).join('');
+}
+async function loadCampaignTracking(campId) {
+  if (!S.wurl) { toast('Worker non configuré', 'warn'); return; }
+  var c = S.camps.find(function(x){ return String(x.id) === String(campId); });
+  if (!c) { toast('Campagne introuvable', 'error'); return; }
+  try {
+    var r = await fetch(S.wurl + '/campaign/tracking/' + encodeURIComponent(campId) + '?limit=2000');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    var d = await r.json();
+    mergeWorkerCampaignTracking(d, c);
+    persistCamps();
+    renderDashboard();
+    updateStats();
+    toast('Détail tracking synchronisé ✓', 'success');
+  } catch(e) {
+    console.warn('Tracking detail:', e);
+    toast('Détail tracking indisponible pour cette campagne', 'warn');
+  }
 }
 
 /* ── Campagnes actives — tableau complet ────────────── */
@@ -6775,7 +6954,7 @@ function renderAllCamps() {
       <td>${stBadge}</td>
       <td style="font-family:var(--mono)">${c.emailList.length.toLocaleString()}</td>
       <td style="font-family:var(--mono);color:var(--grn)">${c.sent.toLocaleString()}</td>
-      <td style="font-family:var(--mono);color:var(--purl)">${isSMS?'—':(c.opened||0).toLocaleString()}</td>
+      <td style="font-family:var(--mono);color:var(--purl)">${isSMS?'—':(c.opened||0).toLocaleString()}${!isSMS && (c.clickedUnique||c.uniqueClickers||c.clicks) ? '<div style="font-size:9px;color:var(--cyan);margin-top:2px">' + ((c.clickedUnique||c.uniqueClickers)||0).toLocaleString() + ' cliqueur(s) · ' + (c.clickTotal||c.clicks||0).toLocaleString() + ' clic(s)</div>' : ''}</td>
       <td style="font-family:var(--mono)">${openRate}</td>
       <td style="font-family:var(--mono);color:${c.errors?'var(--red)':'var(--text3)'}">${c.errors||0}</td>
       <td style="font-family:var(--mono);font-size:10px">${c.dailyLimit.toLocaleString()}</td>
@@ -8711,3 +8890,4 @@ async function resetContacts() {
 </script>
 </body>
 </html>
+
