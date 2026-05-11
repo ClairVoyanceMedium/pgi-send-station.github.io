@@ -1,236 +1,1098 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="theme-color" content="#1a1c22">
-<title>PGI Send Station v40 SMTP</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<style>
-:root{
-  --bg:#1a1c22;--bg2:#22252e;--bg3:#292c36;--bg4:#2f3340;--b1:#35394a;--b2:#3d4256;
-  --pur:#c060ff;--purl:#d890ff;--pur-b:rgba(192,96,255,.3);--pur-bg:rgba(192,96,255,.08);
-  --cyan:#00e8ff;--grn:#00ff88;--yel:#ffe600;--ora:#ff7a00;--red:#ff2244;--text:#dde2f0;--text2:#8b96b6;--text3:#56607a;
-  --sans:Montserrat,Arial,sans-serif;--mono:"Space Mono",monospace;
+toLocaleString()} restants)</button>`;h+=`<button class="ela" style="color:var(--text3);flex-shrink:0" onclick="launchCamp(${c.id})" title="Repart depuis le début">↺</button>`;}
+  else if(c.status==='running')h+=`<button class="btl" style="flex:2;justify-content:center;padding:11px;background:rgba(255,230,0,.1);border-color:rgba(255,230,0,.3);color:var(--yel);" onclick="pauseCamp(${c.id})">⏸ Mettre en pause</button>`;
+  else h+=`<button class="btl ${isSMS?'pnk':''}" style="flex:2;justify-content:center;padding:11px;" onclick="launchCamp(${c.id})">▶ Lancer la campagne</button>`;
+  h+=`</div>`;
+  return h;
 }
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);height:100vh;overflow:hidden;font-size:13px}
-button,input,select,textarea{font-family:inherit}
-#top{height:54px;background:var(--bg2);border-bottom:1px solid var(--b1);display:flex;align-items:center;padding:0 14px;gap:10px}
-.logo{font-weight:900;letter-spacing:2px;color:#7de8ff;text-shadow:0 0 8px #00cfff}
-.tabs{display:flex;gap:4px;margin-left:auto}
-.tab{background:transparent;border:1px solid transparent;color:var(--text2);border-radius:7px;padding:8px 10px;font-weight:700;font-size:11px;cursor:pointer}
-.tab.on{border-color:var(--pur-b);background:var(--pur-bg);color:var(--purl)}
-#app{height:calc(100vh - 54px);overflow:auto;padding:14px;max-width:1180px;margin:auto}
-.view{display:none}.view.on{display:block}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.card{background:var(--bg2);border:1px solid var(--b1);border-radius:14px;overflow:hidden}
-.hd{padding:12px 14px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between}
-.hd h2{font-size:12px;text-transform:uppercase;letter-spacing:1.4px;color:var(--purl)}
-.body{padding:14px}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
-.fc{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
-label{font-size:9px;text-transform:uppercase;letter-spacing:1px;font-weight:800;color:var(--text2)}
-input,select,textarea{width:100%;background:var(--bg3);border:1px solid var(--b2);border-radius:8px;color:var(--text);padding:10px;outline:none;font-size:12px}
-textarea{min-height:150px;resize:vertical;line-height:1.55}
-input:focus,select:focus,textarea:focus{border-color:var(--pur);box-shadow:0 0 0 2px rgba(192,96,255,.1)}
-.btn{border:1px solid var(--pur-b);background:var(--pur-bg);color:var(--purl);border-radius:9px;padding:10px 14px;font-weight:800;cursor:pointer}
-.btn.green{border-color:rgba(0,255,136,.3);background:rgba(0,255,136,.1);color:var(--grn)}
-.btn.red{border-color:rgba(255,34,68,.3);background:rgba(255,34,68,.1);color:var(--red)}
-.btn.yellow{border-color:rgba(255,230,0,.3);background:rgba(255,230,0,.1);color:var(--yel)}
-.btns{display:flex;gap:8px;flex-wrap:wrap}
-.note{font-size:11px;color:var(--text2);line-height:1.65;background:var(--bg3);border:1px solid var(--b2);border-radius:10px;padding:10px}
-.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.k{background:var(--bg3);border:1px solid var(--b2);border-radius:12px;padding:12px}
-.k b{display:block;font-family:var(--mono);font-size:22px;color:var(--grn)}
-.k span{font-size:10px;color:var(--text2);font-weight:700}
-.list{display:flex;flex-direction:column;gap:7px;max-height:340px;overflow:auto}
-.item{display:flex;gap:8px;align-items:center;background:var(--bg3);border:1px solid var(--b2);border-radius:9px;padding:9px}
-.item div{flex:1;min-width:0}
-.item strong{font-size:12px}.item small{display:block;color:var(--text3);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.badge{font-size:9px;font-weight:900;border-radius:20px;padding:3px 8px;background:var(--pur-bg);color:var(--purl);border:1px solid var(--pur-b)}
-.editor{background:#fff;color:#111;border-radius:8px;min-height:190px;padding:16px;line-height:1.6;overflow:auto}
-.toolbar{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
-.toolbar button{padding:6px 9px;background:var(--bg3);border:1px solid var(--b2);border-radius:6px;color:var(--text);cursor:pointer}
-.hidden{display:none!important}
-@media(max-width:850px){.grid,.row{grid-template-columns:1fr}.kpi{grid-template-columns:repeat(2,1fr)}#top{overflow:auto}.tabs{margin-left:0}.tab{white-space:nowrap}}
-</style>
-</head>
-<body>
-<div id="top">
-  <div class="logo">PGI SEND STATION <span style="color:var(--pur)">v40 SMTP</span></div>
-  <div class="tabs">
-    <button class="tab on" onclick="show('dash',this)">Dashboard</button>
-    <button class="tab" onclick="show('campaigns',this)">Campagnes</button>
-    <button class="tab" onclick="show('quick',this)">Envoi rapide</button>
-    <button class="tab" onclick="show('settings',this)">Réglages SMTP</button>
-  </div>
-</div>
 
-<main id="app">
-<section id="dash" class="view on">
-  <div class="kpi">
-    <div class="k"><b id="k-camps">0</b><span>Campagnes</span></div>
-    <div class="k"><b id="k-contacts">0</b><span>Contacts</span></div>
-    <div class="k"><b id="k-sent">0</b><span>Envoyés local</span></div>
-    <div class="k"><b id="k-provider">SMTP</b><span>Provider actif</span></div>
-  </div>
-  <br>
-  <div class="card">
-    <div class="hd"><h2>Résumé</h2></div>
-    <div class="body">
-      <div class="note">
-        Cette version compacte intègre le choix SMTP manuel : LWS, OVH, IONOS, Hostinger, Infomaniak et SMTP personnalisé.
-        Le HTML prépare déjà le payload complet pour le Worker : <b>provider: "smtp"</b>, <b>smtpConfig</b>, <b>fromEmail</b>, sujet, contenu, contacts et cadence.
-      </div>
-    </div>
-  </div>
-</section>
+// ── AUTOMATION LOGIC ──────────────────────────────────────
+function calcDayMax(ds,rpm){
+  if(!ds||!rpm)return 0;
+  const[fh,fm]=ds.from.split(':').map(Number);
+  const[th,tm]=ds.to.split(':').map(Number);
+  const mins=(th*60+tm)-(fh*60+fm);
+  return Math.max(0,Math.round(mins*Math.min(rpm,10)));
+}
 
-<section id="campaigns" class="view">
-  <div class="grid">
-    <div class="card">
-      <div class="hd"><h2>Mes campagnes</h2><button class="btn green" onclick="newCamp()">+ Nouvelle</button></div>
-      <div class="body"><div id="campList" class="list"></div></div>
-    </div>
-    <div class="card">
-      <div class="hd"><h2>Édition campagne</h2><span id="campState" class="badge">Aucune</span></div>
-      <div class="body" id="campEdit">
-        <div class="note">Crée ou sélectionne une campagne.</div>
-      </div>
-    </div>
-  </div>
-</section>
+function calcWeekMax(c){
+  if(!c.schedEnabled)return(c.dailyLimit||0)*7;
+  return c.days.reduce((sum,d)=>{
+    const ds=c.daySchedules?.['day'+d]||{from:'09:00',to:'18:00'};
+    return sum+Math.min(calcDayMax(ds,c.rateEffectivePerMin),c.dailyLimit||9999);
+  },0);
+}
 
-<section id="quick" class="view">
-  <div class="card">
-    <div class="hd"><h2>Envoi rapide via SMTP</h2></div>
-    <div class="body">
-      <div class="row">
-        <div class="fc"><label>Destinataires, un par ligne</label><textarea id="qsTo" placeholder="client@email.com"></textarea></div>
-        <div>
-          <div class="fc"><label>Objet</label><input id="qsSubject" placeholder="Objet de l'email"></div>
-          <div class="fc"><label>Contenu HTML</label><textarea id="qsBody" placeholder="<p>Bonjour {{prénom}}, ...</p>"></textarea></div>
-          <div class="btns"><button class="btn green" onclick="sendQuick()">Envoyer au Worker</button><button class="btn" onclick="previewHtml(qsBody.value)">Aperçu</button></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+function recalcRate(id){
+  const c=S.camps.find(x=>x.id===id);if(!c)return;
+  const rates=[];
+  if(c.rateSecEnabled&&c.rateSec>0)rates.push(c.rateSec*60);
+  if(c.rateMinEnabled&&c.rateMin>0)rates.push(c.rateMin);
+  if(c.rateHEnabled&&c.rateH>0)rates.push(c.rateH/60);
+  if(c.rateDEnabled&&c.rateDay>0)rates.push(c.rateDay/(24*60));
+  const rpm=rates.length>0?Math.min(...rates):10;
+  c.rateEffectivePerMin=Math.max(0.001,rpm);
+  c.dailyLimit=c.rateDEnabled?c.rateDay:9999;
+  const el=$('rate-display-'+id);
+  if(el){
+    let lbl;
+    if(rpm>=60)lbl=Math.round(rpm/60)+'/h';
+    else if(rpm>=1)lbl=Math.round(rpm)+'/min';
+    else{const s=Math.round(60/rpm);lbl=s<90?s+'s/envoi':Math.round(s/60)+' min/envoi';}
+    el.textContent=lbl;
+  }
+  const as=$('as-'+id);if(as)as.innerHTML=buildAS(c);
+  saveCamps();
+}
 
-<section id="settings" class="view">
-  <div class="grid">
-    <div class="card">
-      <div class="hd"><h2>Réglages SMTP</h2><button class="btn green" onclick="saveSettings()">Sauvegarder</button></div>
-      <div class="body">
-        <div class="fc"><label>URL Worker Cloudflare</label><input id="wurl" placeholder="https://votre-worker.workers.dev"></div>
-        <div class="row">
-          <div class="fc"><label>Provider SMTP</label>
-            <select id="smtpProvider" onchange="applyPreset(this.value)">
-              <option value="lws">LWS</option>
-              <option value="ovh">OVH</option>
-              <option value="ionos">IONOS</option>
-              <option value="hostinger">Hostinger</option>
-              <option value="infomaniak">Infomaniak</option>
-              <option value="custom">SMTP personnalisé</option>
-            </select>
-          </div>
-          <div class="fc"><label>Nom expéditeur</label><input id="fromName" placeholder="Frederick"></div>
-        </div>
-        <div class="row">
-          <div class="fc"><label>Adresse email à utiliser</label><input id="fromEmail" placeholder="contact@votredomaine.fr"></div>
-          <div class="fc"><label>Reply-To</label><input id="replyTo" placeholder="contact@votredomaine.fr"></div>
-        </div>
-        <div class="row">
-          <div class="fc"><label>Serveur SMTP</label><input id="smtpHost" placeholder="mail.votredomaine.fr"></div>
-          <div class="fc"><label>Port</label><input id="smtpPort" type="number" placeholder="465 ou 587"></div>
-        </div>
-        <div class="row">
-          <div class="fc"><label>Sécurité</label>
-            <select id="smtpSecure">
-              <option value="ssl">SSL/TLS direct, port 465</option>
-              <option value="starttls">STARTTLS, port 587</option>
-              <option value="none">Aucune, non recommandé</option>
-            </select>
-          </div>
-          <div class="fc"><label>Utilisateur SMTP</label><input id="smtpUser" placeholder="souvent l'adresse email complète"></div>
-        </div>
-        <div class="fc"><label>Mot de passe SMTP</label><input id="smtpPass" type="password" placeholder="Mot de passe de la boîte email ou mot de passe application"></div>
-        <div class="note">
-          Les identifiants sont stockés localement dans ton navigateur pour préparer le payload. Pour une version production, le Worker devra chiffrer ou stocker les secrets côté Cloudflare, pas dans le HTML.
-        </div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="hd"><h2>Presets serveurs</h2></div>
-      <div class="body">
-        <div class="note" id="presetHelp"></div>
-        <br>
-        <button class="btn yellow" onclick="testPayload()">Voir le payload SMTP</button>
-        <pre id="payloadBox" style="white-space:pre-wrap;background:var(--bg3);border:1px solid var(--b2);border-radius:10px;padding:10px;margin-top:10px;color:var(--text2);max-height:420px;overflow:auto"></pre>
-      </div>
-    </div>
-  </div>
-</section>
-</main>
+function buildAS(c){
+  const t=c.emailList.length||'?';
+  const wkMax=calcWeekMax(c);
+  const dayNames=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+  let schedSummary='';
+  if(c.schedEnabled&&c.days.length){schedSummary=c.days.map(d=>{const ds=c.daySchedules?.['day'+d]||{from:'09:00',to:'18:00'};return'<strong style="color:var(--ora)">'+dayNames[d-1]+'</strong> '+ds.from+'→'+ds.to;}).join(' · ');}
+  else schedSummary='<span style="color:var(--text3)">24h/24</span>';
+  const rpm=c.rateEffectivePerMin||10;
+  let cadenceLabel;
+  if(rpm>=60)cadenceLabel=Math.round(rpm/60)+'/h';
+  else if(rpm>=1)cadenceLabel=Math.round(rpm)+'/min';
+  else{const s=60/rpm;cadenceLabel=s<90?Math.round(s)+'s/envoi':s<3600?Math.round(s/60)+' min/envoi':(s/3600).toFixed(1)+'h/envoi';}
+  const daysEst=(typeof t==='number'&&t>0&&!c.durationInfinite&&c.dailyLimit>0)?Math.ceil(t/c.dailyLimit):'?';
+  const sentCount=c.emailList.filter(e=>e.status==='sent'||e.status==='opened').length;
+  const pendCount=c.emailList.filter(e=>e.status==='pending').length;
+  const errCount=c.emailList.filter(e=>e.status==='error').length;
+  const todayStr=new Date().toDateString();
+  const sentToday=(c.dailyDate===todayStr)?(c.dailySent||0):0;
+  const leftToday=Math.max(0,(c.dailyLimit||9999)-sentToday);
+  return`<div class="as-title">⚡ Résumé automatisation</div><div class="as-grid"><div class="as-row">Cadence <strong>${cadenceLabel}</strong></div><div class="as-row">Quota/j <strong style="color:${sentToday>=(c.dailyLimit||9999)?'var(--red)':'var(--grn)'}">${sentToday.toLocaleString()}/${(c.dailyLimit||9999).toLocaleString()} <span style="font-size:9px;font-weight:400;color:var(--text3)">(${leftToday.toLocaleString()} restants)</span></strong></div><div class="as-row">Durée <strong>${c.durationInfinite?'∞ Infini':c.durationH+'h'}</strong></div><div class="as-row">Contacts <strong>${typeof t==='number'?t.toLocaleString():t} <span style="font-size:9px;font-weight:400;color:var(--grn)">✓${sentCount}</span> <span style="font-size:9px;font-weight:400;color:var(--text3)">⏳${pendCount}</span>${errCount?'<span style="font-size:9px;font-weight:400;color:var(--red)"> ✕'+errCount+'</span>':''}</strong></div><div class="as-row">Ordre <strong>${c.sendOrder==='inorder'?"1 après l'autre":c.sendOrder==='random'?'Aléatoire':'Boucle aléatoire'}</strong></div><div class="as-row">Fin liste <strong>${c.endOfList==='stop'?'Terminer':c.endOfList==='restart'?'Recommencer':'Reboucler'}</strong></div><div class="as-row">Jours est. <strong>${daysEst}</strong></div><div class="as-row">Max/semaine <strong>${wkMax.toLocaleString()}</strong></div></div><div style="margin-top:8px;font-size:10px;color:var(--text2);line-height:1.7"><strong style="color:var(--pur)">📅 Planning :</strong> ${schedSummary}</div>`;
+}
 
-<div id="modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:50;display:flex;align-items:center;justify-content:center;padding:14px">
-  <div style="background:var(--bg2);border:1px solid var(--b2);border-radius:14px;width:min(760px,96vw);max-height:86vh;overflow:auto">
-    <div class="hd"><h2>Aperçu</h2><button class="btn red" onclick="modal.classList.add('hidden')">Fermer</button></div>
-    <div class="body"><div id="preview" class="editor"></div></div>
-  </div>
-</div>
+function toggleDaySchedule(campId,dayNum,btn){
+  campId=parseInt(campId)||campId;
+  const c=S.camps.find(x=>x.id==campId);if(!c)return;
+  const isNowActive=!c.days.includes(dayNum);
+  if(isNowActive)c.days.push(dayNum);
+  else c.days=c.days.filter(d=>d!==dayNum);
+  c.days.sort((a,b)=>a-b);
+  btn.classList.toggle('on',isNowActive);
+  const hoursEl=$('dayhours-'+campId+'-'+dayNum);
+  const offEl=$('dayoff-'+campId+'-'+dayNum);
+  if(hoursEl)hoursEl.style.display=isNowActive?'flex':'none';
+  if(offEl)offEl.style.display=isNowActive?'none':'';
+  saveCamps();const as=$('as-'+campId);if(as)as.innerHTML=buildAS(c);
+}
 
-<script>
-const $=id=>document.getElementById(id);
-const SK='pgi_v40_smtp';
-const PRESETS={
-  lws:{label:'LWS',host:'mail.votredomaine.fr',port:465,secure:'ssl',help:'LWS : utilise généralement mail.votredomaine.fr en SSL 465 ou STARTTLS 587. Le nom utilisateur est souvent l’adresse email complète.'},
-  ovh:{label:'OVH',host:'ssl0.ovh.net',port:465,secure:'ssl',help:'OVH : ssl0.ovh.net, SSL 465 recommandé. Alternative : STARTTLS 587.'},
-  ionos:{label:'IONOS',host:'smtp.ionos.fr',port:465,secure:'ssl',help:'IONOS : smtp.ionos.fr, SSL 465. Utilisateur = adresse email complète.'},
-  hostinger:{label:'Hostinger',host:'smtp.hostinger.com',port:465,secure:'ssl',help:'Hostinger : smtp.hostinger.com, SSL 465 ou STARTTLS 587 selon boîte.'},
-  infomaniak:{label:'Infomaniak',host:'mail.infomaniak.com',port:465,secure:'ssl',help:'Infomaniak : mail.infomaniak.com, SSL 465 ou STARTTLS 587.'},
-  custom:{label:'SMTP personnalisé',host:'',port:587,secure:'starttls',help:'SMTP personnalisé : renseigne le serveur, port, sécurité, utilisateur et mot de passe fournis par l’hébergeur.'}
+function updDaySchedule(campId,dayNum,field,val){
+  campId=parseInt(campId)||campId;
+  const c=S.camps.find(x=>x.id==campId);if(!c)return;
+  if(!c.daySchedules)c.daySchedules={};
+  if(!c.daySchedules['day'+dayNum])c.daySchedules['day'+dayNum]={from:'09:00',to:'18:00'};
+  c.daySchedules['day'+dayNum][field]=val;
+  const ds=c.daySchedules['day'+dayNum];
+  const maxEl=$('daymax-'+campId+'-'+dayNum);
+  if(maxEl)maxEl.textContent='→ '+calcDayMax(ds,c.rateEffectivePerMin)+' '+(c.type==='sms'?'SMS':'emails')+' max';
+  saveCamps();const as=$('as-'+campId);if(as)as.innerHTML=buildAS(c);
+}
+
+function setSchedMode(campId,enabled){
+  campId=parseInt(campId)||campId;
+  const c=S.camps.find(x=>x.id==campId);if(!c)return;
+  c.schedEnabled=enabled;
+  const onBtn=$('btn-sched-on-'+campId),offBtn=$('btn-sched-off-'+campId);
+  const days=$('sched-days-'+campId),expl=$('sched-explain-'+campId);
+  if(onBtn){onBtn.style.borderColor=enabled?'var(--ora)':'var(--b2)';onBtn.style.background=enabled?'rgba(255,122,0,.1)':'none';onBtn.style.color=enabled?'var(--ora)':'var(--text2)';}
+  if(offBtn){offBtn.style.borderColor=!enabled?'var(--cyan)':'var(--b2)';offBtn.style.background=!enabled?'rgba(0,232,255,.1)':'none';offBtn.style.color=!enabled?'var(--cyan)':'var(--text2)';}
+  if(days)days.style.display=enabled?'block':'none';
+  if(expl){expl.style.background=!enabled?'rgba(0,232,255,.05)':'rgba(255,122,0,.05)';expl.style.borderColor=!enabled?'rgba(0,232,255,.15)':'rgba(255,122,0,.15)';expl.innerHTML=!enabled?'⚡ <strong style="color:var(--cyan);">Mode continu</strong> : envoi permanent.':'📅 <strong style="color:var(--ora);">Mode planifié</strong> : envoi dans les créneaux uniquement.';}
+  saveCamps();const as=$('as-'+campId);if(as)as.innerHTML=buildAS(c);
+}
+
+function updC(id,field,val){
+  const c=S.camps.find(x=>x.id===id);if(!c)return;
+  c[field]=val;saveCamps();
+  const as=$('as-'+id);if(as)as.innerHTML=buildAS(c);
+}
+function setDur(id,v,btn){
+  const c=S.camps.find(x=>x.id===id);if(!c)return;
+  btn.closest('.dur-row').querySelectorAll('.dc').forEach(b=>b.classList.remove('sel'));btn.classList.add('sel');
+  if(v===-1){c.durationInfinite=true;c.durationH=-1;}else{c.durationInfinite=false;c.durationH=v;}
+  saveCamps();const as=$('as-'+id);if(as)as.innerHTML=buildAS(c);
+}
+function setMC(id,field,val,btn,col){
+  updC(id,field,val);
+  btn.closest('.mcards').querySelectorAll('.mc').forEach(b=>{b.classList.remove('on');b.style.color='';b.style.borderColor='';b.style.boxShadow='';});
+  btn.classList.add('on');btn.style.color=col;btn.style.borderColor=col;btn.style.boxShadow=`0 0 10px ${col}40`;
+}
+function togAB(hd){hd.closest('.ab').classList.toggle('open');}
+
+async function launchCamp(id){
+  const c=S.camps.find(x=>x.id===id);if(!c)return;
+  if(!c.emailList.length){toast('Ajoutez des destinataires','warn');return;}
+  if(c.type!=='sms'&&!c.templateId&&!c.subject){
+    if(!await pgiConfirm('Aucun template sélectionné. Lancer quand même ?','⚠️'))return;
+  }
+  saveCampBodyAndAll(id);
+  c.status='running';c.sent=0;c.opened=0;c.errors=0;c.clicks=0;c.unsubscribed=0;
+  c.launchedAt=new Date().toISOString();c.pausePosition=0;
+  c.emailList.forEach(e=>e.status='pending');
+  saveCamps();renderCampList(c.type);openCamp(id,c.type);
+  const smtpCfg=S.smtpConfig&&Object.keys(S.smtpConfig).length?S.smtpConfig:null;
+  await syncW('/campaign/launch',{id,name:c.name,type:c.type,emailList:c.emailList,templateId:c.templateId,subject:c.subject,smsText:c.smsText,mmsUrl:c.mmsUrl,provider:c.campProvider||S.prov,fromEmail:c.campFromEmail||S.ce||S.email,fromName:c.campFromName||S.cn||'',ratePerMin:c.rateEffectivePerMin||10,dailyLimit:c.dailyLimit||9999,durationH:c.durationH,durationInfinite:c.durationInfinite,sendOrder:c.sendOrder,endOfList:c.endOfList,schedEnabled:c.schedEnabled,days:c.days,daySchedules:c.daySchedules,startDate:c.startDate,endDate:c.endDate,smtpConfig:smtpCfg,attachments:(c.attachments||[]).filter(a=>!a.data)});
+  toast('✅ Campagne «'+c.name+'» lancée !','success');
+  track('campaign_launch',{type:c.type,contacts:c.emailList.length,provider:c.campProvider||S.prov});
+}
+
+async function pauseCamp(id){
+  const c=S.camps.find(x=>x.id===id);if(!c||c.status!=='running')return;
+  c.status='paused';c.pausePosition=c.emailList.findIndex(e=>e.status==='pending');
+  saveCamps();renderCampList(c.type);openCamp(id,c.type);
+  await syncW('/campaign/pause',{id});toast('⏸ Campagne mise en pause','info');
+}
+
+async function resumeCamp(id){
+  const c=S.camps.find(x=>x.id===id);if(!c||c.status!=='paused')return;
+  c.status='running';saveCamps();renderCampList(c.type);openCamp(id,c.type);
+  const smtpCfg=S.smtpConfig&&Object.keys(S.smtpConfig).length?S.smtpConfig:null;
+  await syncW('/campaign/resume',{id,name:c.name,type:c.type,emailList:c.emailList,templateId:c.templateId,subject:c.subject,smsText:c.smsText,provider:c.campProvider||S.prov,fromEmail:c.campFromEmail||S.ce||S.email,ratePerMin:c.rateEffectivePerMin||10,dailyLimit:c.dailyLimit||9999,durationH:c.durationH,durationInfinite:c.durationInfinite,sendOrder:c.sendOrder,endOfList:c.endOfList,schedEnabled:c.schedEnabled,days:c.days,daySchedules:c.daySchedules,smtpConfig:smtpCfg,attachments:(c.attachments||[]).filter(a=>!a.data)});
+  toast('▶ Campagne reprise','success');
+}
+
+async function delCamp(id,type){
+  if(!await pgiConfirm('Supprimer cette campagne ?','🗑'))return;
+  S.camps=S.camps.filter(x=>x.id!==id);saveCamps();renderCampList(type);
+  const det=$(type==='sms'?'detail-sms':'detail-email');if(det)det.innerHTML='<div class="empty"><p>Aucune campagne sélectionnée</p></div>';
+  if(type==='sms')S.activeSMS=null;else S.activeCamp=null;
+}
+
+function resetCampStats(id){
+  const c=S.camps.find(x=>x.id===id);if(!c)return;
+  c.sent=0;c.opened=0;c.errors=0;c.clicks=0;c.unsubscribed=0;c.dailySent=0;
+  saveCamps();openCamp(id,c.type);toast('Stats réinitialisées','info');
+}
+
+function saveCampBodyAndAll(id){
+  const c=S.camps.find(x=>x.id===id);if(!c)return;
+  const subj=$('camp-subj2-'+id);if(subj)c.subject=subj.value;
+  const smsEl=$('camp-sms-'+id);if(smsEl)c.smsText=smsEl.value;
+  const mmsEl=$('mms-url-'+id);if(mmsEl)c.mmsUrl=mmsEl.value;
+  const nameEl=$('cn-'+id);if(nameEl)c.name=nameEl.value;
+}
+
+function selectCampTpl(id,tplId){
+  const c=S.camps.find(x=>x.id===id);if(!c)return;
+  c.templateId=tplId?parseInt(tplId)||tplId:null;
+  const tpl=tplId?S.tpls.find(t=>t.id==tplId):null;
+  if(tpl&&tpl.subject&&!c.subject){c.subject=tpl.subject;const el=$('camp-subj2-'+id);if(el)el.value=tpl.subject;}
+  const status=$('camp-tpl-status-'+id);
+  if(status){if(tpl)status.innerHTML=`<div style="background:rgba(0,255,136,.05);border:1px solid rgba(0,255,136,.2);border-radius:7px;padding:10px;margin-bottom:10px;"><div style="color:var(--grn);font-weight:700;margin-bottom:3px;">✓ ${esc(tpl.name)}</div><div style="color:var(--text2);font-size:10px;">Objet : ${esc(tpl.subject||'(aucun)')}</div></div>`;
+  else status.innerHTML=`<div style="background:rgba(255,230,0,.05);border:1px solid rgba(255,230,0,.2);border-radius:7px;padding:10px;margin-bottom:10px;font-size:11px;color:var(--yel);">⚠️ Aucun template sélectionné.</div>`;}
+  const prevBtn=$('camp-prev-btn-'+id);if(prevBtn){prevBtn.disabled=!tpl;prevBtn.style.opacity=tpl?'1':'0.4';}
+  saveCamps();
+}
+
+function prevCampTpl(id){
+  const c=S.camps.find(x=>x.id===id);if(!c||!c.templateId)return;
+  const tpl=S.tpls.find(t=>t.id==c.templateId);if(!tpl)return;
+  const subj=$('prev-subj'),body=$('prev-body');
+  if(subj)subj.textContent=applyVars(c.subject||tpl.subject||'(aucun objet)',EX);
+  if(body)body.innerHTML=applyVars(tpl.html||tpl.body||'',EX);
+  showModal('modal-prev');
+}
+
+function refreshQuotaBanner(){
+  const banner=$('quota-global-banner');if(!banner)return;
+  const q=getGlobalQuota();
+  if(q.committed===0){banner.classList.remove('show');return;}
+  banner.classList.add('show');
+  const pct=q.percent;
+  if(pct>=100){banner.className='quota-banner show danger';banner.innerHTML=`⚠️ Quota DÉPASSÉ ! ${q.committed.toLocaleString()} engagés pour ${q.limit} max/j avec ${(QUOTAS[S.prov]||QUOTAS.custom).lbl}`;}
+  else if(pct>=80){banner.className='quota-banner show warn';banner.innerHTML=`⚠️ Quota élevé : ${q.committed.toLocaleString()}/${q.limit} engagés (${pct}%) — ${q.available.toLocaleString()} disponibles`;}
+  else{banner.className='quota-banner show';banner.style.background='rgba(0,255,136,.06)';banner.style.border='1px solid rgba(0,255,136,.2)';banner.style.color='var(--grn)';banner.innerHTML=`✓ Quota OK : ${q.committed.toLocaleString()}/${q.limit} engagés (${pct}%) — ${q.available.toLocaleString()} disponibles avec ${(QUOTAS[S.prov]||QUOTAS.custom).lbl}`;}
+}
+
+// ── EMAIL LIST OPS ─────────────────────────────────────────
+function buildEListHTML(c){
+  if(!c.emailList.length)return'<div style="padding:12px;text-align:center;color:var(--text3);font-size:10px">Aucune adresse — ajoutez ci-dessous</div>';
+  const MAX=200;const shown=c.emailList.slice(0,MAX);
+  let html=shown.map((e,i)=>`<div class="eli"><span class="eli-n">${i+1}</span><span class="eli-e">${e.email}</span><span class="eli-st ${e.status||'pending'}">${e.status==='sent'?'✓ ENV':e.status==='opened'?'👁 LU':e.status==='error'?'✕ ERR':'⏳'}</span><button class="eli-del" onclick="removeEmail(${c.id},${i})">×</button></div>`).join('');
+  if(c.emailList.length>MAX)html+=`<div style="padding:8px;text-align:center;font-size:10px;color:var(--text3)">... et ${(c.emailList.length-MAX).toLocaleString()} de plus</div>`;
+  return html;
+}
+function refreshEList(c){
+  const b=$('elsc-'+c.id),ct=$('elcnt-'+c.id);
+  if(b)b.innerHTML=buildEListHTML(c);
+  if(ct)ct.textContent=c.emailList.length>0?c.emailList.length.toLocaleString()+' adresse(s)':'Aucune adresse';
+  const as=$('as-'+c.id);if(as)as.innerHTML=buildAS(c);
+}
+
+function addBulkToList(id){
+  const c=S.camps.find(x=>x.id===id);if(!c)return;
+  const ta=$('bulk-ta-'+id);if(!ta||!ta.value.trim()){toast('Zone de collage vide','warn');return;}
+  const isSMS=c.type==='sms';
+  const items=ta.value.split(/[\n,;\t]+/).map(x=>x.trim()).filter(x=>x.length>2);
+  const existingSet=new Set(c.emailList.map(x=>x.email));
+  const toAdd=[];let dupes=0,invalid=0;
+  items.forEach(item=>{
+    if(isSMS){const clean=cleanPhone(item);if(!clean.match(/^(\+|00)?[0-9]{8,15}$/)){invalid++;return;}if(existingSet.has(clean)){dupes++;return;}existingSet.add(clean);toAdd.push({email:clean,status:'pending'});}
+    else{const email=item.replace(/^[^a-zA-Z0-9.]+|[^a-zA-Z0-9]+$/g,'');if(!isEmail(email)){invalid++;return;}if(existingSet.has(email)){dupes++;return;}existingSet.add(email);toAdd.push({email:email,status:'pending'});}
+  });
+  ta.value='';const cntEl=$('bulk-cnt-'+id);if(cntEl)cntEl.textContent='';
+  if(!toAdd.length){toast('Aucun élément valide'+(dupes?' · '+dupes+' doublons':''),'warn');return;}
+  toast('Import de '+toAdd.length.toLocaleString()+'...','info');
+  const CHUNK=5000;let idx=0;
+  function insertChunk(){var end=Math.min(idx+CHUNK,toAdd.length);for(var i=idx;i<end;i++)c.emailList.push(toAdd[i]);idx=end;if(idx<toAdd.length)setTimeout(insertChunk,0);else{saveCamps();refreshEList(c);toast('✓ '+toAdd.length.toLocaleString()+' ajouté(s)'+(dupes?' · '+dupes+' doublons':'')+(invalid?' · '+invalid+' invalides':''),'success');}}
+  insertChunk();
+}
+function clearBulk(id){const ta=$('bulk-ta-'+id);if(ta)ta.value='';const c=$('bulk-cnt-'+id);if(c)c.textContent='';}
+function updBulkCnt(id){
+  const ta=$('bulk-ta-'+id),c=S.camps.find(x=>x.id===id),cntEl=$('bulk-cnt-'+id);
+  if(!ta||!c||!cntEl)return;if(!ta.value.trim()){cntEl.textContent='';return;}
+  const isSMS=c.type==='sms';
+  const items=ta.value.split(/[\n,;\t]+/).map(x=>x.trim()).filter(x=>x.length>2);
+  const valid=items.filter(item=>isSMS?cleanPhone(item).match(/^(\+|00)?[0-9]{8,15}$/):isEmail(item.replace(/^[^a-zA-Z0-9.]+|[^a-zA-Z0-9]+$/g,''))).length;
+  cntEl.textContent=valid>0?valid.toLocaleString()+' valide(s)':'';
+}
+
+function addToEList(id){
+  const c=S.camps.find(x=>x.id===id);if(!c)return;
+  const inp=$('eli-inp-'+id);if(!inp)return;
+  const items=inp.value.trim().split(/[\n,;]+/).map(x=>x.trim()).filter(x=>x.length>2);
+  let added=0;items.forEach(item=>{if(!c.emailList.find(x=>x.email===item)){c.emailList.push({email:item,status:'pending'});added++;}});
+  inp.value='';saveCamps();refreshEList(c);if(added)toast(added+' ajouté(s)','success');
+}
+function removeEmail(id,idx){const c=S.camps.find(x=>x.id===id);if(!c)return;c.emailList.splice(idx,1);saveCamps();refreshEList(c);}
+async function clearEList(id){if(!await pgiConfirm('Vider toute la liste ?'))return;const c=S.camps.find(x=>x.id===id);if(!c)return;c.emailList=[];saveCamps();refreshEList(c);}
+function resetSent(id){const c=S.camps.find(x=>x.id===id);if(!c)return;c.emailList.forEach(e=>e.status='pending');c.sent=0;c.status='draft';c.pausePosition=0;saveCamps();refreshEList(c);toast('Réinitialisé','success');}
+function importFromContactList(id){const c=S.camps.find(x=>x.id===id);if(!c)return;const contacts=S.activeList==='all'?S.contacts:S.contacts.filter(x=>x.listIds?.includes(S.activeList));let added=0;contacts.forEach(x=>{if(x.email&&!c.emailList.find(e=>e.email===x.email)){c.emailList.push({email:x.email,status:'pending'});added++;}});saveCamps();refreshEList(c);toast(added+' importés','success');}
+function importListToEList(id,listId){
+  if(!listId)return;const camp=S.camps.find(x=>x.id===id);if(!camp)return;
+  const existingSet=new Set(camp.emailList.map(e=>e.email));const toAdd=[];
+  const contacts=listId==='all'?S.contacts:S.contacts.filter(x=>x.listIds?.includes(listId));
+  contacts.forEach(x=>{if(x.email&&!existingSet.has(x.email)){existingSet.add(x.email);toAdd.push({email:x.email,status:'pending'});}});
+  const list=S.lists.find(l=>l.id===listId);
+  if(list?.emails?.length)list.emails.forEach(email=>{if(email&&!existingSet.has(email)){existingSet.add(email);toAdd.push({email,status:'pending'});}});
+  if(!toAdd.length){toast('Aucun email à importer','warn');return;}
+  toast('Import de '+toAdd.length.toLocaleString()+'...','info');
+  const CHUNK=5000;let idx=0;
+  function doChunk(){var end=Math.min(idx+CHUNK,toAdd.length);for(var i=idx;i<end;i++)camp.emailList.push(toAdd[i]);idx=end;if(idx<toAdd.length){const cntEl=$('elcnt-'+camp.id);if(cntEl)cntEl.textContent=camp.emailList.length.toLocaleString()+' adresse(s)';setTimeout(doChunk,0);}else{saveCamps();refreshEList(camp);toast('✓ '+toAdd.length.toLocaleString()+' importés','success');}}
+  doChunk();
+}
+function importEFile(file,id){if(!file)return;const r=new FileReader();r.onload=e=>{const c=S.camps.find(x=>x.id===id);if(!c)return;let added=0;e.target.result.split(/[\n,;]+/).forEach(line=>{const item=line.trim();if(item.length>2&&!c.emailList.find(x=>x.email===item)){c.emailList.push({email:item,status:'pending'});added++;}});saveCamps();refreshEList(c);toast(added+' importés','success');};r.readAsText(file);}
+function importExcelToEList(file,campId){
+  if(!file||!window.XLSX){toast('SheetJS non chargé','warn');return;}
+  const c=S.camps.find(x=>x.id===campId);if(!c)return;
+  const reader=new FileReader();
+  reader.onload=e=>{try{const wb=XLSX.read(e.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});let added=0;rows.flat().forEach(cell=>{const val=String(cell).trim();if(isEmail(val)&&!c.emailList.find(x=>x.email===val)){c.emailList.push({email:val,status:'pending'});added++;}});saveCamps();refreshEList(c);toast(added+' emails depuis Excel','success');}catch(err){toast('Erreur Excel : '+err.message,'error');}};
+  reader.readAsBinaryString(file);
+}
+
+// Attachments
+function addCampAttachments(input,id){
+  const c=S.camps.find(x=>x.id===id);if(!c)return;
+  if(!c.attachments)c.attachments=[];
+  const files=Array.from(input.files);
+  let added=0;
+  const promises=files.map(file=>new Promise(resolve=>{
+    const reader=new FileReader();
+    reader.onload=e=>{c.attachments.push({name:file.name,contentType:file.type,size:file.size,data:e.target.result.split(',')[1]});added++;resolve();};
+    reader.readAsDataURL(file);
+  }));
+  Promise.all(promises).then(()=>{saveCamps();renderCampAttachments(id);toast(added+' pièce(s) jointe(s) ajoutée(s)','success');});
+}
+function renderCampAttachments(id){
+  const c=S.camps.find(x=>x.id===id);if(!c)return;
+  const el=$('camp-attachments-'+id);if(!el)return;
+  const cnt=$('camp-att-count-'+id);
+  if(!c.attachments||!c.attachments.length){el.innerHTML='<span style="font-size:10px;color:var(--text3);font-style:italic">Aucune pièce jointe</span>';if(cnt){cnt.textContent='';cnt.style.color='var(--text3)';}return;}
+  if(cnt){cnt.textContent='— '+c.attachments.length+' fichier'+(c.attachments.length>1?'s':'');cnt.style.color='var(--grn)';}
+  el.innerHTML=c.attachments.map((a,i)=>`<div style="display:flex;align-items:center;gap:5px;background:var(--bg4);border:1px solid var(--b2);border-radius:5px;padding:4px 8px;"><span style="font-size:10px;color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${a.name}</span><span style="font-size:8px;color:var(--text3)">${Math.round((a.size||0)/1024)}KB</span><button onclick="removeCampAtt(${id},${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0 2px;font-size:13px;line-height:1;">×</button></div>`).join('');
+}
+function removeCampAtt(id,idx){const c=S.camps.find(x=>x.id===id);if(!c)return;c.attachments.splice(idx,1);saveCamps();renderCampAttachments(id);}
+
+// ── WORKER TRACKING MERGE ──────────────────────────────────
+function mergeWorkerCampaignTracking(wc,local){
+  let changed=false;
+  if(wc.opens&&Array.isArray(wc.opens)){
+    if(!local.trackingOpens)local.trackingOpens=[];
+    wc.opens.forEach(o=>{if(!local.trackingOpens.find(x=>x.email===o.email)){local.trackingOpens.push(o);changed=true;}});
+  }
+  if(wc.clicks&&typeof wc.clicks==='object'&&!Array.isArray(wc.clicks)){local.trackingClicks=wc.clicks;changed=true;}
+  if(wc.clickedList&&Array.isArray(wc.clickedList)){local.clickedList=wc.clickedList;changed=true;}
+  return changed;
+}
+
+// ── DASHBOARD RENDERS ──────────────────────────────────────
+var _df={mode:'today',from:null,to:null};
+var _efMode='all',_sfMode='all';
+var _analyticsSort={f:'date',asc:false};
+var _analyticsPage=0,_smsPage=0;
+const PAGE_SZ=100;
+
+function setDateFilter(mode,btn){
+  document.querySelectorAll('#date-quick-btns .date-qbtn').forEach(b=>b.classList.remove('sel'));
+  if(btn)btn.classList.add('sel');
+  const now=new Date(),today=now.toISOString().slice(0,10);
+  _df.mode=mode;
+  if(mode==='today'){_df.from=today;_df.to=today;}
+  else if(mode==='yesterday'){const y=new Date(now-86400000).toISOString().slice(0,10);_df.from=y;_df.to=y;}
+  else if(mode==='7d'){_df.from=new Date(now-6*86400000).toISOString().slice(0,10);_df.to=today;}
+  else if(mode==='30d'){_df.from=new Date(now-29*86400000).toISOString().slice(0,10);_df.to=today;}
+  else{_df.from=null;_df.to=null;}
+  const fi=$('date-from'),ti=$('date-to');
+  if(fi)fi.value=_df.from||'';if(ti)ti.value=_df.to||'';
+  _analyticsPage=0;_smsPage=0;renderDashboard();
+}
+function applyCustomDate(){_df.mode='custom';_df.from=$('date-from')?.value||null;_df.to=$('date-to')?.value||null;document.querySelectorAll('#date-quick-btns .date-qbtn').forEach(b=>b.classList.remove('sel'));_analyticsPage=0;_smsPage=0;renderDashboard();}
+function inRange(dateStr){
+  if(!dateStr)return false;
+  const d=dateStr.slice(0,10);
+  if(_df.from&&d<_df.from)return false;
+  if(_df.to&&d>_df.to)return false;
+  return true;
+}
+
+function setEmailFilter(f,btn){_efMode=f;document.querySelectorAll('[id^="ef-"]').forEach(b=>b.classList.remove('sel'));if(btn)btn.classList.add('sel');_analyticsPage=0;renderAnalytics();}
+function setSMSFilter(f,btn){_sfMode=f;document.querySelectorAll('[id^="sf-"]').forEach(b=>b.classList.remove('sel'));if(btn)btn.classList.add('sel');_smsPage=0;renderSMSAnalytics();}
+function sortAnalytics(f){if(_analyticsSort.f===f)_analyticsSort.asc=!_analyticsSort.asc;else{_analyticsSort.f=f;_analyticsSort.asc=false;}_analyticsPage=0;renderAnalytics();}
+function loadMoreAnalytics(){_analyticsPage++;renderAnalytics(true);}
+function loadMoreSMS(){_smsPage++;renderSMSAnalytics(true);}
+
+// v39.8 : getAllEmailLogs lit emailList + analytics
+function getAllEmailLogs(){
+  const workerLogs=(S.analytics||[]).filter(x=>x.type==='email'&&x.status!=='pending_send');
+  const wKeys=new Set(workerLogs.map(x=>(x.email||'')+'|'+(x.campaign||'')));
+  const localLogs=[];
+  (S.camps||[]).forEach(c=>{
+    if(c.type==='sms'||!c.emailList)return;
+    c.emailList.forEach(e=>{
+      if(e.status!=='sent'&&e.status!=='opened'&&e.status!=='error')return;
+      const key=(e.email||'')+'|'+(c.name||'');if(wKeys.has(key))return;
+      localLogs.push({type:'email',email:e.email,campaign:c.name,date:e.sentAt||c.launchedAt||c.created||new Date().toISOString(),status:e.status==='error'?'error':'sent',opened:e.status==='opened'||!!e.opened,openedAt:e.openedAt||null,unsubscribed:!!e.unsubscribed,clicks:e.clicks||[]});
+    });
+    (c.recentlyChanged||[]).forEach(rc=>{
+      if(rc.status!=='sent'&&rc.status!=='opened')return;
+      const key=(rc.email||'')+'|'+(c.name||'');if(wKeys.has(key))return;
+      if(localLogs.find(l=>l.email===rc.email&&l.campaign===c.name))return;
+      localLogs.push({type:'email',email:rc.email,campaign:c.name,date:rc.sentAt||rc.openedAt||new Date().toISOString(),status:'sent',opened:rc.status==='opened'||!!rc.opened,openedAt:rc.openedAt||null,unsubscribed:false,clicks:[]});
+    });
+  });
+  return[...workerLogs,...localLogs].sort((a,b)=>new Date(b.date)-new Date(a.date));
+}
+
+function renderDashboard(){
+  if(S.currentView!=='dashboard')return;
+  renderActiveCamps();renderAllCamps();renderAnalytics();renderSMSAnalytics();renderPeriodStats();renderUnsubByCamp();renderTrackingDetail();
+  const cq=$('cq-total');if(cq)cq.textContent=S.contacts.length.toLocaleString();
+  const lq=$('lists-quick');if(lq){lq.innerHTML=S.lists.filter(l=>!l.system).map(l=>`<div style="padding:5px 10px;border-radius:5px;border:1px solid var(--b2);background:var(--bg3);font-size:10px;font-weight:700;color:${l.color||'var(--purl)'};">${l.name} · ${S.contacts.filter(x=>x.listIds?.includes(l.id)).length}</div>`).join('');}
+  renderQuotaBox();
+}
+
+function renderActiveCamps(){
+  const tbody=$('active-camps-body');if(!tbody)return;
+  const badge=$('badge-actives');
+  const active=S.camps.filter(c=>c.status==='running');
+  if(badge)badge.textContent=active.length;
+  if(!active.length){tbody.innerHTML='<tr><td colspan="10"><div class="empty" style="padding:20px"><p>Aucune campagne en cours</p></div></td></tr>';return;}
+  tbody.innerHTML=active.map(c=>{
+    const total=c.emailList.length||1;
+    const pct=Math.round(((c.sent||0)/total)*100);
+    const todayStr=new Date().toDateString();
+    const sentToday=(c.dailyDate===todayStr)?(c.dailySent||0):0;
+    const rpm=c.rateEffectivePerMin||10;
+    let cadence;if(rpm>=60)cadence=Math.round(rpm/60)+'/h';else if(rpm>=1)cadence=Math.round(rpm)+'/min';else cadence=Math.round(60/rpm)+'s/envoi';
+    const fp=c.emailList.findIndex(e=>e.status==='pending');const pos=fp===-1?c.emailList.length:fp+1;
+    return`<tr><td style="font-weight:700;color:var(--text)">${esc(c.name)}</td><td><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:${c.type==='sms'?'rgba(255,45,120,.1)':'rgba(0,232,255,.1)'};color:${c.type==='sms'?'var(--pnk)':'var(--cyan)'};">${c.type.toUpperCase()}</span></td><td class="mono">${(c.sent||0).toLocaleString()}</td><td class="mono">${pos.toLocaleString()}/${total.toLocaleString()}</td><td><div style="display:flex;align-items:center;gap:6px;"><div style="width:80px;height:3px;background:var(--bg4);border-radius:2px;"><div style="height:100%;background:var(--grn);border-radius:2px;width:${pct}%;"></div></div><span style="font-size:9px;font-family:var(--mono);color:var(--text3)">${pct}%</span></div></td><td style="font-family:var(--mono);font-size:10px;color:var(--yel)">${cadence}</td><td class="mono">${(c.opened||0).toLocaleString()}</td><td class="mono" style="color:${(c.errors||0)>0?'var(--red)':'var(--text3)'}">${(c.errors||0)}</td><td style="font-size:10px;color:var(--text3)">${c.durationInfinite?'∞':c.durationH+'h'}</td><td><button class="btn-sm yel" onclick="pauseCamp(${c.id})">⏸</button></td></tr>`;
+  }).join('');
+  const lbl=$('lbl-next');if(lbl){const minRpm=Math.min(...active.map(c=>c.rateEffectivePerMin||10));const nextMin=60/minRpm;lbl.textContent=nextMin<2?'~'+Math.round(nextMin*60)+'s/email':nextMin<60?'~'+Math.round(nextMin)+'min/email':'~'+Math.round(nextMin/60)+'h/email';}
+}
+
+function renderAllCamps(){
+  const tbody=$('all-camps-body');if(!tbody)return;
+  if(!S.camps.length){tbody.innerHTML='<tr><td colspan="10"><div class="empty" style="padding:16px"><p>Aucune campagne</p></div></td></tr>';return;}
+  tbody.innerHTML=S.camps.map(c=>{
+    const pct=c.emailList.length&&c.sent?Math.round((c.sent/c.emailList.length)*100):0;
+    const openRate=c.sent>0?Math.round((c.opened||0)/c.sent*100):0;
+    return`<tr onclick="showView('${c.type}');openCamp(${c.id},'${c.type}')" style="cursor:pointer;"><td style="font-weight:700;color:var(--text)">${esc(c.name)}</td><td><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:${c.type==='sms'?'rgba(255,45,120,.1)':'rgba(0,232,255,.1)'};color:${c.type==='sms'?'var(--pnk)':'var(--cyan)'};">${c.type.toUpperCase()}</span></td><td><span class="stbadge ${stCls(c.status)}">${stLbl(c.status)}</span></td><td class="mono">${c.emailList.length.toLocaleString()}</td><td class="mono">${(c.sent||0).toLocaleString()}</td><td class="mono">${(c.opened||0).toLocaleString()}</td><td style="font-family:var(--mono);font-size:10px;color:${openRate>=20?'var(--grn)':openRate>=10?'var(--yel)':'var(--text3)'}">${openRate}%</td><td class="mono" style="color:${(c.errors||0)>0?'var(--red)':'var(--text3)'}">${(c.errors||0)}</td><td class="mono">${(c.dailyLimit||9999).toLocaleString()}/j</td><td style="font-size:10px;color:var(--text3)">${fDt(c.created)}</td></tr>`;
+  }).join('');
+}
+
+function renderPeriodStats(){
+  const logs=getAllEmailLogs().filter(x=>inRange(x.date));
+  const smsLogs=(S.analytics||[]).filter(x=>x.type==='sms'&&inRange(x.date));
+  const sent=logs.length,opened=logs.filter(x=>x.opened).length;
+  const clicks=logs.reduce((s,x)=>s+((x.clicks||[]).length),0);
+  const smsSent=smsLogs.length,unsub=logs.filter(x=>x.unsubscribed).length;
+  const ps=$('ps-sent');if(ps)ps.textContent=sent.toLocaleString();
+  const po=$('ps-open');if(po)po.textContent=sent>0?Math.round(opened/sent*100)+'%':'0%';
+  const pc=$('ps-clicks');if(pc)pc.textContent=clicks.toLocaleString();
+  const pp=$('ps-sms');if(pp)pp.textContent=smsSent.toLocaleString();
+  const pu=$('ps-unsub');if(pu)pu.textContent=unsub.toLocaleString();
+  const eb=$('email-stats-bar');
+  if(eb){const noRead=sent-opened;eb.innerHTML=`<span class="stat-mini sent">✓ ${sent} envoyés</span><span class="stat-mini open">👁 ${opened} ouverts</span><span class="stat-mini noread">⊘ ${noRead} non lus</span>${clicks?`<span class="stat-mini open">🔗 ${clicks} clics</span>`:''}`;}
+}
+
+function renderAnalytics(append=false){
+  const tbody=$('analytics-body');if(!tbody)return;
+  let logs=getAllEmailLogs();
+  if(_df.mode!=='all')logs=logs.filter(x=>inRange(x.date));
+  if(_efMode==='sent')logs=logs.filter(x=>!x.opened&&!x.unsubscribed&&x.status!=='error');
+  else if(_efMode==='opened')logs=logs.filter(x=>x.opened);
+  else if(_efMode==='noread')logs=logs.filter(x=>!x.opened&&!x.unsubscribed&&x.status!=='error');
+  else if(_efMode==='error')logs=logs.filter(x=>x.status==='error');
+  else if(_efMode==='unsub')logs=logs.filter(x=>x.unsubscribed);
+  logs.sort((a,b)=>{const va=_analyticsSort.f==='email'?a.email:a.date;const vb=_analyticsSort.f==='email'?b.email:b.date;return _analyticsSort.asc?(va<vb?-1:1):(va>vb?-1:1);});
+  const cnt=$('email-count-lbl');if(cnt)cnt.textContent=logs.length.toLocaleString()+' email(s)';
+  const start=0,end=(_analyticsPage+1)*PAGE_SZ;
+  const slice=logs.slice(start,end);
+  const more=$('analytics-more');if(more)more.style.display=logs.length>end?'block':'none';
+  if(!slice.length){tbody.innerHTML='<tr><td colspan="7"><div class="empty" style="padding:16px"><p>Aucun envoi sur cette période</p></div></td></tr>';return;}
+  const rows=slice.map(x=>`<tr><td class="em">${esc(x.email||'?')}</td><td style="font-size:10px;color:var(--text2)">${esc(x.campaign||'—')}</td><td style="font-family:var(--mono);font-size:9px;color:var(--text3)">${fDt(x.date)}</td><td><span class="tg ${x.status==='error'?'tg-err':'tg-sent'}">${x.status==='error'?'✕ ERR':'✓ ENV'}</span></td><td>${x.opened?`<span class="tg tg-open">👁 LU</span><span style="font-size:8px;color:var(--text3);margin-left:3px">${fDt(x.openedAt)}</span>`:`<span class="tg tg-unrd">⊘ NON LU</span>`}</td><td style="font-family:var(--mono);font-size:10px;color:${(x.clicks||[]).length?'var(--cyan)':'var(--text3)'}">${(x.clicks||[]).length}</td><td>${x.unsubscribed?'<span class="tg tg-unsb">🚫</span>':''}</td></tr>`).join('');
+  if(append)tbody.innerHTML+=rows;else tbody.innerHTML=rows;
+}
+
+function renderSMSAnalytics(append=false){
+  const tbody=$('sms-analytics-body');if(!tbody)return;
+  let logs=(S.analytics||[]).filter(x=>x.type==='sms');
+  if(_df.mode!=='all')logs=logs.filter(x=>inRange(x.date));
+  if(_sfMode==='sent')logs=logs.filter(x=>!x.read&&!x.stop&&x.status!=='error');
+  else if(_sfMode==='read')logs=logs.filter(x=>x.read);
+  else if(_sfMode==='noread')logs=logs.filter(x=>!x.read&&!x.stop);
+  else if(_sfMode==='stop')logs=logs.filter(x=>x.stop);
+  else if(_sfMode==='error')logs=logs.filter(x=>x.status==='error');
+  const cnt=$('sms-count-lbl');if(cnt)cnt.textContent=logs.length.toLocaleString()+' SMS';
+  const end=(_smsPage+1)*PAGE_SZ,slice=logs.slice(0,end);
+  const more=$('sms-analytics-more');if(more)more.style.display=logs.length>end?'block':'none';
+  if(!slice.length){tbody.innerHTML='<tr><td colspan="6"><div class="empty" style="padding:16px"><p>Aucun SMS</p></div></td></tr>';return;}
+  const rows=slice.map(x=>`<tr><td class="mono">${esc(x.phone||x.email||'?')}</td><td style="font-size:10px;color:var(--text2)">${esc(x.campaign||'—')}</td><td style="font-family:var(--mono);font-size:9px;color:var(--text3)">${fDt(x.date)}</td><td><span class="stat-mini sms-ok">✓ Envoyé</span></td><td>${x.read?'<span class="stat-mini sms-read">👁 Lu</span>':''}</td><td>${x.stop?'<span class="stat-mini sms-stop">🚫 STOP</span>':''}</td></tr>`).join('');
+  if(append)tbody.innerHTML+=rows;else tbody.innerHTML=rows;
+}
+
+function renderTrackingDetail(){
+  const el=$('tracking-detail-body');if(!el)return;
+  const camps=S.camps.filter(c=>c.type!=='sms'&&(c.trackingOpens||c.trackingClicks));
+  if(!camps.length){el.innerHTML='<div class="empty" style="padding:16px"><p>Aucune donnée de tracking</p></div>';return;}
+  el.innerHTML=camps.map(c=>{
+    const opens=c.trackingOpens||[];const clicks=c.trackingClicks||{};
+    const totalClicks=Object.values(clicks).reduce((s,v)=>s+(Array.isArray(v)?v.length:0),0);
+    return`<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:8px;">📧 ${esc(c.name)}</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;"><span class="stat-mini open">👁 ${opens.length} ouvertures uniques</span><span class="stat-mini sent">🔗 ${totalClicks} clics totaux</span></div>${opens.slice(0,10).map(o=>`<div style="font-family:var(--mono);font-size:9px;color:var(--text3);padding:2px 0;">${esc(o.email||'?')} — ${fDt(o.at||o.date)}</div>`).join('')}${opens.length>10?`<div style="font-size:9px;color:var(--text3)">... et ${opens.length-10} autres</div>`:''}</div>`;
+  }).join('');
+}
+
+function renderUnsubByCamp(){
+  const el=$('unsub-per-camp-list'),badge=$('badge-unsub-total');if(!el)return;
+  const bycamp={};
+  (S.analytics||[]).forEach(a=>{if(a.unsubscribed&&a.campaign){if(!bycamp[a.campaign])bycamp[a.campaign]=[];bycamp[a.campaign].push(a.email);}});
+  S.camps.forEach(c=>{(c.emailList||[]).forEach(e=>{if(e.unsubscribed){if(!bycamp[c.name])bycamp[c.name]=[];if(!bycamp[c.name].includes(e.email))bycamp[c.name].push(e.email);}});});
+  const total=Object.values(bycamp).reduce((s,arr)=>s+arr.length,0);
+  if(badge)badge.textContent=total;
+  if(!total){el.innerHTML='<div class="empty" style="padding:20px"><p>Aucun désabonné</p></div>';return;}
+  el.innerHTML=Object.entries(bycamp).map(([camp,emails])=>`<div class="unsub-camp-row" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='flex'?'none':'flex'"><span style="flex:1;font-weight:700;font-size:12px;">${esc(camp)}</span><span class="unsub-camp-badge">${emails.length}</span></div><div class="unsub-emails-list">${emails.map(e=>`<span class="unsub-email-tag" title="Cliquer pour copier" onclick="navigator.clipboard.writeText('${esc(e)}').then(()=>toast('Email copié','success'))">${esc(e)}</span>`).join('')}</div>`).join('');
+}
+
+function renderQuotaBox(){
+  const box=$('dash-quota-box');if(!box)return;
+  const running=S.camps.filter(c=>c.status==='running'&&c.type!=='sms');
+  if(!running.length){box.style.display='none';return;}
+  box.style.display='block';
+  const q=getGlobalQuota();
+  const text=$('dash-quota-text'),bar=$('dash-quota-bar'),detail=$('dash-quota-detail');
+  const pct=Math.min(100,q.percent);
+  if(text)text.textContent=`${running.length} campagne(s) active(s) — ${q.committed.toLocaleString()} engagés / ${q.limit.toLocaleString()} max/j (${pct}%)`;
+  if(bar){bar.style.width=pct+'%';bar.style.background=pct>=100?'var(--red)':pct>=80?'var(--yel)':'var(--grn)';}
+  if(detail)detail.textContent=`Utilisés aujourd'hui : ${q.used.toLocaleString()} · Disponibles : ${q.available.toLocaleString()} · Provider : ${(QUOTAS[S.prov]||QUOTAS.custom).lbl}`;
+}
+
+function updateStats(){
+  const all=getAllEmailLogs();
+  const totalSent=all.length,totalOpened=all.filter(x=>x.opened).length,totalUnsub=all.filter(x=>x.unsubscribed).length;
+  const totalClics=all.reduce((s,x)=>s+((x.clicks||[]).length),0),totalCliquésU=all.filter(x=>(x.clicks||[]).length>0).length;
+  const smsList=(S.analytics||[]).filter(x=>x.type==='sms');
+  const totalSMS=smsList.length,totalSMSRead=smsList.filter(x=>x.read).length;
+  const openRate=totalSent>0?Math.round(totalOpened/totalSent*100):0;
+  const noRead=totalSent-totalOpened;
+  const kves=$('kv-es');if(kves)kves.textContent=totalSent.toLocaleString();
+  const kvop=$('kv-op');if(kvop)kvop.textContent=openRate+'%';
+  const kvno=$('kv-no');if(kvno)kvno.textContent=noRead.toLocaleString();
+  const kvcl=$('kv-cl');if(kvcl)kvcl.textContent=totalClics.toLocaleString();
+  const kvun=$('kv-un');if(kvun)kvun.textContent=totalUnsub.toLocaleString();
+  const kvsm=$('kv-sm');if(kvsm)kvsm.textContent=totalSMS.toLocaleString();
+  const ksop=$('ks-op');if(ksop)ksop.textContent=totalOpened.toLocaleString()+' ouverts';
+  const kscl=$('ks-cl');if(kscl)kscl.textContent=totalCliquésU+' email'+(totalCliquésU>1?'s':'')+' cliqué'+(totalCliquésU>1?'s':'');
+  const kssm=$('ks-sm');if(kssm)kssm.textContent=totalSMSRead.toLocaleString()+' lus';
+  const sge=$('sg-e');if(sge)sge.textContent=totalSent.toLocaleString();
+  const sgo=$('sg-o');if(sgo)sgo.textContent=totalOpened.toLocaleString();
+  const sgs=$('sg-s');if(sgs)sgs.textContent=totalSMS.toLocaleString();
+  const sgk=$('sg-k');if(sgk)sgk.textContent=S.camps.length;
+  const sgc=$('sg-c');if(sgc)sgc.textContent=S.contacts.length.toLocaleString();
+  const sgt=$('sg-t');if(sgt)sgt.textContent=S.tpls.length;
+}
+
+// ── RESET DASHBOARD ────────────────────────────────────────
+async function resetDashboard(){
+  if(!await pgiConfirm('Réinitialiser les stats locales seulement ?\n(Les données Worker ne sont pas affectées)','🗑'))return;
+  S.analytics=[];lsS(SK.analytics,S.analytics);
+  S.camps.forEach(c=>{c.sent=0;c.opened=0;c.errors=0;c.clicks=0;c.unsubscribed=0;c.dailySent=0;c.recentlyChanged=[];});
+  persistCamps();renderDashboard();updateStats();toast('Stats locales réinitialisées','info');
+}
+async function resetDashboardAndWorker(){
+  if(!await pgiConfirm('Réinitialiser les stats locales ET Worker ?\nCette action est irréversible !','⚠️'))return;
+  S.analytics=[];lsS(SK.analytics,S.analytics);
+  S.camps.forEach(c=>{c.sent=0;c.opened=0;c.errors=0;c.clicks=0;c.unsubscribed=0;c.dailySent=0;c.recentlyChanged=[];if(c.status==='running')c.status='paused';});
+  persistCamps();renderDashboard();updateStats();
+  if(S.wurl){try{await fetch(S.wurl+'/reset-stats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:true})});}catch(e){console.warn('Worker reset:',e.message);}}
+  const rb=$('btn-resume-sync');if(rb)rb.style.display='inline-flex';
+  toast('Tout réinitialisé','success');
+}
+async function resumeSyncAfterReset(){
+  const rb=$('btn-resume-sync');if(rb)rb.style.display='none';
+  S.camps.filter(c=>c.status==='paused').forEach(c=>c.status='running');
+  persistCamps();startAutoSync();toast('Sync relancée','success');
+}
+
+// ── TEMPLATES ─────────────────────────────────────────────
+function newTpl(){
+  const t={id:Date.now(),name:'Nouveau template',subject:'',html:'',body:'',plain:'',created:new Date().toISOString()};
+  S.tpls.push(t);lsS(SK.tpls,S.tpls);renderTplList();loadTpl(t.id);
+}
+function renderTplList(){
+  const el=$('tpl-scroll');if(!el)return;
+  if(!S.tpls.length){el.innerHTML='<div class="empty" style="padding:24px 10px"><p style="font-size:10px">Aucun template</p></div>';return;}
+  el.innerHTML=S.tpls.map(t=>`<div class="tpl-row ${S.activeTpl==t.id?'sel':''}" onclick="loadTpl(${t.id});closeMob('panel-templates','fab-templates')"><div class="tpl-ico">✉️</div><div style="flex:1;min-width:0;"><div class="tpl-nm">${esc(t.name)}</div><div class="tpl-sb">${esc(t.subject||'(pas de sujet)')}</div></div></div>`).join('');
+}
+function loadTpl(id){
+  S.activeTpl=id;renderTplList();
+  const t=S.tpls.find(x=>x.id===id);if(!t)return;
+  const nm=$('te-name');if(nm)nm.value=t.name||'';
+  const su=$('te-subj');if(su)su.value=t.subject||'';
+  const pr=$('pane-rich');if(pr)pr.innerHTML=t.html||t.body||'';
+  const pc=$('pane-code');if(pc)pc.value=t.html||t.body||'';
+  const pp=$('pane-plain');if(pp)pp.value=t.plain||'';
+  setTTab(S.tplMode||'rich');renderImgGal();updTEChar();
+}
+function saveTpl(showDot=false){
+  if(!S.activeTpl)return;
+  const t=S.tpls.find(x=>x.id===S.activeTpl);if(!t)return;
+  const nm=$('te-name');if(nm)t.name=nm.value;
+  const su=$('te-subj');if(su)t.subject=su.value;
+  const pr=$('pane-rich');if(pr)t.html=pr.innerHTML;
+  const pc=$('pane-code');if(pc){if(S.tplMode==='html')t.html=pc.value;}
+  const pp=$('pane-plain');if(pp)t.plain=pp.value;
+  lsS(SK.tpls,S.tpls);renderTplList();
+  if(showDot){const d=$('save-dot');if(d){d.classList.add('show');setTimeout(()=>d.classList.remove('show'),2000);}}
+  track('template_save',{id:S.activeTpl});
+}
+async function delTpl(){
+  if(!S.activeTpl)return;
+  if(!await pgiConfirm('Supprimer ce template ?','🗑'))return;
+  S.tpls=S.tpls.filter(x=>x.id!==S.activeTpl);lsS(SK.tpls,S.tpls);S.activeTpl=null;renderTplList();
+  const pr=$('pane-rich');if(pr)pr.innerHTML='';
+}
+function prevTpl(){
+  saveTpl();
+  const t=S.activeTpl?S.tpls.find(x=>x.id===S.activeTpl):null;if(!t)return;
+  const subj=$('prev-subj'),body=$('prev-body');
+  if(subj)subj.textContent=applyVars(t.subject||'(aucun objet)',EX);
+  if(body)body.innerHTML=applyVars(t.html||t.body||'',EX);
+  showModal('modal-prev');
+}
+function setTTab(tab){
+  S.tplMode=tab;
+  ['rich','html','plain'].forEach(t=>{const btn=$('etab-'+t);if(btn)btn.classList.toggle('active',t===tab);});
+  const pr=$('pane-rich'),hp=$('html-pane'),pp=$('pane-plain'),tb=$('te-toolbar'),ib=$('te-img-bar'),ig=$('img-gal');
+  if(pr)pr.style.display=tab==='rich'?'block':'none';
+  if(hp)hp.classList.toggle('show',tab==='html');
+  if(pp)pp.style.display=tab==='plain'?'block':'none';
+  if(tb)tb.innerHTML=tab==='rich'?buildRichToolbar():'';
+  if(ib)ib.className='img-bar'+(tab==='rich'?' show':'');
+  if(ig)ig.className='img-gal'+(tab==='rich'&&S.imgLib.length?' show':'');
+  if(tab==='html'){const t=S.activeTpl?S.tpls.find(x=>x.id===S.activeTpl):null;if(t){const pc=$('pane-code');if(pc)pc.value=t.html||t.body||'';}}
+  if(tab==='plain'){const t=S.activeTpl?S.tpls.find(x=>x.id===S.activeTpl):null;if(t){const pp2=$('pane-plain');if(pp2)pp2.value=t.plain||'';}}
+  syncPrev();
+}
+function buildRichToolbar(){
+  return`<select class="tfont" onchange="execT('fontName',this.value)" style="max-width:95px"><option value="">Police</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Montserrat">Montserrat</option><option value="Verdana">Verdana</option><option value="Times New Roman">Times</option><option value="Courier New">Courier</option></select><select class="tsel" style="width:44px" onchange="execT('fontSize',this.value)"><option value="3">T</option><option value="1">10</option><option value="2">12</option><option value="3">14</option><option value="4">16</option><option value="5">20</option><option value="6">24</option><option value="7">32</option></select><select class="tsel" onchange="execT('formatBlock',this.value);this.value='p'"><option value="p">P</option><option value="h1">H1</option><option value="h2">H2</option><option value="h3">H3</option></select><div class="tbs"></div><button class="tb" onclick="execT('bold')"><b>B</b></button><button class="tb" onclick="execT('italic')"><i>I</i></button><button class="tb" onclick="execT('underline')"><u>U</u></button><button class="tb" onclick="execT('strikeThrough')"><s>S</s></button><div class="tbs"></div><button class="tb" onclick="execT('justifyLeft')">⬛</button><button class="tb" onclick="execT('justifyCenter')">⬜</button><button class="tb" onclick="execT('justifyRight')">⬛</button><div class="tbs"></div><button class="tb" onclick="execT('insertUnorderedList')">•</button><button class="tb" onclick="execT('insertOrderedList')">1.</button><div class="tbs"></div><label class="tb" style="cursor:pointer">A<input type="color" style="display:none;width:0;height:0" oninput="execT('foreColor',this.value)"></label><label class="tb" style="cursor:pointer">◼<input type="color" style="display:none;width:0;height:0" oninput="execT('hiliteColor',this.value)"></label><div class="tbs"></div><button class="tb" onclick="showImgBar()">🖼</button><button class="tb" onclick="insertLink()">🔗</button><button class="tb" onclick="insertEmoji()">😊</button><div class="tbs"></div><button class="tb" onclick="insertTable()">⊞</button><button class="tb" onclick="execT('insertHorizontalRule')">—</button><button class="tb" onclick="execT('removeFormat')" style="font-size:8px">✕fmt</button>`;
+}
+function execT(cmd,val){const pr=$('pane-rich');if(!pr)return;pr.focus();document.execCommand(cmd,false,val||null);saveTpl();updTEChar();}
+function iVar(v){const pr=$('pane-rich');if(!pr)return;pr.focus();document.execCommand('insertText',false,v);saveTpl();}
+function applyEditorColor(color){const pr=$('pane-rich');if(!pr)return;pr.focus();document.execCommand('foreColor',false,color);saveTpl();}
+function insertLink(){const url=window.prompt('URL du lien :','https://');if(url)document.execCommand('createLink',false,url);}
+function insertEmoji(){const e=window.prompt('Emoji :','😊');if(e){const pr=$('pane-rich');if(pr){pr.focus();document.execCommand('insertText',false,e);}}}
+function insertTable(){const cols=3,rows=3;let html='<table border="1" cellpadding="8" style="border-collapse:collapse;width:100%;"><thead><tr>'+Array(cols).fill('<th style="background:#f5f5f5;padding:8px;border:1px solid #ddd">En-tête</th>').join('')+'</tr></thead><tbody>'+Array(rows).fill('<tr>'+Array(cols).fill('<td style="padding:8px;border:1px solid #ddd">Cellule</td>').join('')+'</tr>').join('')+'</tbody></table><br>';const pr=$('pane-rich');if(pr){pr.focus();document.execCommand('insertHTML',false,html);saveTpl();}}
+function showImgBar(){const ib=$('te-img-bar');if(ib)ib.classList.add('show');}
+function hideImgBar(){const ib=$('te-img-bar');if(ib)ib.classList.remove('show');}
+function insertImgURL(){const url=$('img-url-inp')?.value.trim();if(!url){toast('Entrez une URL image','warn');return;}document.execCommand('insertHTML',false,`<img src="${esc(url)}" style="max-width:100%;height:auto;display:block;margin:8px auto;">`);saveImgLib(url);saveTpl();hideImgBar();}
+function insertImgFile(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{document.execCommand('insertHTML',false,`<img src="${e.target.result}" style="max-width:100%;height:auto;display:block;margin:8px auto;">`);saveImgLib(e.target.result);saveTpl();};
+  reader.readAsDataURL(file);
+}
+function saveImgLib(src){if(!S.imgLib.includes(src))S.imgLib.unshift(src);if(S.imgLib.length>20)S.imgLib.length=20;lsS(SK.imgLib,S.imgLib);renderImgGal();}
+function renderImgGal(){const ig=$('img-gal');if(!ig)return;if(!S.imgLib.length){ig.classList.remove('show');return;}ig.classList.add('show');ig.innerHTML=S.imgLib.map((src,i)=>`<div class="igi"><img src="${src}" onerror="this.style.opacity=.2" loading="lazy"><button class="igdel" onclick="delImgLib(${i})">✕</button></div>`).join('');ig.querySelectorAll('.igi').forEach((el,i)=>el.querySelector('img').addEventListener('click',()=>{document.execCommand('insertHTML',false,`<img src="${S.imgLib[i]}" style="max-width:100%;height:auto;display:block;margin:8px auto;">`);saveTpl();}));}
+function delImgLib(i){S.imgLib.splice(i,1);lsS(SK.imgLib,S.imgLib);renderImgGal();}
+function syncPrev(){const pc=$('pane-code'),pb=$('prev-box');if(!pc||!pb)return;pb.innerHTML=`<iframe srcdoc="${pc.value.replace(/"/g,'&quot;')}" style="width:100%;height:100%;border:none;"></iframe>`;}
+function togglePrev(){const pb=$('prev-box');if(pb){pb.classList.toggle('open');const lbl=$('prev-arrow-lbl');if(lbl)lbl.textContent=pb.classList.contains('open')?'▼ Masquer aperçu':'▶ Aperçu en direct';}}
+function updTEChar(){const pr=$('pane-rich'),cc=$('te-cc');if(pr&&cc)cc.textContent=(pr.textContent?.length||0).toLocaleString()+' caractères';}
+function insertQuickBlock(type){
+  const pr=$('pane-rich');if(!pr)return;pr.focus();
+  const blocks={
+    divider:'<hr style="border:none;border-top:2px solid #e0e0e0;margin:20px 0;">',
+    btn:'<div style="text-align:center;margin:20px 0;"><a href="https://votresite.fr" style="background:#c060ff;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;display:inline-block;">Découvrir maintenant</a></div>',
+    signature:'<div style="margin-top:30px;padding-top:16px;border-top:1px solid #eee;font-size:12px;color:#888;"><strong>Votre Nom</strong><br>Votre Entreprise · votre@email.fr · +33 6 00 00 00 00</div>',
+    unsubscribe:'<div style="text-align:center;margin-top:24px;font-size:10px;color:#aaa;">Vous recevez cet email car vous êtes inscrit. <a href="{{unsub_link}}" style="color:#aaa;">Se désabonner</a></div>',
+    header:'<div style="background:linear-gradient(135deg,#c060ff,#8a30cc);padding:24px;text-align:center;border-radius:8px 8px 0 0;margin-bottom:16px;"><h1 style="color:#fff;margin:0;font-size:22px;">Votre titre accrocheur</h1><p style="color:rgba(255,255,255,.8);margin:8px 0 0;font-size:13px;">Sous-titre de votre email</p></div>',
+  };
+  if(blocks[type])document.execCommand('insertHTML',false,blocks[type]);saveTpl();
+}
+
+// ── CONTACTS ──────────────────────────────────────────────
+function renderLists(){
+  const el=$('lists-scroll');if(!el)return;
+  el.innerHTML=S.lists.map(l=>{
+    const cnt=l.system?S.contacts.length:S.contacts.filter(x=>x.listIds?.includes(l.id)).length;
+    const ecnt=l.emails?.length||0;
+    return`<div class="lp-item ${S.activeList===l.id?'sel':''}" onclick="selList('${l.id}')"><div class="lpdot" style="background:${l.color||'#c060ff'}"></div><span class="lpname">${esc(l.name)}</span><span class="lpcnt">${(cnt+ecnt).toLocaleString()}</span>${!l.system?`<button class="lpdel" onclick="event.stopPropagation();delList('${l.id}')">✕</button>`:''}${!l.system?`<button class="lpdel" onclick="event.stopPropagation();editList('${l.id}')" style="margin-right:2px">✏️</button>`:''}</div>`;
+  }).join('');
+}
+function selList(id){S.activeList=id;renderLists();renderContacts();}
+function newSimpleList(){showModal('modal-list');const lci=$('list-name-inp');if(lci)lci.value='';const lei=$('list-emails-inp');if(lei)lei.value='';countListModalEmails();}
+async function createList(){
+  const name=$('list-name-inp')?.value.trim();if(!name){toast('Entrez un nom','warn');return;}
+  const emails=($('list-emails-inp')?.value||'').split(/[\n,;]+/).map(x=>x.trim()).filter(isEmail);
+  const newList={id:'list_'+Date.now(),name,color:S.selectedLC,emails,created:new Date().toISOString()};
+  S.lists.push(newList);lsS(SK.lists,S.lists);closeModal('modal-list');renderLists();renderListSelects();toast('Liste «'+name+'» créée','success');
+}
+async function delList(id){if(!await pgiConfirm('Supprimer cette liste ?'))return;S.lists=S.lists.filter(l=>l.id!==id);S.contacts.forEach(c=>{if(c.listIds)c.listIds=c.listIds.filter(x=>x!==id);});lsS(SK.lists,S.lists);lsS(SK.contacts,S.contacts);if(S.activeList===id)S.activeList='all';renderLists();renderContacts();toast('Liste supprimée','info');}
+function editList(id){
+  const l=S.lists.find(x=>x.id===id);if(!l)return;
+  const mle=$('modal-list-view');if(!mle){showModal('modal-list');return;}
+  const nameInp=$('mlv-name-inp');if(nameInp)nameInp.value=l.name||'';
+  const ta=$('mlv-emails');if(ta){const allEmails=[...(l.emails||[]),...S.contacts.filter(c=>c.listIds?.includes(id)).map(c=>c.email)];ta.value=allEmails.join('\n');}
+  mle.dataset.listId=id;showModal('modal-list-view');mlvCount();
+  const cnt=$('mlv-cnt-lbl');if(cnt){const total=(l.emails?.length||0)+S.contacts.filter(c=>c.listIds?.includes(id)).length;cnt.textContent=total.toLocaleString()+' contacts';}
+}
+function saveListEmails(){
+  const mle=$('modal-list-view');if(!mle)return;
+  const id=mle.dataset.listId;const l=S.lists.find(x=>x.id===id);if(!l)return;
+  const nameInp=$('mlv-name-inp');if(nameInp)l.name=nameInp.value.trim()||l.name;
+  const ta=$('mlv-emails');if(ta){const emails=ta.value.split(/[\n,;]+/).map(x=>x.trim()).filter(isEmail);l.emails=emails;}
+  lsS(SK.lists,S.lists);closeModal('modal-list-view');renderLists();toast('Liste sauvegardée','success');
+}
+function mlvCount(){const ta=$('mlv-emails'),cnt=$('mlv-cnt');if(!ta||!cnt)return;const emails=ta.value.split(/[\n,;]+/).map(x=>x.trim()).filter(isEmail).length;cnt.textContent=emails.toLocaleString()+' email(s) valide(s)';}
+function importFileIntoList(input){const f=input.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const ta=$('mlv-emails');if(ta)ta.value+=(ta.value?'\n':'')+e.target.result;mlvCount();};r.readAsText(f);}
+function importExcelIntoList(input){const f=input.files[0];if(!f||!window.XLSX)return;const r=new FileReader();r.onload=e=>{try{const wb=XLSX.read(e.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});const emails=rows.flat().map(c=>String(c).trim()).filter(isEmail);const ta=$('mlv-emails');if(ta)ta.value+=(ta.value?'\n':'')+emails.join('\n');mlvCount();}catch(err){toast('Erreur Excel : '+err.message,'error');}};r.readAsBinaryString(f);}
+function exportListEmails(){const mle=$('modal-list-view');if(!mle)return;const id=mle.dataset.listId;const l=S.lists.find(x=>x.id===id);if(!l)return;const emails=(l.emails||[]).join('\n');const blob=new Blob([emails],{type:'text/plain'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=(l.name||'liste')+'.txt';a.click();URL.revokeObjectURL(url);}
+async function clearListEmails(){if(!await pgiConfirm('Vider la liste ?'))return;const ta=$('mlv-emails');if(ta)ta.value='';mlvCount();}
+
+function countListModalEmails(){const ta=$('list-emails-inp'),cnt=$('list-emails-cnt');if(!ta||!cnt)return;const n=ta.value.split(/[\n,;]+/).map(x=>x.trim()).filter(isEmail).length;cnt.textContent=n?n.toLocaleString()+' email(s) valide(s)':'';}
+function importFileIntoListModal(input){const f=input.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const ta=$('list-emails-inp');if(ta)ta.value+=(ta.value?'\n':'')+e.target.result;countListModalEmails();};r.readAsText(f);}
+function importExcelIntoListModal(input){const f=input.files[0];if(!f||!window.XLSX)return;const r=new FileReader();r.onload=e=>{try{const wb=XLSX.read(e.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});const emails=rows.flat().map(c=>String(c).trim()).filter(isEmail);const ta=$('list-emails-inp');if(ta)ta.value+=(ta.value?'\n':'')+emails.join('\n');countListModalEmails();}catch(err){toast('Erreur Excel : '+err.message,'error');}};r.readAsBinaryString(f);}
+
+function selLC(el){document.querySelectorAll('#lc-picker div').forEach(d=>d.style.border='2px solid transparent');el.style.border='2px solid #fff';S.selectedLC=el.dataset.c;}
+
+function renderListSelects(){
+  ['csv-list-sel','ac-list','qs-list-sel','qs-sms-list-sel'].forEach(id=>{
+    const el=$(id);if(!el)return;
+    const old=el.value;
+    const userLists=S.lists.filter(l=>!l.system);
+    el.innerHTML='<option value="">— Aucune liste —</option>'+userLists.map(l=>`<option value="${l.id}">${esc(l.name)}</option>`).join('');
+    if(old)el.value=old;
+  });
+}
+
+function renderContacts(){
+  const tbody=$('ctbody'),cnt=$('c-cnt');if(!tbody)return;
+  const srch=$('c-srch')?.value.toLowerCase()||'';
+  let list=S.contacts;
+  if(S.activeList!=='all'){const l=S.lists.find(x=>x.id===S.activeList);const emailsInList=(l?.emails||[]);const contactsInList=S.contacts.filter(c=>c.listIds?.includes(S.activeList));const emailOnlyContacts=emailsInList.filter(e=>!contactsInList.find(c=>c.email===e)).map(e=>({email:e,prénom:'',nom:'',téléphone:'',listIds:[S.activeList]}));list=[...contactsInList,...emailOnlyContacts];}
+  if(srch)list=list.filter(c=>['email','prénom','nom','téléphone'].some(f=>(c[f]||'').toLowerCase().includes(srch)));
+  const{f,asc}=S.cSort;list=[...list].sort((a,b)=>{const va=(a[f]||'').toString().toLowerCase();const vb=(b[f]||'').toString().toLowerCase();return asc?(va<vb?-1:va>vb?1:0):(va>vb?-1:va<vb?1:0);});
+  if(cnt)cnt.textContent=list.length.toLocaleString()+' contact(s) '+(S.activeList!=='all'?'dans cette liste':'');
+  const MAX=500;const shown=list.slice(0,MAX);
+  tbody.innerHTML=shown.map((c,i)=>`<tr><td class="mono">${esc(c.email||'?')}</td><td>${esc(c.prénom||'')}</td><td>${esc(c.nom||'')}</td><td style="font-family:var(--mono);font-size:10px;color:var(--text2)">${esc(c.téléphone||'')}</td><td>${c.unsubscribed?'<span class="ctag ctag-unsub">🚫 Désabonné</span>':'<span class="ctag ctag-active">✓ Actif</span>'}</td><td style="font-family:var(--mono);font-size:10px;text-align:center">${c.envois||0}</td><td><button class="rdel" onclick="delContact(${i})">✕</button></td></tr>`).join('');
+  if(list.length>MAX)tbody.innerHTML+=`<tr><td colspan="7" style="padding:8px;text-align:center;font-size:10px;color:var(--text3)">... et ${(list.length-MAX).toLocaleString()} de plus</td></tr>`;
+}
+function sortC(f){if(S.cSort.f===f)S.cSort.asc=!S.cSort.asc;else{S.cSort.f=f;S.cSort.asc=true;}renderContacts();}
+function addContact(){
+  const em=$('ac-em')?.value.trim();if(!em||!isEmail(em)){toast('Email invalide','error');return;}
+  const pn=$('ac-pn')?.value.trim()||'',nn=$('ac-nn')?.value.trim()||'',tel=$('ac-tel')?.value.trim()||'';
+  const listId=$('ac-list')?.value||'';
+  if(S.contacts.find(c=>c.email===em)){toast('Email déjà présent','warn');return;}
+  const contact={email:em,prénom:pn,nom:nn,téléphone:tel,listIds:listId?[listId]:[],envois:0,created:new Date().toISOString()};
+  S.contacts.push(contact);lsS(SK.contacts,S.contacts);closeModal('modal-contact');renderContacts();toast('Contact ajouté','success');}
+function delContact(idx){S.contacts.splice(idx,1);lsS(SK.contacts,S.contacts);renderContacts();}
+async function resetContacts(){if(!await pgiConfirm('Supprimer TOUS les contacts ?'))return;S.contacts=[];lsS(SK.contacts,S.contacts);renderContacts();toast('Contacts supprimés','info');}
+
+function countPastedEmails(){const ta=$('paste-emails-ta'),cnt=$('paste-contacts-cnt');if(!ta||!cnt)return;const n=ta.value.split(/[\n,;]+/).map(x=>x.trim()).filter(isEmail).length;cnt.textContent=n.toLocaleString()+' détecté(s)';}
+function importPastedEmails(){
+  const ta=$('paste-emails-ta');if(!ta||!ta.value.trim())return;
+  const emails=ta.value.split(/[\n,;]+/).map(x=>x.trim()).filter(isEmail);
+  let added=0;const listId=S.activeList!=='all'?S.activeList:'';
+  emails.forEach(email=>{if(!S.contacts.find(c=>c.email===email)){S.contacts.push({email,prénom:'',nom:'',téléphone:'',listIds:listId?[listId]:[],envois:0,created:new Date().toISOString()});added++;}});
+  lsS(SK.contacts,S.contacts);ta.value='';countPastedEmails();renderContacts();toast(added+' contact(s) ajouté(s)','success');
+}
+
+// CSV Import
+var _csvData=[];
+function onCsvFile(file){if(!file)return;const r=new FileReader();r.onload=e=>{parseCsv(e.target.result);};r.readAsText(file);}
+function onCsvDrop(e){e.preventDefault();const el=$('czn');if(el)el.classList.remove('ov');const f=e.dataTransfer.files[0];if(f)onCsvFile(f);}
+function parseCsv(text){
+  const lines=text.split('\n').filter(l=>l.trim());if(!lines.length)return;
+  const delim=lines[0].includes(';')?';':',';
+  const headers=lines[0].split(delim).map(h=>h.trim().toLowerCase().replace(/['"]/g,''));
+  _csvData=lines.slice(1).map(line=>{const vals=line.split(delim);const obj={};headers.forEach((h,i)=>obj[h]=(vals[i]||'').replace(/['"]/g,'').trim());return obj;}).filter(r=>r.email&&isEmail(r.email));
+  const prev=$('csv-prev'),ok=$('csv-ok');
+  if(prev){prev.textContent=_csvData.slice(0,5).map(r=>r.email+(r.prénom?' — '+r.prénom:'')).join('\n')+((_csvData.length>5)?'\n... (+'+(_csvData.length-5)+' autres)':'');prev.style.display='block';}
+  if(ok){ok.removeAttribute('disabled');ok.style.opacity='1';ok.style.cursor='pointer';}
+  toast(_csvData.length+' lignes valides','success');
+}
+function importCsv(){
+  const listId=$('csv-list-sel')?.value||'';let added=0;
+  _csvData.forEach(row=>{if(!S.contacts.find(c=>c.email===row.email)){const c={email:row.email,prénom:row.prénom||row.prenom||'',nom:row.nom||'',téléphone:row.téléphone||row.telephone||row.tel||'',entreprise:row.entreprise||'',ville:row.ville||'',custom1:row.custom1||'',custom2:row.custom2||'',listIds:listId?[listId]:[],envois:0,created:new Date().toISOString()};S.contacts.push(c);added++;}});
+  lsS(SK.contacts,S.contacts);closeModal('modal-csv');renderContacts();renderLists();toast(added+' contact(s) importés','success');
+}
+function importExcelContacts(file,listId){
+  if(!file||!window.XLSX){toast('SheetJS non chargé','warn');return;}
+  const r=new FileReader();
+  r.onload=e=>{try{const wb=XLSX.read(e.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{defval:''});let added=0;rows.forEach(row=>{const email=(row.email||row.Email||row.EMAIL||'').toString().trim();if(!email||!isEmail(email)||S.contacts.find(c=>c.email===email))return;S.contacts.push({email,prénom:(row.prénom||row.prenom||row.Prénom||row.firstname||'').toString().trim(),nom:(row.nom||row.Nom||row.lastname||'').toString().trim(),téléphone:(row.téléphone||row.tel||row.phone||'').toString().trim(),listIds:listId?[listId]:[],envois:0,created:new Date().toISOString()});added++;});lsS(SK.contacts,S.contacts);renderContacts();renderLists();toast(added+' contacts depuis Excel','success');}catch(err){toast('Erreur Excel : '+err.message,'error');}};
+  r.readAsBinaryString(file);
+}
+
+// ── QUICK SEND ─────────────────────────────────────────────
+var _qsMode='rich';
+function updateQSTplSelect(){const sel=$('qs-email-tpl');if(!sel)return;const old=sel.value;sel.innerHTML='<option value="">— Contenu manuel —</option>'+S.tpls.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('');if(old)sel.value=old;}
+function loadQSTplIntoEditor(id){if(!id)return;const t=S.tpls.find(x=>x.id==id);if(!t)return;const r=$('qs-email-rich');if(r)r.innerHTML=t.html||t.body||'';}
+function execQS(cmd,val){const r=$('qs-email-rich');if(!r)return;r.focus();document.execCommand(cmd,false,val||null);}
+function toggleQSMode(){_qsMode=_qsMode==='rich'?'html':'rich';const r=$('qs-email-rich'),b=$('qs-email-body'),btn=$('qs-mode-btn'),lbl=$('qs-mode-lbl');if(_qsMode==='html'){if(r&&b)b.value=r.innerHTML;if(r)r.style.display='none';if(b)b.style.display='block';if(btn)btn.textContent='⇄ Éditeur visuel';if(lbl)lbl.textContent='HTML brut';}else{if(r&&b){r.innerHTML=b.value;r.style.display='block';}if(b)b.style.display='none';if(btn)btn.textContent='⇄ HTML brut';if(lbl)lbl.textContent='Éditeur visuel';}}
+function updQSEmailPreview(){}
+function prevQSEmail(){const subj=$('prev-subj'),body=$('prev-body');if(subj)subj.textContent=$('qs-email-subj')?.value||'(aucun objet)';if(body){const r=$('qs-email-rich');body.innerHTML=r?r.innerHTML:''}showModal('modal-prev');}
+function loadQSFromList(listId){if(!listId)return;const list=S.lists.find(l=>l.id===listId);const contacts=listId==='all'?S.contacts:S.contacts.filter(c=>c.listIds?.includes(listId));const emails=[...contacts.map(c=>c.email),...(list?.emails||[])].filter(Boolean);const ta=$('qs-email-to');if(ta)ta.value=emails.join('\n');updateQSEmailCnt();}
+function loadQSSMSFromList(listId){if(!listId)return;const contacts=listId==='all'?S.contacts:S.contacts.filter(c=>c.listIds?.includes(listId));const phones=contacts.map(c=>c.téléphone).filter(Boolean);const ta=$('qs-sms-to');if(ta)ta.value=phones.join('\n');updateQSSMSToCnt();}
+function updateQSEmailCnt(){const ta=$('qs-email-to'),cnt=$('qs-email-cnt');if(!ta||!cnt)return;const n=ta.value.split(/[\n,;]+/).map(x=>x.trim()).filter(isEmail).length;cnt.textContent=n?n.toLocaleString()+' destinataire(s)':'';}
+function updateQSSMSToCnt(){const ta=$('qs-sms-to'),cnt=$('qs-sms-to-cnt');if(!ta||!cnt)return;const n=ta.value.split(/[\n,;]+/).map(x=>x.trim()).filter(x=>x.length>5).length;cnt.textContent=n?n.toLocaleString()+' numéro(s)':'';}
+function clearQSEmail(){const ta=$('qs-email-to');if(ta)ta.value='';updateQSEmailCnt();}
+function clearQSSMS(){const ta=$('qs-sms-to');if(ta)ta.value='';updateQSSMSToCnt();}
+function updQSSMSCnt(){const ta=$('qs-sms-body'),lbl=$('qs-sms-cnt-lbl');if(!ta||!lbl)return;const l=ta.value.length;lbl.textContent=l+' / 160'+(l>160?' ('+Math.ceil(l/160)+' SMS)':'');lbl.style.color=l>160?'var(--yel)':'var(--text3)';}
+function insertSMSEmoji(){const ta=$('qs-sms-body');if(!ta)return;const e=window.prompt('Emoji :','😊');if(e)ta.value+=e;updQSSMSCnt();}
+function insertSMSLink(){const ta=$('qs-sms-body');if(!ta)return;const u=window.prompt('URL :','https://');if(u)ta.value+=u;updQSSMSCnt();}
+function insertSMSVariable(){const ta=$('qs-sms-body');if(!ta)return;ta.value+='{{prénom}}';updQSSMSCnt();}
+function insertQSImg(){const url=window.prompt('URL de l\'image :','https://');if(url)document.execCommand('insertHTML',false,`<img src="${esc(url)}" style="max-width:100%;height:auto;display:block;margin:8px auto;">`);}
+function insertQSImgFile(input){const f=input.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{document.execCommand('insertHTML',false,`<img src="${e.target.result}" style="max-width:100%;height:auto;display:block;margin:8px auto;">`);};r.readAsDataURL(f);}
+function insertQSLink(){const url=window.prompt('URL :','https://');if(url)document.execCommand('createLink',false,url);}
+function insertQSTelLink(){const tel=window.prompt('Numéro :','+33');if(tel)document.execCommand('insertHTML',false,`<a href="tel:${tel}">${tel}</a>`);}
+function insertQSVideo(){const url=window.prompt('URL vidéo YouTube/Vimeo :','https://youtube.com/watch?v=');if(!url)return;const idMatch=url.match(/v=([^&]+)/);const vid=idMatch?idMatch[1]:null;document.execCommand('insertHTML',false,vid?`<a href="${url}" style="display:block;text-align:center;margin:12px auto;"><img src="https://img.youtube.com/vi/${vid}/mqdefault.jpg" style="max-width:100%;border-radius:8px;cursor:pointer;"><br><span style="font-size:11px;color:#888;">▶ Voir la vidéo</span></a>`:`<a href="${url}" style="color:#c060ff;">▶ Voir la vidéo</a>`);}
+function insertQSEmoji(){const e=window.prompt('Emoji :','😊');if(e)document.execCommand('insertText',false,e);}
+function insertQSTable(){document.execCommand('insertHTML',false,'<table border="1" cellpadding="8" style="border-collapse:collapse;width:100%;"><tr><th style="background:#f5f5f5;border:1px solid #ddd;padding:8px">Col 1</th><th style="background:#f5f5f5;border:1px solid #ddd;padding:8px">Col 2</th></tr><tr><td style="border:1px solid #ddd;padding:8px">A</td><td style="border:1px solid #ddd;padding:8px">B</td></tr></table><br>');}
+function insertQSHR(){document.execCommand('insertHTML',false,'<hr style="border:none;border-top:2px solid #e0e0e0;margin:20px 0;">');}
+function loadQSEmailFile(input){const f=input.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const ta=$('qs-email-to');if(ta)ta.value+=e.target.result;updateQSEmailCnt();};r.readAsText(f);}
+function loadQSExcelFile(input){if(!input.files[0]||!window.XLSX)return;const r=new FileReader();r.onload=e=>{try{const wb=XLSX.read(e.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});const emails=rows.flat().map(c=>String(c).trim()).filter(isEmail);const ta=$('qs-email-to');if(ta)ta.value+=emails.join('\n');updateQSEmailCnt();}catch(err){toast('Erreur Excel : '+err.message,'error');}};r.readAsBinaryString(input.files[0]);}
+
+function addQSAttachments(input){
+  const files=Array.from(input.files);
+  let added=0;
+  const promises=files.map(file=>new Promise(resolve=>{const reader=new FileReader();reader.onload=e=>{S._qsAttachments.push({name:file.name,contentType:file.type,size:file.size,data:e.target.result.split(',')[1]});added++;resolve();};reader.readAsDataURL(file);}));
+  Promise.all(promises).then(()=>{renderQSAttachments();toast(added+' PJ ajoutée(s)','success');});
+}
+function renderQSAttachments(){
+  const el=$('qs-attachments-list'),cnt=$('qs-att-count');if(!el)return;
+  if(!S._qsAttachments.length){el.innerHTML='<span style="font-size:10px;color:var(--text3);font-style:italic">Aucune pièce jointe</span>';if(cnt)cnt.textContent='';return;}
+  if(cnt)cnt.textContent='— '+S._qsAttachments.length+' fichier'+(S._qsAttachments.length>1?'s':'');
+  el.innerHTML=S._qsAttachments.map((a,i)=>`<div style="display:flex;align-items:center;gap:5px;background:var(--bg4);border:1px solid var(--b2);border-radius:5px;padding:4px 8px;"><span style="font-size:10px;color:var(--text2)">${a.name}</span><span style="font-size:8px;color:var(--text3)">${Math.round(a.size/1024)}KB</span><button onclick="S._qsAttachments.splice(${i},1);renderQSAttachments()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px">×</button></div>`).join('');
+}
+async function sendQuickEmail(){
+  const to=($('qs-email-to')?.value||'').split(/[\n,;]+/).map(x=>x.trim()).filter(isEmail);
+  if(!to.length){toast('Aucun destinataire valide','warn');return;}
+  const subj=$('qs-email-subj')?.value.trim();if(!subj){toast('Sujet manquant','warn');return;}
+  const r=$('qs-email-rich');if(!r||!r.innerHTML.trim()){toast('Message vide','warn');return;}
+  toast('Envoi en cours...','info');
+  const smtpCfg=S.smtpConfig&&Object.keys(S.smtpConfig).length?S.smtpConfig:null;
+  await syncW('/quick-send',{type:'email',to,subject:subj,html:r.innerHTML,from:S.ce||S.email,fromName:S.cn||'',provider:S.prov,smtpConfig:smtpCfg,attachments:S._qsAttachments});
+  toast('✓ Envoi déclenché via le Worker','success');track('quick_send',{type:'email',count:to.length});
+}
+async function sendQuickSMS(){
+  const to=($('qs-sms-to')?.value||'').split(/[\n,;]+/).map(x=>x.trim()).filter(x=>x.length>5);
+  if(!to.length){toast('Aucun numéro','warn');return;}
+  const body=$('qs-sms-body')?.value.trim();if(!body){toast('Message vide','warn');return;}
+  toast('Envoi SMS en cours...','info');
+  await syncW('/quick-send',{type:'sms',to,message:body,mediaUrl:$('qs-sms-media-url')?.value||'',provider:S.smsProv,apiKey:S.smsKey,apiSecret:S.smsSecret,from:S.smsFrom});
+  toast('✓ SMS déclenché via le Worker','success');
+}
+
+// SMS camp
+function updSMSCnt(elId,campId){const ta=$(elId);if(!ta)return;if(campId){const c=S.camps.find(x=>x.id===campId);if(c)c.smsText=ta.value;}}
+
+// Export/Import data
+function exportData(){
+  const data={camps:S.camps.map(c=>Object.assign({},c,{emailList:c.emailList})),contacts:S.contacts,tpls:S.tpls,lists:S.lists,analytics:S.analytics,smtpConfig:S.smtpConfig,exported:new Date().toISOString(),version:'39.8'};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='pgi-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url);toast('Export téléchargé','success');
+}
+async function resetData(){
+  if(!await pgiConfirm('SUPPRIMER TOUTES les données ?\n(Campagnes, contacts, templates, analytics)','⚠️'))return;
+  Object.values(SK).forEach(k=>{try{localStorage.removeItem(k);}catch(_){}});location.reload();
+}
+
+// ── BLOCK TOOLBAR (rich editor) ────────────────────────────
+(function initBlockToolbar(){
+  const toolbar=$('pgi-block-toolbar');if(!toolbar)return;
+  let activeBlock=null;
+  const dragHdl=$('pbt-drag-handle');if(dragHdl){let ox=0,oy=0,tx=0,ty=0;function startDrag(e){const c=e.touches?e.touches[0]:e;ox=c.clientX-tx;oy=c.clientY-ty;document.addEventListener('mousemove',onDrag);document.addEventListener('mouseup',stopDrag);document.addEventListener('touchmove',onDrag,{passive:false});document.addEventListener('touchend',stopDrag);}function onDrag(e){if(e.cancelable)e.preventDefault();const c=e.touches?e.touches[0]:e;tx=c.clientX-ox;ty=c.clientY-oy;toolbar.style.left=tx+'px';toolbar.style.top=ty+'px';toolbar.style.right='auto';toolbar.style.bottom='auto';}function stopDrag(){document.removeEventListener('mousemove',onDrag);document.removeEventListener('mouseup',stopDrag);document.removeEventListener('touchmove',onDrag);document.removeEventListener('touchend',stopDrag);}dragHdl.addEventListener('mousedown',startDrag);dragHdl.addEventListener('touchstart',startDrag,{passive:true});}
+
+  function showFor(el){activeBlock=el;toolbar.style.display='flex';const rect=el.getBoundingClientRect();toolbar.style.top=(rect.top+window.scrollY-50)+'px';toolbar.style.left=rect.left+'px';toolbar.style.right='auto';toolbar.style.bottom='auto';}
+  function hide(){toolbar.style.display='none';activeBlock=null;const lr=$('pbt-lnk-row');if(lr)lr.style.display='none';}
+
+  const pup=$('pbt-up');if(pup)pup.addEventListener('click',()=>{if(activeBlock?.previousElementSibling){activeBlock.parentNode.insertBefore(activeBlock,activeBlock.previousElementSibling);showFor(activeBlock);}});
+  const pdn=$('pbt-down');if(pdn)pdn.addEventListener('click',()=>{if(activeBlock?.nextElementSibling){activeBlock.parentNode.insertBefore(activeBlock.nextElementSibling,activeBlock);showFor(activeBlock);}});
+  const pdel=$('pbt-del');if(pdel)pdel.addEventListener('click',()=>{activeBlock?.remove();hide();});
+  const pclose=$('pbt-close');if(pclose)pclose.addEventListener('click',hide);
+
+  const plnk=$('pbt-link');
+  const lr=$('pbt-lnk-row');
+  const li=$('pbt-link-inp');
+  const lok=$('pbt-link-ok');
+  const lrm=$('pbt-link-rm');
+  if(plnk)plnk.addEventListener('click',()=>{if(!lr)return;lr.style.display=lr.style.display==='flex'?'none':'flex';if(li&&activeBlock){const a=activeBlock.tagName==='A'?activeBlock:activeBlock.querySelector('a');if(a)li.value=a.href||'';else li.value='https://';}});
+  if(lok)lok.addEventListener('click',()=>{if(!li||!activeBlock)return;const url=li.value.trim();if(!url)return;if(activeBlock.tagName==='A')activeBlock.href=url;else{const a=document.createElement('a');a.href=url;a.style.color='#c060ff';while(activeBlock.firstChild)a.appendChild(activeBlock.firstChild);activeBlock.appendChild(a);}if(lr)lr.style.display='none';});
+  if(lrm)lrm.addEventListener('click',()=>{if(!activeBlock)return;const a=activeBlock.tagName==='A'?activeBlock:activeBlock.querySelector('a');if(a){const p=a.parentNode;while(a.firstChild)p.insertBefore(a.firstChild,a);a.remove();}if(lr)lr.style.display='none';});
+
+  document.addEventListener('click',e=>{const pr=$('pane-rich');if(!pr)return;let el=e.target;while(el&&el!==pr){if(el.tagName&&['P','H1','H2','H3','H4','DIV','TABLE','IMG','HR','UL','OL','BLOCKQUOTE','A'].includes(el.tagName)){showFor(el);return;}el=el.parentElement;}hide();});
+})();
+
+// ── DRAG-TO-SORT FAB ──────────────────────────────────────
+(function initFabDrag(){
+  ['fab-email','fab-sms','fab-templates','fab-lists'].forEach(id=>{
+    const fab=$(id);if(!fab)return;
+    let ox=0,oy=0,sx=0,sy=0,moved=false;
+    function start(e){const c=e.touches?e.touches[0]:e;sx=c.clientX;sy=c.clientY;const rect=fab.getBoundingClientRect();ox=c.clientX-rect.left;oy=c.clientY-rect.top;moved=false;document.addEventListener('mousemove',move);document.addEventListener('mouseup',end);document.addEventListener('touchmove',move,{passive:false});document.addEventListener('touchend',end);}
+    function move(e){if(e.cancelable)e.preventDefault();const c=e.touches?e.touches[0]:e;if(Math.abs(c.clientX-sx)>8||Math.abs(c.clientY-sy)>8)moved=true;if(!moved)return;fab.style.left=(c.clientX-ox)+'px';fab.style.top=(c.clientY-oy)+'px';fab.style.bottom='auto';fab.style.transform='none';fab.style.right='auto';fab.dataset.dragged='1';}
+    function end(){document.removeEventListener('mousemove',move);document.removeEventListener('mouseup',end);document.removeEventListener('touchmove',move);document.removeEventListener('touchend',end);}
+    fab.addEventListener('mousedown',start);fab.addEventListener('touchstart',start,{passive:true});
+  });
+})();
+
+// ── INIT ──────────────────────────────────────────────────
+function init(){
+  setDateFilter('today',document.querySelector('#date-quick-btns .date-qbtn'));
+  showView('dashboard');updateWorkerUI();renderCampList('email');renderCampList('sms');
+  renderLists();renderContacts();renderListSelects();renderTplList();
+  updateStats();renderDashboard();refreshQuotaBanner();
+
+  // Initialise les cadences
+  S.camps.forEach(c=>{if(c.status!=='draft'){try{recalcRate(c.id);}catch(_){}}});
+
+  // v39.8 : Rebuild analytics depuis emailList au démarrage
+  setTimeout(()=>{
+    let injected=0;
+    const eKeys=new Set(S.analytics.map(a=>(a.email||'')+'|'+(a.campaign||'')));
+    S.camps.filter(c=>c.type!=='sms').forEach(c=>{
+      (c.emailList||[]).forEach(e=>{
+        if(e.status!=='sent'&&e.status!=='opened')return;
+        const key=(e.email||'')+'|'+(c.name||'');if(eKeys.has(key))return;
+        eKeys.add(key);
+        S.analytics.push({type:'email',email:e.email,campaign:c.name,date:e.sentAt||c.launchedAt||c.created||new Date().toISOString(),status:'sent',opened:e.status==='opened'||!!e.opened,openedAt:e.openedAt||null,unsubscribed:!!e.unsubscribed,clicks:e.clicks||[]});
+        injected++;
+      });
+    });
+    if(injected>0){try{lsS(SK.analytics,S.analytics);}catch(_){}renderDashboard();updateStats();console.log('[PGI v39.8] Analytics reconstruits:',injected,'entrées');}
+  },1500);
+
+  startAutoSync();
+  window.addEventListener('resize',checkMobFABs);
+  window.addEventListener('beforeunload',()=>{S.camps.forEach(c=>saveCampBodyAndAll(c.id));persistCamps();});
+  if(S.prov&&$('smtp-provider-sel'))$('smtp-provider-sel').value=S.prov;
+}
+
+
+// ── SMTP PROVIDERS ────────────────────────────────────────
+const SMTP_PROVIDERS={
+  gmail:      {lbl:'Gmail (OAuth)',        type:'oauth', day:500,   safe:400,   info:'Connexion OAuth Google. Client ID requis.'},
+  outlook:    {lbl:'Outlook / Hotmail',    type:'oauth', day:300,   safe:240,   info:'Connexion OAuth Microsoft.'},
+  ovh:        {lbl:'OVH',                  type:'smtp',  day:200,   safe:150,   host:'ssl0.ovh.net',                port:465, tls:'ssl',  info:'OVH hébergement. Host: ssl0.ovh.net — Port: 465 (SSL) ou 587 (TLS)'},
+  lws:        {lbl:'LWS',                  type:'smtp',  day:500,   safe:400,   host:'mail.lws.fr',                 port:465, tls:'ssl',  info:'LWS. Host: mail.lws.fr — Port: 465 (SSL)'},
+  ionos:      {lbl:'IONOS / 1&1',          type:'smtp',  day:500,   safe:400,   host:'smtp.ionos.fr',               port:587, tls:'tls',  info:'IONOS. Host: smtp.ionos.fr — Port: 587 (TLS)'},
+  infomaniak: {lbl:'Infomaniak',           type:'smtp',  day:1000,  safe:800,   host:'mail.infomaniak.com',         port:587, tls:'tls',  info:'Infomaniak. Host: mail.infomaniak.com — Port: 587 (STARTTLS)'},
+  sendgrid:   {lbl:'SendGrid',             type:'api',   day:100000,safe:80000, info:'SendGrid API. Clé commençant par SG.xxxx. Domaine expéditeur vérifié requis.'},
+  mailgun:    {lbl:'Mailgun',              type:'api',   day:100000,safe:80000, info:'Mailgun API. Clé key-xxxx. Domaine expéditeur vérifié requis.'},
+  brevo:      {lbl:'Brevo (Sendinblue)',   type:'api',   day:300,   safe:250,   info:'Brevo API. Clé xkeysib-xxxx. Plan gratuit : 300 emails/jour.'},
+  amazon:     {lbl:'Amazon SES',           type:'api',   day:50000, safe:40000, info:'Amazon SES SMTP. Région eu-west-1 pour Europe. Sandbox = 200/j.'},
+  mailchannels:{lbl:'MailChannels (CF)',   type:'mailchannels',day:999999,safe:999999,info:'Gratuit sur Cloudflare Workers. SPF requis: include:relay.mailchannels.net'},
+  custom:     {lbl:'SMTP personnalisé',    type:'smtp',  day:999999,safe:999999, host:'',port:587,tls:'tls',info:'Entrez manuellement les paramètres SMTP de votre hébergeur.'}
 };
-let S={settings:{smtpProvider:'lws',wurl:'',fromName:'Frederick',fromEmail:'',replyTo:'',smtpHost:'mail.votredomaine.fr',smtpPort:465,smtpSecure:'ssl',smtpUser:'',smtpPass:''},camps:[],sent:0,active:null};
-function load(){try{S=Object.assign(S,JSON.parse(localStorage.getItem(SK)||'{}'))}catch(e){};fillSettings();render();applyPreset(S.settings.smtpProvider,true)}
-function persist(){localStorage.setItem(SK,JSON.stringify(S));render()}
-function show(id,btn){document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));$(id).classList.add('on');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));btn.classList.add('on')}
-function fillSettings(){Object.keys(S.settings).forEach(k=>{if($(k))$(k).value=S.settings[k]??''})}
-function readSettings(){Object.keys(S.settings).forEach(k=>{if($(k))S.settings[k]=$(k).value});if($('smtpPort'))S.settings.smtpPort=+$('smtpPort').value||465}
-function saveSettings(){readSettings();persist();toast('Réglages SMTP sauvegardés')}
-function applyPreset(p,quiet){const pr=PRESETS[p]||PRESETS.custom;if(!quiet){$('smtpHost').value=pr.host;$('smtpPort').value=pr.port;$('smtpSecure').value=pr.secure}if($('presetHelp'))$('presetHelp').innerHTML='<b>'+pr.label+'</b><br>'+pr.help;readSettings();S.settings.smtpProvider=p;if(!quiet)persist()}
-function smtpConfig(){readSettings();return{provider:S.settings.smtpProvider,host:S.settings.smtpHost,port:+S.settings.smtpPort,secure:S.settings.smtpSecure,auth:{user:S.settings.smtpUser||S.settings.fromEmail,pass:S.settings.smtpPass},fromName:S.settings.fromName,fromEmail:S.settings.fromEmail,replyTo:S.settings.replyTo||S.settings.fromEmail}}
-function newCamp(){const c={id:Date.now(),name:'Campagne '+new Date().toLocaleDateString('fr-FR'),subject:'',html:'',contacts:[],rate_per_minute:.142857,dailyLimit:300,status:'draft',provider:'smtp',created:new Date().toISOString()};S.camps.unshift(c);S.active=c.id;persist();openCamp(c.id)}
-function render(){ $('k-camps').textContent=S.camps.length; $('k-contacts').textContent=S.camps.reduce((a,c)=>a+c.contacts.length,0); $('k-sent').textContent=S.sent||0; $('k-provider').textContent=(PRESETS[S.settings.smtpProvider]||{}).label||'SMTP'; renderCampList()}
-function renderCampList(){const el=$('campList'); if(!el)return; el.innerHTML=S.camps.length?S.camps.map(c=>`<div class="item" onclick="openCamp(${c.id})"><div><strong>${esc(c.name)}</strong><small>${c.contacts.length} contact(s) · ${c.status}</small></div><span class="badge">${c.provider||'smtp'}</span></div>`).join(''):'<div class="note">Aucune campagne.</div>'}
-function openCamp(id){S.active=id;const c=S.camps.find(x=>x.id===id);if(!c)return;$('campState').textContent=c.status; $('campEdit').innerHTML=`
-<div class="fc"><label>Nom campagne</label><input id="cName" value="${esc(c.name)}" oninput="updCamp('name',this.value)"></div>
-<div class="row"><div class="fc"><label>Provider d'envoi</label><select id="cProvider" onchange="updCamp('provider',this.value)"><option value="smtp"${c.provider==='smtp'?' selected':''}>SMTP hébergeur</option><option value="gmail"${c.provider==='gmail'?' selected':''}>Gmail API</option><option value="outlook"${c.provider==='outlook'?' selected':''}>Outlook API</option></select></div>
-<div class="fc"><label>Cadence</label><select id="cRate" onchange="updCamp('rate_per_minute',+this.value)"><option value=".142857"${c.rate_per_minute==.142857?' selected':''}>1 email / 7 min</option><option value="1"${c.rate_per_minute==1?' selected':''}>1 / min</option><option value="10"${c.rate_per_minute==10?' selected':''}>10 / min</option></select></div></div>
-<div class="fc"><label>Contacts, un email par ligne</label><textarea id="cContacts" oninput="updContacts(this.value)">${c.contacts.join('\n')}</textarea></div>
-<div class="fc"><label>Objet</label><input id="cSubject" value="${esc(c.subject)}" oninput="updCamp('subject',this.value)"></div>
-<div class="toolbar"><button onclick="cmd('bold')"><b>B</b></button><button onclick="cmd('italic')"><i>I</i></button><button onclick="insertVar('{{prénom}}')">Prénom</button><button onclick="insertVar('{{email}}')">Email</button><button onclick="insertBtn()">CTA</button><button onclick="syncEditor()">Sauver contenu</button></div>
-<div id="rich" class="editor" contenteditable="true">${c.html||''}</div>
-<br><div class="btns"><button class="btn green" onclick="launchCamp()">Lancer au Worker</button><button class="btn" onclick="previewHtml($('rich').innerHTML)">Aperçu</button><button class="btn red" onclick="delCamp(${c.id})">Supprimer</button></div>`}
-function updCamp(k,v){const c=S.camps.find(x=>x.id===S.active);if(c){c[k]=v;persist()}}
-function updContacts(v){const c=S.camps.find(x=>x.id===S.active);if(c){c.contacts=parseEmails(v);persist()}}
-function syncEditor(){const c=S.camps.find(x=>x.id===S.active);if(c){c.html=$('rich').innerHTML;persist();toast('Contenu sauvegardé')}}
-function cmd(c){document.execCommand(c,false,null);syncEditor()}
-function insertVar(v){document.execCommand('insertText',false,v);syncEditor()}
-function insertBtn(){let url=prompt('URL du bouton','https://www.clairvoyancemedium.com/');let txt=prompt('Texte du bouton','Consulter maintenant');document.execCommand('insertHTML',false,`<div style="text-align:center;margin:20px 0"><a href="${esc(url)}" style="background:#c060ff;color:#fff;padding:13px 26px;border-radius:8px;text-decoration:none;font-weight:700">${esc(txt)}</a></div>`);syncEditor()}
-function payloadBase(extra){return Object.assign({provider:'smtp',smtpConfig:smtpConfig(),_workerOrigin:S.settings.wurl.replace(/\/+$/,'')},extra||{})}
-async function launchCamp(){syncEditor();const c=S.camps.find(x=>x.id===S.active);if(!c)return;if(!S.settings.wurl)return toast('URL Worker manquante');const payload=payloadBase({campaign:{id:c.id,name:c.name,provider:c.provider,rate_per_minute:c.rate_per_minute,dailyLimit:c.dailyLimit},contacts:c.contacts,subject:c.subject,html:c.html,fromEmail:S.settings.fromEmail});await post('/campaign/launch',payload);c.status='running';S.sent+=0;persist();toast('Campagne envoyée au Worker')}
-async function sendQuick(){if(!S.settings.wurl)return toast('URL Worker manquante');const emails=parseEmails($('qsTo').value);if(!emails.length)return toast('Aucun email valide');const payload=payloadBase({type:'email',to:emails,subject:$('qsSubject').value||'(Sans objet)',html:$('qsBody').value,body:$('qsBody').value,fromEmail:S.settings.fromEmail});await post('/quick-send',payload);S.sent+=emails.length;persist();toast('Envoi rapide transmis au Worker')}
-async function post(path,payload){const r=await fetch(S.settings.wurl.replace(/\/+$/,'')+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});let j={};try{j=await r.json()}catch(e){}if(!r.ok||j.ok===false)throw toast('Erreur Worker : '+(j.error||r.status));return j}
-function testPayload(){$('payloadBox').textContent=JSON.stringify(payloadBase({example:true,subject:'Objet',html:'<p>Message</p>',to:['client@email.com']}),null,2)}
-function previewHtml(h){$('preview').innerHTML=h||'<em>Vide</em>'; $('modal').classList.remove('hidden')}
-function parseEmails(t){return[...new Set((t||'').split(/[\s,;]+/).map(x=>x.trim().toLowerCase()).filter(x=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)))]}
-function delCamp(id){if(!confirm('Supprimer cette campagne ?'))return;S.camps=S.camps.filter(c=>c.id!==id);S.active=null;persist();$('campEdit').innerHTML='<div class="note">Campagne supprimée.</div>'}
-function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-function toast(t){alert(t)}
-load();
+
+// CSS classes pour les boutons Reset (v39.8)
+(function(){
+  var style=document.createElement('style');
+  style.textContent='.btn-rl{background:rgba(0,207,255,.12)!important;border:1px solid rgba(0,207,255,.5)!important;color:#00cfff!important;}.btn-rt{background:rgba(0,168,224,.12)!important;border:1px solid rgba(0,168,224,.5)!important;color:#00a8e0!important;}';
+  document.head.appendChild(style);
+})();
+
+// ── SMTP UI ───────────────────────────────────────────────
+function onSmtpProviderChange(val){
+  const p=SMTP_PROVIDERS[val]||SMTP_PROVIDERS.custom;
+  S.prov=val;lsS(SK.prov,val);
+  ['smtp-oauth-block','smtp-direct-block','smtp-api-block','smtp-mailchannels-block'].forEach(id=>{const el=$(id);if(el)el.style.display='none';});
+  if(p.type==='oauth'){const b=$('smtp-oauth-block');if(b)b.style.display='block';}
+  else if(p.type==='smtp'){
+    const b=$('smtp-direct-block');if(b)b.style.display='block';
+    if(p.host&&$('smtp-host')&&!$('smtp-host').value)$('smtp-host').value=p.host;
+    if(p.port&&$('smtp-port'))$('smtp-port').value=p.port;
+    if(p.tls&&$('smtp-tls'))$('smtp-tls').value=p.tls;
+    const info=$('smtp-host-info');if(info&&p.info){info.innerHTML='<strong style="color:var(--cyan)">'+p.lbl+' :</strong> '+p.info;info.style.display='block';}
+  }else if(p.type==='api'){
+    const b=$('smtp-api-block');if(b)b.style.display='block';
+    const info=$('smtp-api-info');if(info&&p.info){info.innerHTML='<strong style="color:var(--purl)">'+p.lbl+' :</strong> '+p.info;info.style.display='block';}
+  }else if(p.type==='mailchannels'){const b=$('smtp-mailchannels-block');if(b)b.style.display='block';}
+  // Restaurer valeurs sauvegardées
+  if(S.smtpConfig&&S.smtpConfig.provider===val){
+    if($('smtp-host')&&S.smtpConfig.host)$('smtp-host').value=S.smtpConfig.host;
+    if($('smtp-port')&&S.smtpConfig.port)$('smtp-port').value=S.smtpConfig.port;
+    if($('smtp-user')&&S.smtpConfig.user)$('smtp-user').value=S.smtpConfig.user;
+    if($('smtp-from-name')&&S.smtpConfig.fromName)$('smtp-from-name').value=S.smtpConfig.fromName;
+    if($('smtp-api-from')&&S.smtpConfig.fromEmail)$('smtp-api-from').value=S.smtpConfig.fromEmail;
+    if($('smtp-api-from-name')&&S.smtpConfig.fromName)$('smtp-api-from-name').value=S.smtpConfig.fromName;
+    if($('smtp-mc-from')&&S.smtpConfig.fromEmail)$('smtp-mc-from').value=S.smtpConfig.fromEmail;
+    if($('smtp-mc-from-name')&&S.smtpConfig.fromName)$('smtp-mc-from-name').value=S.smtpConfig.fromName;
+  }
+}
+
+function saveSmtpConfig(){
+  const cfg={provider:S.prov,type:'smtp',host:$('smtp-host')?.value.trim()||'',port:parseInt($('smtp-port')?.value||'587'),tls:$('smtp-tls')?.value||'tls',user:$('smtp-user')?.value.trim()||'',pass:$('smtp-pass')?.value||'',fromEmail:$('smtp-user')?.value.trim()||'',fromName:$('smtp-from-name')?.value.trim()||''};
+  S.smtpConfig=cfg;S.ce=cfg.fromEmail;S.cn=cfg.fromName;
+  lsS(SK.smtpConfig,cfg);lsS(SK.ce,cfg.fromEmail);lsS(SK.cn,cfg.fromName);
+  const st=$('sw-email-st');if(st){st.textContent='✓ '+cfg.provider.toUpperCase()+' configuré';st.style.color='var(--grn)';}
+  toast('✓ Config SMTP '+cfg.provider+' enregistrée','success');
+}
+
+function saveSmtpApiConfig(){
+  const cfg={provider:S.prov,type:'api',apiKey:$('smtp-api-key')?.value.trim()||'',fromEmail:$('smtp-api-from')?.value.trim()||'',fromName:$('smtp-api-from-name')?.value.trim()||''};
+  S.smtpConfig=cfg;S.ce=cfg.fromEmail;S.cn=cfg.fromName;
+  lsS(SK.smtpConfig,cfg);lsS(SK.ce,cfg.fromEmail);lsS(SK.cn,cfg.fromName);
+  const st=$('sw-email-st');if(st){st.textContent='✓ '+cfg.provider.toUpperCase()+' API configuré';st.style.color='var(--grn)';}
+  toast('✓ Config API '+cfg.provider+' enregistrée','success');
+}
+
+function saveMailChannelsConfig(){
+  const cfg={provider:'mailchannels',type:'mailchannels',fromEmail:$('smtp-mc-from')?.value.trim()||'',fromName:$('smtp-mc-from-name')?.value.trim()||''};
+  S.smtpConfig=cfg;S.ce=cfg.fromEmail;S.cn=cfg.fromName;
+  lsS(SK.smtpConfig,cfg);lsS(SK.ce,cfg.fromEmail);lsS(SK.cn,cfg.fromName);
+  const st=$('sw-email-st');if(st){st.textContent='✓ MailChannels configuré';st.style.color='var(--grn)';}
+  toast('✓ MailChannels configuré — vérifiez votre SPF','success');
+}
+
+function initSettingsUI(){
+  const sel=$('smtp-provider-sel');if(sel&&S.prov){sel.value=S.prov;onSmtpProviderChange(S.prov);}
+  if($('worker-url-inp')&&S.wurl)$('worker-url-inp').value=S.wurl;
+  if($('cid-inp')&&S.cid)$('cid-inp').value=S.cid;
+  if($('sms-key-inp')&&S.smsKey)$('sms-key-inp').value=S.smsKey;
+  if($('sms-secret-inp')&&S.smsSecret)$('sms-secret-inp').value=S.smsSecret;
+  if($('sms-from-inp')&&S.smsFrom)$('sms-from-inp').value=S.smsFrom;
+  setSMSP(S.smsProv);
+}
+
+// ── SYNC FROM WORKER (v39.8) ─────────────────────────────
+var _syncInterval=null,_isSyncing=false;
+
+async function syncFromWorker(){
+  if(!S.wurl||_isSyncing)return;_isSyncing=true;
+  try{
+    const campRes=await fetch(S.wurl+'/sync/campaigns');
+    if(campRes.ok){
+      const data=await campRes.json();
+      if(data.campaigns&&Array.isArray(data.campaigns)){
+        var updated=0;
+        data.campaigns.forEach(wc=>{
+          var local=S.camps.find(c=>c.id==wc.id);if(!local||local.status==='draft')return;
+          if(wc.sent>=(local.sent||0)){local.sent=wc.sent;updated++;}
+          if(wc.opened>(local.opened||0)){local.opened=wc.opened;updated++;}
+          if(wc.errors>(local.errors||0)){local.errors=wc.errors;updated++;}
+          if(wc.unsubscribed!==undefined)local.unsubscribed=wc.unsubscribed;
+          if(wc.clicks>(local.clicks||0)){local.clicks=wc.clicks;updated++;}
+          if(mergeWorkerCampaignTracking(wc,local))updated++;
+          if(wc.pending!==undefined){local.workerPending=wc.pending;updated++;}
+          if(wc.dailySent!==undefined){local.dailySent=wc.dailySent;local.dailyDate=new Date().toDateString();updated++;}
+          if(wc.contacts&&Array.isArray(wc.contacts)){
+            if(!local.recentlyChanged)local.recentlyChanged=[];
+            wc.contacts.forEach(wContact=>{
+              if(wContact.status==='sent'||wContact.status==='opened'){const ex=local.recentlyChanged.find(r=>r.email===wContact.email);if(!ex)local.recentlyChanged.push(wContact);}
+              const lC=local.emailList&&local.emailList.find(e=>e.email===wContact.email);
+              if(lC&&wContact.status&&wContact.status!==lC.status){lC.status=wContact.status;}
+            });
+          }
+          const prevStatus=local.status;
+          if(wc.status&&wc.status!==local.status){local.status=wc.status;updated++;
+            if(wc.status==='oauth_error')toast('⚠ OAuth error — campagne «'+(local.name||'')+'»','error');
+            if(wc.status==='completed')toast('✅ Campagne «'+(local.name||'')+'» terminée !','success');
+          }
+          if(local.status!==prevStatus){if(S.activeCamp===local.id)setTimeout(()=>openCamp(local.id,local.type),50);}
+        });
+        if(updated>0){persistCamps();renderCampList('email');renderCampList('sms');renderDashboard();updateStats();refreshQuotaBanner();_refreshOpenCampMetrics();}
+      }
+    }
+
+    try{const dashRes=await fetch(S.wurl+'/sync/dashboard?tracking=1');if(dashRes.ok){const dash=await dashRes.json();const dc=Array.isArray(dash.campaigns)?dash.campaigns:[];var tc=false;dc.forEach(wc=>{var local=S.camps.find(c=>String(c.id)===String(wc.id));if(!local&&wc.name)local=S.camps.find(c=>c.name===wc.name);if(!local||local.status==='draft')return;if(mergeWorkerCampaignTracking(wc,local))tc=true;});if(dash.global)S.workerDashboard=dash.global;if(tc){persistCamps();renderDashboard();updateStats();}}}catch(e){console.warn('dashboard tracking:',e.message);}
+
+    const analRes=await fetch(S.wurl+'/sync/analytics');
+    if(analRes.ok){
+      const data2=await analRes.json();
+      if(data2.analytics&&Array.isArray(data2.analytics)&&data2.analytics.length>0){
+        var changed=false;
+        if(data2.compact){data2.analytics.forEach(wc=>{var local=S.camps.find(c=>c.id==wc.id);if(!local&&wc.campaign)local=S.camps.find(c=>c.name===wc.campaign);if(!local||local.status==='draft')return;if(wc.sent>(local.sent||0)){local.sent=wc.sent;changed=true;}if(wc.opened>(local.opened||0)){local.opened=wc.opened;changed=true;}if(wc.clicks>(local.clicks||0)){local.clicks=wc.clicks;changed=true;}local.unsubscribed=wc.unsubscribed||0;});}
+        else{S.analytics=data2.analytics;lsS(SK.analytics,S.analytics);changed=true;}
+        if(changed){persistCamps();renderDashboard();updateStats();}
+      }
+    }
+
+    // v39.8 : injecter recentlyChanged + emailList dans S.analytics
+    var injected=0;
+    var eKeys=new Set(S.analytics.map(a=>(a.email||'')+'|'+(a.campaign||'')));
+    S.camps.filter(c=>c.type!=='sms').forEach(c=>{
+      (c.recentlyChanged||[]).forEach(rc=>{
+        if(rc.status!=='sent'&&rc.status!=='opened')return;
+        const key=(rc.email||'')+'|'+(c.name||'');if(eKeys.has(key))return;
+        eKeys.add(key);S.analytics.push({type:'email',email:rc.email,campaign:c.name,date:rc.sentAt||rc.openedAt||new Date().toISOString(),status:'sent',opened:rc.status==='opened'||!!rc.opened,openedAt:rc.openedAt||null,unsubscribed:false,clicks:[]});injected++;
+      });
+      (c.emailList||[]).forEach(e=>{
+        if(e.status!=='sent'&&e.status!=='opened')return;
+        const key=(e.email||'')+'|'+(c.name||'');if(eKeys.has(key))return;
+        eKeys.add(key);S.analytics.push({type:'email',email:e.email,campaign:c.name,date:e.sentAt||c.launchedAt||c.created||new Date().toISOString(),status:'sent',opened:e.status==='opened'||!!e.opened,openedAt:e.openedAt||null,unsubscribed:!!e.unsubscribed,clicks:e.clicks||[]});injected++;
+      });
+    });
+    if(injected>0){if(S.analytics.length>50000)S.analytics=S.analytics.slice(S.analytics.length-50000);try{lsS(SK.analytics,S.analytics);}catch(_){}renderDashboard();updateStats();}
+
+    const chip=$('wchip');if(chip)chip.className='wchip ok';
+    const now=new Date(),ts=now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
+    const wlbl=$('wlbl');if(wlbl)wlbl.textContent='Worker actif · '+ts;
+    const banner=$('sync-banner'),sl=$('sync-status-lbl'),pl=$('sync-pos-lbl'),ll=$('sync-last-lbl');
+    if(banner)banner.style.display='flex';
+    if(sl){
+      const ac=S.camps.filter(c=>c.status==='running'),pc=S.camps.filter(c=>c.status==='paused');
+      if(ac.length){sl.innerHTML='⚡ <strong style="color:var(--yel);">'+ac.length+' campagne(s) en cours</strong>'+(pc.length?' · ⏸ '+pc.length+' en pause':'')+' — Worker actif';sl.style.color='var(--yel)';
+        if(pl){const lines=ac.map(c=>{const fp=c.emailList.findIndex(e=>e.status==='pending');const pos=fp===-1?c.emailList.length:fp+1;const st=(c.dailyDate===new Date().toDateString())?(c.dailySent||0):0;return c.name+' : '+pos+'/'+c.emailList.length+' · '+st+'/'+(c.dailyLimit||'∞')+' aujourd\'hui';});pl.textContent=lines.join(' | ');pl.style.display='block';}
+      }else{
+        const provLbl=(QUOTAS[S.prov]||QUOTAS.custom).lbl;
+        sl.innerHTML=pc.length?'⏸ <strong style="color:var(--yel);">'+pc.length+' en pause</strong>':'✅ <strong style="color:var(--grn);">Synchronisé</strong> — <strong style="color:var(--cyan);">'+provLbl+'</strong>';sl.style.color=pc.length?'var(--yel)':'var(--grn)';
+        if(pl)pl.style.display='none';
+      }
+    }
+    if(ll)ll.textContent='Dernière sync : '+ts;
+  }catch(e){
+    console.warn('syncFromWorker:',e.message);
+    const chip2=$('wchip');if(chip2)chip2.className='wchip err';
+    const wlbl2=$('wlbl');if(wlbl2)wlbl2.textContent='Worker inactif';
+    const sl2=$('sync-status-lbl');if(sl2){sl2.innerHTML='⚠️ <strong style="color:var(--red)">Worker inaccessible</strong>';sl2.style.color='var(--red)';}
+  }
+  _isSyncing=false;
+}
+
+function startAutoSync(){
+  if(!S.wurl){const b=$('sync-banner');if(b)b.style.display='none';return;}
+  setTimeout(syncFromWorker,2000);
+  if(_syncInterval)clearInterval(_syncInterval);
+  _syncInterval=setInterval(syncFromWorker,60000);
+}
+
+async function forceSyncNow(){if(!S.wurl){toast('Worker non configuré','warn');return;}toast('Synchronisation...','info');await syncFromWorker();toast('✓ Synchronisé','success');}
+
+document.addEventListener('DOMContentLoaded',init);
 </script>
 </body>
 </html>
