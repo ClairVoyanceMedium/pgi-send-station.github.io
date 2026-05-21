@@ -2116,39 +2116,54 @@ function runSmtpDebugTest(){
   })
   .then(r=>r.json())
   .then(data=>{
+    // Log JSON complet dans la console pour debug
+    console.log('[PGI SMTP TEST]', JSON.stringify(data, null, 2));
+    // Helper pour éviter "undefined"
+    const safe=(v,fallback)=>(v!==undefined&&v!==null&&v!==''&&v!=='undefined')?String(v):(fallback||'—');
     let txt='';
     txt+='══ RÉSULTAT TEST SMTP ══\n';
-    txt+=(data.ok?'✅ SUCCÈS — Email envoyé':'❌ ÉCHEC — Email non envoyé')+'\n\n';
-    txt+='Provider: '+(data.provider||'?')+'\n';
-    txt+='Host: '+(data.host||'?')+'\n';
-    txt+='Port: '+(data.port||data.port_tried||'?')+'\n';
-    txt+='SecureTransport: '+(data.secureTransport||'?')+'\n';
-    txt+='From: '+(data.from||'?')+'\n';
-    txt+='To: '+(data.to||'?')+'\n';
-    if(data.step)txt+='Étape finale: '+data.step+'\n';
-    if(data.error)txt+='\n❌ Erreur: '+data.error+'\n';
-    if(data.missing){txt+='\n⚠️ Secrets Worker manquants:\n';Object.entries(data.missing).forEach(([k,v])=>{if(v)txt+='  — '+k+'\n';});}
+    txt+=(data.ok?'✅ SUCCÈS — Email envoyé !':'❌ ÉCHEC — Email non envoyé')+'\n\n';
+    txt+='Provider: '+safe(data.provider)+'\n';
+    txt+='Host: '+safe(data.host)+'\n';
+    txt+='Port: '+safe(data.port||data.port_tried)+'\n';
+    txt+='SecureTransport: '+safe(data.secureTransport)+'\n';
+    txt+='From: '+safe(data.from)+'\n';
+    txt+='To: '+safe(data.to)+'\n';
+    txt+='Étape finale: '+safe(data.step,'inconnue')+'\n';
+    if(!data.ok){
+      const errMsg=data.error||data.diagnosis||'Aucun détail disponible — vérifiez la console';
+      txt+='\n❌ Erreur: '+safe(errMsg,'Erreur inconnue — voir console')+'\n';
+      if(data.diagnosis&&data.diagnosis!==data.error)txt+='\n💡 Diagnostic: '+data.diagnosis+'\n';
+    }
+    if(data.missing&&Object.values(data.missing).some(Boolean)){
+      txt+='\n⚠️ Secrets Worker manquants:\n';
+      Object.entries(data.missing).forEach(([k,v])=>{if(v)txt+='  — '+k+' (non défini dans Cloudflare)\n';});
+      txt+='→ Allez dans Workers → Settings → Variables → Secrets\n';
+    }
     if(data.log&&data.log.length){
-      txt+='\n══ LOG SMTP DÉTAILLÉ ══\n';
+      txt+='\n══ LOG SMTP ÉTAPE PAR ÉTAPE ══\n';
       data.log.forEach(entry=>{
-        txt+='['+entry.step+']\n';
-        if(entry.sent)txt+='  → Envoyé: '+entry.sent+'\n';
-        if(entry.response)txt+='  ← Réponse: '+entry.response+'\n';
+        txt+='\n['+safe(entry.step,'?')+']\n';
+        if(entry.sent&&entry.sent!=='[user base64]'&&entry.sent!=='[pass base64]')txt+='  → Envoyé: '+entry.sent+'\n';
+        else if(entry.sent)txt+='  → Envoyé: (credentials cachés)\n';
+        if(entry.response)txt+='  ← Réponse SMTP: '+entry.response+'\n';
       });
     }
     if(data.port465){
-      txt+='\n══ PORT 465 ══\n';
-      txt+=(data.port465.ok?'✅':'❌')+' Étape: '+data.port465.step+'\n';
-      if(data.port465.error)txt+='Erreur: '+data.port465.error+'\n';
+      txt+='\n══ TEST PORT 465 ══\n';
+      txt+=(data.port465.ok?'✅ Succès':'❌ Échec')+' — Étape: '+safe(data.port465.step)+'\n';
+      if(data.port465.error)txt+='Erreur: '+safe(data.port465.error)+'\n';
+      if(data.port465.log?.length){data.port465.log.forEach(e=>{txt+='  ['+safe(e.step)+'] '+safe(e.response)+'\n';});}
     }
     if(data.port587){
-      txt+='\n══ PORT 587 (fallback) ══\n';
-      txt+=(data.port587.ok?'✅':'❌')+' Étape: '+data.port587.step+'\n';
-      if(data.port587.error)txt+='Erreur: '+data.port587.error+'\n';
+      txt+='\n══ TEST PORT 587 (fallback) ══\n';
+      txt+=(data.port587.ok?'✅ Succès':'❌ Échec')+' — Étape: '+safe(data.port587.step)+'\n';
+      if(data.port587.error)txt+='Erreur: '+safe(data.port587.error)+'\n';
+      if(data.port587.log?.length){data.port587.log.forEach(e=>{txt+='  ['+safe(e.step)+'] '+safe(e.response)+'\n';});}
     }
     if(resultEl)resultEl.textContent=txt;
     if(data.ok)toast('✅ Email envoyé avec succès !','success');
-    else toast('❌ Échec: '+data.error,'error');
+    else{const msg=data.error||data.diagnosis||'Échec SMTP';toast('❌ '+safe(msg).slice(0,60),'error');}
   })
   .catch(err=>{
     const txt='❌ Erreur réseau: '+err.message+'\nVérifiez que le Worker est actif et accessible.';
