@@ -680,6 +680,15 @@ html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;ov
       <div class="srow"><span class="srl">Templates</span><span id="sg-t" class="srv">0</span></div>
       <div style="display:flex;gap:8px;margin-top:12px"><button class="btn-s" style="flex:1" onclick="exportData()">Export JSON</button><button class="btn-s" style="flex:1;color:var(--red)" onclick="resetData()">Reset tout</button></div>
     </div>
+    <div class="sc" id="sc-smtp-debug">
+      <div class="sc-t" style="color:var(--cyan)">🔬 Test SMTP en direct</div>
+      <div class="fc" style="margin-bottom:10px">
+        <label class="fl">Email de test (destinataire)</label>
+        <input type="email" class="fi" id="smtp-test-to" placeholder="votre@email.com">
+      </div>
+      <button class="btn-p" style="background:linear-gradient(135deg,var(--cyan),#0099cc);margin-bottom:10px" onclick="runSmtpDebugTest()">🚀 Lancer le test SMTP réel</button>
+      <div id="smtp-debug-result" style="display:none;background:var(--bg4);border:1px solid var(--b2);border-radius:8px;padding:12px;font-family:var(--mono);font-size:10px;line-height:1.8;max-height:400px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;color:var(--text2);"></div>
+    </div>
   </div>
 </div>
 
@@ -1110,13 +1119,33 @@ function prevCampTpl(id){
 
 function refreshQuotaBanner(){
   const banner=$('quota-global-banner');if(!banner)return;
-  const q=getGlobalQuota();
-  if(q.committed===0){banner.classList.remove('show');return;}
+  // Campagnes email actives
+  const running=S.camps.filter(c=>c.type!=='sms'&&c.status==='running');
+  const paused=S.camps.filter(c=>c.type!=='sms'&&c.status==='paused');
+  if(!running.length&&!paused.length){banner.classList.remove('show');return;}
   banner.classList.add('show');
-  const pct=q.percent;
-  if(pct>=100){banner.className='quota-banner show danger';banner.innerHTML=`⚠️ Quota DÉPASSÉ ! ${q.committed.toLocaleString()} engagés pour ${q.limit} max/j avec ${(QUOTAS[S.prov]||QUOTAS.custom).lbl}`;}
-  else if(pct>=80){banner.className='quota-banner show warn';banner.innerHTML=`⚠️ Quota élevé : ${q.committed.toLocaleString()}/${q.limit} engagés (${pct}%) — ${q.available.toLocaleString()} disponibles`;}
-  else{banner.className='quota-banner show';banner.style.background='rgba(0,255,136,.06)';banner.style.border='1px solid rgba(0,255,136,.2)';banner.style.color='var(--grn)';banner.innerHTML=`✓ Quota OK : ${q.committed.toLocaleString()}/${q.limit} engagés (${pct}%) — ${q.available.toLocaleString()} disponibles avec ${(QUOTAS[S.prov]||QUOTAS.custom).lbl}`;}
+  // Construire le message style original
+  const todayStr=new Date().toDateString();
+  let lines=[];
+  running.forEach(camp=>{
+    const pending=camp.emailList.filter(e=>e.status==='pending').length;
+    const sentToday=(camp.dailyDate===todayStr)?(camp.dailySent||0):0;
+    const limit=camp.dailyLimit||9999;
+    const rpm=camp.rateEffectivePerMin||10;
+    lines.push(`⚡ <strong style="color:var(--yel)">${esc(camp.name)}</strong> — ${pending.toLocaleString()} restants · ${sentToday}/${limit} aujourd'hui · ${rpm}/min`);
+  });
+  paused.forEach(camp=>{
+    const pending=camp.emailList.filter(e=>e.status==='pending').length;
+    lines.push(`⏸ <strong style="color:var(--text2)">${esc(camp.name)}</strong> — En pause · ${pending.toLocaleString()} restants`);
+  });
+  banner.className='quota-banner show warn';
+  banner.style.background='rgba(255,230,0,.07)';
+  banner.style.border='1px solid rgba(255,230,0,.25)';
+  banner.style.color='var(--yel)';
+  banner.style.flexDirection='column';
+  banner.style.gap='4px';
+  banner.style.alignItems='flex-start';
+  banner.innerHTML=lines.join('<br>');
 }
 
 // ── EMAIL LIST OPS ─────────────────────────────────────────
@@ -2071,6 +2100,62 @@ function startAutoSync(){
 }
 
 async function forceSyncNow(){if(!S.wurl){toast('Worker non configuré','warn');return;}toast('Synchronisation...','info');await syncFromWorker();toast('✓ Synchronisé','success');}
+
+
+function runSmtpDebugTest(){
+  const to=$('smtp-test-to')?.value.trim();
+  if(!to){toast('Entrez un email destinataire','warn');return;}
+  if(!S.wurl){toast('Worker URL manquante — configurez le Worker d\'abord','error');return;}
+  const resultEl=$('smtp-debug-result');
+  if(resultEl){resultEl.style.display='block';resultEl.textContent='⏳ Test en cours...\nConnexion au Worker: '+S.wurl+'\nDestinataire: '+to+'\n';}
+  toast('Test SMTP lancé...','info');
+  fetch(S.wurl+'/debug/send-test',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({to,subject:'Test PGI Send Station — '+new Date().toLocaleString('fr-FR'),html:'<h2>✓ Test SMTP PGI Send Station</h2><p>Si vous recevez cet email, le SMTP LWS fonctionne correctement.</p><p>Heure: '+new Date().toISOString()+'</p>'})
+  })
+  .then(r=>r.json())
+  .then(data=>{
+    let txt='';
+    txt+='══ RÉSULTAT TEST SMTP ══\n';
+    txt+=(data.ok?'✅ SUCCÈS — Email envoyé':'❌ ÉCHEC — Email non envoyé')+'\n\n';
+    txt+='Provider: '+(data.provider||'?')+'\n';
+    txt+='Host: '+(data.host||'?')+'\n';
+    txt+='Port: '+(data.port||data.port_tried||'?')+'\n';
+    txt+='SecureTransport: '+(data.secureTransport||'?')+'\n';
+    txt+='From: '+(data.from||'?')+'\n';
+    txt+='To: '+(data.to||'?')+'\n';
+    if(data.step)txt+='Étape finale: '+data.step+'\n';
+    if(data.error)txt+='\n❌ Erreur: '+data.error+'\n';
+    if(data.missing){txt+='\n⚠️ Secrets Worker manquants:\n';Object.entries(data.missing).forEach(([k,v])=>{if(v)txt+='  — '+k+'\n';});}
+    if(data.log&&data.log.length){
+      txt+='\n══ LOG SMTP DÉTAILLÉ ══\n';
+      data.log.forEach(entry=>{
+        txt+='['+entry.step+']\n';
+        if(entry.sent)txt+='  → Envoyé: '+entry.sent+'\n';
+        if(entry.response)txt+='  ← Réponse: '+entry.response+'\n';
+      });
+    }
+    if(data.port465){
+      txt+='\n══ PORT 465 ══\n';
+      txt+=(data.port465.ok?'✅':'❌')+' Étape: '+data.port465.step+'\n';
+      if(data.port465.error)txt+='Erreur: '+data.port465.error+'\n';
+    }
+    if(data.port587){
+      txt+='\n══ PORT 587 (fallback) ══\n';
+      txt+=(data.port587.ok?'✅':'❌')+' Étape: '+data.port587.step+'\n';
+      if(data.port587.error)txt+='Erreur: '+data.port587.error+'\n';
+    }
+    if(resultEl)resultEl.textContent=txt;
+    if(data.ok)toast('✅ Email envoyé avec succès !','success');
+    else toast('❌ Échec: '+data.error,'error');
+  })
+  .catch(err=>{
+    const txt='❌ Erreur réseau: '+err.message+'\nVérifiez que le Worker est actif et accessible.';
+    if(resultEl)resultEl.textContent=txt;
+    toast('Erreur: '+err.message,'error');
+  });
+}
 
 document.addEventListener('DOMContentLoaded',init);
 </script>
