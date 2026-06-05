@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#1a1c22">
-<title>PGI Send Station v40.5 Tracking Safe</title>
+<title>PGI Send Station v40.6 Metrics Consistent</title>
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&family=Exo+2:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
@@ -1148,6 +1148,8 @@ function renderSMSAnalytics(append=false){const tbody=$('sms-analytics-body');if
 function renderUnsubByCamp(){const el=$('unsub-per-camp-list'),badge=$('badge-unsub-total');if(!el)return;const bycamp={};(S.analytics||[]).forEach(a=>{if(a.unsubscribed&&a.campaign){if(!bycamp[a.campaign])bycamp[a.campaign]=[];bycamp[a.campaign].push(a.email);}});S.camps.forEach(c=>{(c.emailList||[]).forEach(e=>{if(e.unsubscribed){if(!bycamp[c.name])bycamp[c.name]=[];if(!bycamp[c.name].includes(e.email))bycamp[c.name].push(e.email);}});});const total=Object.values(bycamp).reduce((s,arr)=>s+arr.length,0);if(badge)badge.textContent=total;if(!total){el.innerHTML='<div class="empty" style="padding:20px"><p>Aucun désabonné</p></div>';return;}el.innerHTML=Object.entries(bycamp).map(([camp,emails])=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--b1);cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='flex'?'none':'flex'"><span style="flex:1;font-weight:700;font-size:12px;">${esc(camp)}</span><span style="background:rgba(255,34,68,.1);color:var(--red);font-size:9px;padding:2px 7px;border-radius:10px;font-weight:700">${emails.length}</span></div><div style="display:none;flex-wrap:wrap;gap:5px;padding:6px 0;">${emails.map(e=>`<span style="font-size:9px;font-family:var(--mono);color:var(--purl);background:var(--pur-bg);border:1px solid var(--pur-b);padding:2px 7px;border-radius:4px;cursor:pointer;" title="Cliquer pour copier" onclick="navigator.clipboard.writeText('${esc(e)}').then(()=>toast('Email copié','success'))">${esc(e)}</span>`).join('')}</div>`).join('');}
 function renderQuotaBox(){const box=$('dash-quota-box');if(!box)return;const running=S.camps.filter(c=>c.status==='running'&&c.type!=='sms');if(!running.length){box.style.display='none';return;}box.style.display='block';const q=getGlobalQuota();const text=$('dash-quota-text'),bar=$('dash-quota-bar'),detail=$('dash-quota-detail');const pct=Math.min(100,q.percent);if(text)text.textContent=`${running.length} campagne(s) active(s) — ${q.committed.toLocaleString()} engagés / ${q.limit.toLocaleString()} max/j (${pct}%)`;if(bar){bar.style.width=pct+'%';bar.style.background=pct>=100?'var(--red)':pct>=80?'var(--yel)':'var(--grn)';}if(detail)detail.textContent=`Utilisés aujourd'hui : ${q.used.toLocaleString()} · Disponibles : ${q.available.toLocaleString()} · Provider : ${(QUOTAS[S.prov]||QUOTAS.custom).lbl}`;}
 function updateStats(){
+  // v40.6 : les cartes Dashboard utilisent la source la plus complète entre campagnes et historique.
+  // Cela évite d'afficher 142 quand l'historique consolidé contient déjà 526 envois.
   const all=getAllEmailLogs();
   const emailCamps=S.camps.filter(c=>c.type!=='sms');
   const campsSent=emailCamps.reduce((s,c)=>s+(Number(c.sent)||0),0);
@@ -1162,7 +1164,7 @@ function updateStats(){
   const analyticsClicks=all.reduce((s,x)=>s+getClickCountSafe(x),0);
   const analyticsUnsub=all.filter(x=>x.unsubscribed).length;
 
-  const totalSent=campsSent>0?campsSent:analyticsSent;
+  const totalSent=Math.max(campsSent,analyticsSent);
   const totalOpened=Math.max(campsOpened,analyticsOpenedUnique);
   const totalOpenEvents=Math.max(analyticsOpenEvents,totalOpened);
   const totalUnsub=Math.max(campsUnsub,analyticsUnsub);
