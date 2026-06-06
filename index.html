@@ -297,7 +297,8 @@ html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;ov
 [contenteditable] a{color:#c060ff!important;text-decoration:underline!important;cursor:pointer!important;}
 </style>
 </head>
-<body>
+
+
 <div id="topbar">
   <div class="logo">PGI<span class="logo-dot"></span>Send Station</div>
   <nav class="top-nav" id="desktop-nav">
@@ -371,7 +372,7 @@ html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;ov
   </div>
   <div class="sec-box" style="margin-bottom:12px">
     <div class="sec-ttl" style="color:var(--pur)">Toutes les campagnes<button class="btn-sm" style="margin-left:auto;padding:3px 10px;font-size:9px" onclick="showView('email')">+ Nouvelle</button></div>
-    <div style="overflow-x:auto"><table class="atbl"><thead><tr><th>Nom</th><th>Type</th><th>Statut</th><th>Contacts</th><th>Envoyés</th><th>Ouverts</th><th>Taux</th><th>Erreurs</th><th>Limite/j</th><th>Créée le</th></tr></thead><tbody id="all-camps-body"><tr><td colspan="10"><div class="empty" style="padding:16px"><p>Aucune campagne</p></div></td></tr></tbody></table></div>
+    <div style="overflow-x:auto"><table class="atbl"><thead><tr><th>Nom</th><th>Type</th><th>Statut</th><th>Contacts</th><th>Envoyés</th><th>Ouverts</th><th>Taux</th><th>Clics</th><th>Erreurs</th><th>Créée le</th></tr></thead><tbody id="all-camps-body"><tr><td colspan="10"><div class="empty" style="padding:16px"><p>Aucune campagne</p></div></td></tr></tbody></table></div>
   </div>
   <div class="sec-box" style="margin-bottom:12px">
     <div class="sec-ttl" style="color:var(--purl)">Historique emails<span id="email-period-lbl" style="font-size:10px;color:var(--text3);font-weight:400;margin-left:auto">Aujourd'hui</span></div>
@@ -384,7 +385,7 @@ html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;ov
       <button class="date-qbtn" id="ef-unsub" onclick="setEmailFilter('unsub',this)">Désabonnés</button>
       <span id="email-count-lbl" style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text2)"></span>
     </div>
-    <div style="overflow-x:auto"><table class="atbl"><thead><tr><th onclick="sortAnalytics('email')">Email</th><th>Campagne</th><th onclick="sortAnalytics('date')">Date</th><th>Statut</th><th>Ouvertures</th><th>Clics</th><th>Détail clic</th><th>Désabonné</th></tr></thead><tbody id="analytics-body"><tr><td colspan="8"><div class="empty" style="padding:16px"><p>Aucun envoi</p></div></td></tr></tbody></table></div>
+    <div style="overflow-x:auto"><table class="atbl"><thead><tr><th onclick="sortAnalytics('email')">Email</th><th>Campagne</th><th onclick="sortAnalytics('date')">Date</th><th>Statut</th><th>Ouvertures</th><th>Clics</th><th>Détail clic</th><th>Désabonné</th></tr></thead><tbody id="analytics-body"></tbody></table></div>
     <div id="analytics-more" style="text-align:center;padding:8px;display:none"><button class="date-qbtn" onclick="loadMoreAnalytics()">Charger plus</button></div>
   </div>
   <div class="sec-box" style="margin-bottom:12px">
@@ -398,7 +399,7 @@ html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;ov
       <button class="date-qbtn" id="sf-error" onclick="setSMSFilter('error',this)">Erreurs</button>
       <span id="sms-count-lbl" style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text2)"></span>
     </div>
-    <div style="overflow-x:auto"><table class="atbl"><thead><tr><th>Numéro</th><th>Campagne</th><th>Date</th><th>Statut</th><th>Lu</th><th>STOP</th></tr></thead><tbody id="sms-analytics-body"><tr><td colspan="6"><div class="empty" style="padding:16px"><p>Aucun SMS</p></div></td></tr></tbody></table></div>
+    <div style="overflow-x:auto"><table class="atbl"><thead><tr><th>Numéro</th><th>Campagne</th><th>Date</th><th>Statut</th><th>Lu</th><th>STOP</th></tr></thead><tbody id="sms-analytics-body"></tbody></table></div>
     <div id="sms-analytics-more" style="text-align:center;padding:8px;display:none"><button class="date-qbtn" onclick="loadMoreSMS()">Charger plus</button></div>
   </div>
   <div class="sec-box" style="margin-bottom:12px">
@@ -655,13 +656,13 @@ html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;ov
     <div class="notice-section"><div class="notice-title">Quotas</div>
       <ul><li>Gmail : 500/j — Workspace : 2000/j</li><li>Outlook : 300/j — M365 : 10000/j</li><li>OVH : ~200/j — LWS : ~500/j</li><li>SendGrid / Mailgun : 100000/j</li><li>MailChannels : illimité</li></ul>
     </div>
-    <div class="notice-section"><div class="notice-title">v39.9 — Corrections appliquées</div>
+    <div class="notice-section"><div class="notice-title">v40.7 — Métriques Unifiées</div>
       <ul>
-        <li>🐛 Fix CRITIQUE : payload /campaign/launch encapsulé dans {campaign:{...}}</li>
-        <li>🐛 Fix CRITIQUE : S.tpls transmis au Worker — le cron génère maintenant le HTML</li>
-        <li>🐛 Fix : Math.ceil() dans maxNow — garantit au moins 1 envoi/cron même à 3/h</li>
-        <li>🐛 Fix : resumeCamp même correction payload</li>
-        <li>🐛 Fix : endOfList "resume" traité correctement dans le cron</li>
+        <li>✅ Source unique <code>getCanonicalMetrics()</code> — tous les widgets lisent la même donnée</li>
+        <li>✅ Fusion MAX(emailList, S.analytics, compteurs Worker) — jamais de perte de données</li>
+        <li>✅ syncFromWorker corrigé — ne peut plus écraser un compteur local supérieur</li>
+        <li>✅ Avancement % cohérent partout (dashboard, vue campagne, bannière, tableau)</li>
+        <li>✅ Ouvertures et clics trackés et consolidés en temps réel</li>
       </ul>
     </div>
   </div>
@@ -689,7 +690,7 @@ html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;ov
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script>
 'use strict';
-// PGI SEND STATION v39.9 — Fix launch payload + templates + maxNow
+// PGI SEND STATION v40.7 — Métriques Unifiées
 function $$(id){return document.getElementById(id);}
 const SK={prov:'p7_prov',cid:'p7_cid',tok:'p7_tok',email:'p7_email',wurl:'p7_wurl',ce:'p7_ce',cn:'p7_cn',smsProv:'p7_smp',smsKey:'p7_smk',smsSecret:'p7_sms',smsFrom:'p7_smf',smsWebhook:'p7_smswh',smsWebhookBody:'p7_smswhb',contacts:'p7_contacts',tpls:'p7_tpls',camps:'p7_camps',lists:'p7_lists',imgLib:'p7_imgs',analytics:'p7_analytics',stats:'p7_stats',smtpConfig:'p7_smtp'};
 const SMTP_PROVIDERS={gmail:{lbl:'Gmail (OAuth)',type:'oauth',day:500,safe:400,info:'Connexion OAuth Google.'},outlook:{lbl:'Outlook/Hotmail',type:'oauth',day:300,safe:240,info:'Connexion OAuth Microsoft.'},ovh:{lbl:'OVH',type:'smtp',day:200,safe:150,host:'ssl0.ovh.net',port:465,tls:'ssl',info:'Host: ssl0.ovh.net — Port: 465 (SSL)'},lws:{lbl:'LWS',type:'smtp',day:500,safe:400,host:'mail.lws.fr',port:465,tls:'ssl',info:'Host: mail.lws.fr — Port: 465 (SSL)'},ionos:{lbl:'IONOS / 1&1',type:'smtp',day:500,safe:400,host:'smtp.ionos.fr',port:587,tls:'tls',info:'Host: smtp.ionos.fr — Port: 587 (TLS)'},infomaniak:{lbl:'Infomaniak',type:'smtp',day:1000,safe:800,host:'mail.infomaniak.com',port:587,tls:'tls',info:'Host: mail.infomaniak.com — Port: 587 (STARTTLS)'},sendgrid:{lbl:'SendGrid',type:'api',day:100000,safe:80000,info:'Clé API SG.xxxx.'},mailgun:{lbl:'Mailgun',type:'api',day:100000,safe:80000,info:'Clé key-xxxx.'},brevo:{lbl:'Brevo',type:'api',day:300,safe:250,info:'Clé xkeysib-xxxx.'},amazon:{lbl:'Amazon SES',type:'api',day:50000,safe:40000,info:'Région eu-west-1.'},mailchannels:{lbl:'MailChannels (CF)',type:'mailchannels',day:999999,safe:999999,info:'Gratuit CF Workers.'},custom:{lbl:'SMTP personnalisé',type:'smtp',day:999999,safe:999999,host:'',port:587,tls:'tls',info:'Entrez vos paramètres SMTP.'}};
@@ -719,8 +720,7 @@ function closeOvr(e,id){if(e.target===$(id))closeModal(id);}
 function toast(msg,type='info'){const t=$('toast');t.textContent=msg;t.className='show '+type;clearTimeout(t._t);t._t=setTimeout(()=>{t.className=type;},4000);}
 function pgiConfirm(msg,icon){return new Promise(resolve=>{var d=$('pgi-dialog'),ic=$('pgi-dialog-icon'),m=$('pgi-dialog-msg'),inp=$('pgi-dialog-inp'),ok=$('pgi-dialog-ok'),ca=$('pgi-dialog-cancel');if(!d){resolve(window.confirm(msg));return;}if(ic)ic.textContent=icon||'!';if(m)m.textContent=msg;if(inp)inp.style.display='none';d.style.display='flex';function cleanup(r){d.style.display='none';ok.removeEventListener('click',onOk);ca.removeEventListener('click',onCancel);resolve(r);}function onOk(){cleanup(true);}function onCancel(){cleanup(false);}ok.addEventListener('click',onOk);ca.addEventListener('click',onCancel);});}
 function pgiPrompt(msg,def,icon){return new Promise(resolve=>{var d=$('pgi-dialog'),ic=$('pgi-dialog-icon'),m=$('pgi-dialog-msg'),inp=$('pgi-dialog-inp'),ok=$('pgi-dialog-ok'),ca=$('pgi-dialog-cancel');if(!d){resolve(window.prompt(msg,def||''));return;}if(ic)ic.textContent=icon||'?';if(m)m.textContent=msg;if(inp){inp.style.display='block';inp.value=def||'';setTimeout(()=>inp.focus(),100);}d.style.display='flex';function cleanup(r){d.style.display='none';ok.removeEventListener('click',onOk);ca.removeEventListener('click',onCancel);if(inp)inp.removeEventListener('keydown',onKey);resolve(r);}function onOk(){cleanup(inp?inp.value:'');}function onCancel(){cleanup(null);}function onKey(e){if(e.key==='Enter')onOk();if(e.key==='Escape')onCancel();}ok.addEventListener('click',onOk);ca.addEventListener('click',onCancel);if(inp)inp.addEventListener('keydown',onKey);});}
-function setProv(p){S.prov=p;lsS(SK.prov,p);}
-function setSMSP(p){S.smsProv=p;lsS(SK.smsProv,p);['twilio','vonage','webhook'].forEach(x=>{const el=$('po-'+x);if(el)el.classList.toggle('sel',p===x);const chk=$('pchk-'+x);if(chk){if(p===x){chk.style.background='var(--grn)';chk.style.borderColor='var(--grn)';}else{chk.style.background='';chk.style.borderColor='var(--b2)';}}});const wf=$('sms-webhook-form');if(wf)wf.style.display=p==='webhook'?'block':'none';}
+function setSMSP(p){S.smsProv=p;lsS(SK.smsProv,p);['twilio','vonage','webhook'].forEach(x=>{const el=$('po-'+x);if(el)el.classList.toggle('sel',p===x);const chk=$('pchk-'+x);if(chk){if(p===x){chk.style.background='var(--grn)';chk.style.borderColor='var(--grn)';}else{chk.style.background='';chk.style.borderColor='var(--b2)';}}}); const wf=$('sms-webhook-form');if(wf)wf.style.display=p==='webhook'?'block':'none';}
 function saveSMSConfig(){S.smsKey=$('sms-key-inp')?.value.trim()||'';S.smsSecret=$('sms-secret-inp')?.value.trim()||'';S.smsFrom=$('sms-from-inp')?.value.trim()||'';S.smsWebhook=$('sms-webhook-url')?.value.trim()||'';S.smsWebhookBody=$('sms-webhook-body')?.value.trim()||'';lsS(SK.smsKey,S.smsKey);lsS(SK.smsSecret,S.smsSecret);lsS(SK.smsFrom,S.smsFrom);lsS(SK.smsWebhook,S.smsWebhook);lsS(SK.smsWebhookBody,S.smsWebhookBody);toast('✓ Config SMS enregistrée','success');}
 function connectAuth(){if(S.prov==='custom'||SMTP_PROVIDERS[S.prov]?.type==='smtp'){saveSmtpConfig();return;}const id=$('cid-inp')?.value.trim();if(!id){toast('Entrez le Client ID','error');return;}S.cid=id;lsS(SK.cid,id);if(S.prov==='gmail'){initGIS();if(S.tokenClient)S.tokenClient.requestAccessToken();else toast('Google Identity Services en chargement...','warn');}else toast('Client ID enregistré','success');}
 function initGIS(){if(!window.google||!S.cid)return;S.tokenClient=google.accounts.oauth2.initTokenClient({client_id:S.cid,scope:'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email',callback:r=>{if(r.error){toast('Erreur auth: '+r.error,'error');return;}S.tok=r.access_token;S.isAuth=true;fetchGUser();},error_callback:e=>toast('Auth: '+(e.message||e.type),'error')});}
@@ -729,7 +729,6 @@ function saveWorker(){const url=$('worker-url-inp')?.value.trim();if(!url?.start
 function updateWorkerUI(){const chip=$('wchip'),lbl=$('wlbl'),dot=$('wdot'),st=$('sw-st');if(S.wurl){chip.className='wchip ok';if(dot)dot.classList.remove('p');if(lbl)lbl.textContent='Worker configuré';if(st){st.textContent='Configuré';st.style.color='var(--grn)';}}else{chip.className='wchip warn';if(dot)dot.classList.add('p');if(lbl)lbl.textContent='Worker non configuré';if(st){st.textContent='Non configuré';st.style.color='var(--yel)';}}}
 async function testWorker(){if(!S.wurl){toast('URL Worker manquante','warn');return;}toast('Test en cours...','info');try{const r=await fetch(S.wurl+'/ping');const d=await r.json();if(d.ok){$('wchip').className='wchip ok';if($('wdot'))$('wdot').classList.remove('p');if($('wlbl'))$('wlbl').textContent='Worker actif';toast('Worker opérationnel','success');if(d.lastRun&&$('sw-last'))$('sw-last').textContent=fDt(d.lastRun);}else{$('wchip').className='wchip warn';toast('Worker — réponse incorrecte','warn');}}catch{$('wchip').className='wchip err';if($('wdot'))$('wdot').classList.add('p');if($('wlbl'))$('wlbl').textContent='Worker inactif';toast('Worker inaccessible','error');}}
 async function syncW(ep,data){if(!S.wurl)return;try{await fetch(S.wurl+ep,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});}catch(e){console.warn('Worker sync:',e.message);}}
-// ── CAMPAIGNS ──
 function newCamp(type){const c={id:Date.now(),type,name:type==='sms'?'Nouvelle campagne SMS':'Nouvelle campagne email',status:'draft',templateId:null,subject:'',smsText:'',emailList:[],rateEffectivePerMin:10,rateSecEnabled:false,rateSec:1,rateMinEnabled:false,rateMin:10,rateHEnabled:false,rateH:600,rateDEnabled:false,rateDay:300,dailyLimit:9999,durationH:-1,durationInfinite:true,startDate:'',endDate:'',sendOrder:'inorder',endOfList:'loop',pausePosition:0,schedEnabled:false,days:[1,2,3,4,5,6,7],daySchedules:{day1:{from:'09:00',to:'18:00'},day2:{from:'09:00',to:'18:00'},day3:{from:'09:00',to:'18:00'},day4:{from:'09:00',to:'18:00'},day5:{from:'09:00',to:'18:00'},day6:{from:'10:00',to:'16:00'},day7:{from:'10:00',to:'16:00'}},sent:0,opened:0,errors:0,unsubscribed:0,clicks:0,campProvider:'',campFromEmail:'',attachments:[],created:new Date().toISOString()};S.camps.push(c);saveCamps();renderCampList(type);openCamp(c.id,type);}
 function persistCamps(){const toStore=S.camps.map(c=>{if(!c.attachments||!c.attachments.length)return c;const ns=c.attachments.some(a=>!!a.data);if(!ns)return c;const c2=Object.assign({},c);c2.attachments=c.attachments.map(a=>a.data?{name:a.name,contentType:a.contentType,size:a.size,key:a.key||null}:a);return c2;});lsS(SK.camps,toStore);}
 var _saveCampsTimer=null;
@@ -737,20 +736,13 @@ function saveCamps(){persistCamps();if(_saveCampsTimer)clearTimeout(_saveCampsTi
 function stCls(s){return{running:'st-run',paused:'st-pause',done:'st-done',draft:'st-draft',oauth_error:'st-pause',completed:'st-done',stopped:'st-done'}[s]||'st-draft';}
 function stLbl(s){return{running:'EN COURS',paused:'PAUSE',done:'TERMINÉ',draft:'BROUILLON',oauth_error:'⚠ OAUTH ERR',completed:'TERMINÉ',stopped:'ARRÊTÉ'}[s]||s;}
 function renderCampList(type){const el=$(type==='sms'?'list-sms':'list-email');if(!el)return;const list=S.camps.filter(c=>c.type===type);if(!list.length){el.innerHTML='<div class="empty" style="padding:24px 10px"><p style="font-size:10px">Aucune campagne</p></div>';return;}const aid=type==='sms'?S.activeSMS:S.activeCamp;el.innerHTML=list.map(c=>`<div class="cr ${aid===c.id?'sel':''}" onclick="openCamp(${c.id},'${type}');closeMob('panel-${type==='sms'?'sms':'email'}','fab-${type==='sms'?'sms':'email'}')"><div class="cr-name">${esc(c.name)}</div><div class="cr-meta"><span class="stbadge ${stCls(c.status)}">${stLbl(c.status)}</span><span class="cr-cnt">${c.emailList.length>0?c.sent+'/'+c.emailList.length:'Aucun contact'} · ${c.durationInfinite?'∞':c.durationH+'h'}</span></div></div>`).join('');}
-function openCamp(id,type){if(type==='sms')S.activeSMS=id;else S.activeCamp=id;renderCampList(type);const c=S.camps.find(x=>x.id===id);if(!c)return;const det=$(type==='sms'?'detail-sms':'detail-email');if(!det)return;
-// FIX : ne reset les stats que si c'est un vrai brouillon (jamais lancé)
-// Les statuts done/completed/stopped gardent leurs stats pour l'historique
-const _isDraft=c.status==='draft'&&(c.sent||0)===0;
-const _ii=_isDraft;
-if(_ii){c.sent=0;c.opened=0;c.errors=0;c.clicks=0;c.unsubscribed=0;persistCamps();}det.innerHTML=buildCampForm(c);refreshEList(c);if(type!=='sms')setTimeout(()=>renderCampAttachments(id),50);if(c.rateEffectivePerMin)setTimeout(()=>recalcRate(id),100);}
+function openCamp(id,type){if(type==='sms')S.activeSMS=id;else S.activeCamp=id;renderCampList(type);const c=S.camps.find(x=>x.id===id);if(!c)return;const det=$(type==='sms'?'detail-sms':'detail-email');if(!det)return;det.innerHTML=buildCampForm(c);refreshEList(c);if(type!=='sms')setTimeout(()=>renderCampAttachments(id),50);if(c.rateEffectivePerMin)setTimeout(()=>recalcRate(id),100);}
 function renderCampAttachments(id){const c=S.camps.find(x=>x.id===id);if(!c)return;const el=$('camp-attachments-'+id);if(!el)return;const cnt=$('camp-att-count-'+id);if(!c.attachments||!c.attachments.length){el.innerHTML='<span style="font-size:10px;color:var(--text3);font-style:italic">Aucune pièce jointe</span>';if(cnt){cnt.textContent='';cnt.style.color='var(--text3)';}return;}if(cnt){cnt.textContent='— '+c.attachments.length+' fichier'+(c.attachments.length>1?'s':'');cnt.style.color='var(--grn)';}el.innerHTML=c.attachments.map((a,i)=>`<div style="display:flex;align-items:center;gap:5px;background:var(--bg4);border:1px solid var(--b2);border-radius:5px;padding:4px 8px;"><span style="font-size:10px;color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(a.name)}</span><span style="font-size:8px;color:var(--text3)">${Math.round((a.size||0)/1024)}KB</span><button onclick="removeCampAtt(${id},${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0 2px;font-size:13px;line-height:1;">×</button></div>`).join('');}
 function removeCampAtt(id,idx){const c=S.camps.find(x=>x.id===id);if(!c)return;c.attachments.splice(idx,1);saveCamps();renderCampAttachments(id);}
 function addCampAttachments(input,id){const c=S.camps.find(x=>x.id===id);if(!c)return;if(!c.attachments)c.attachments=[];const files=Array.from(input.files);let added=0;const promises=files.map(file=>new Promise(resolve=>{const reader=new FileReader();reader.onload=e=>{c.attachments.push({name:file.name,contentType:file.type,size:file.size,data:e.target.result.split(',')[1]});added++;resolve();};reader.readAsDataURL(file);}));Promise.all(promises).then(()=>{saveCamps();renderCampAttachments(id);toast(added+' PJ ajoutée(s)','success');});}
 function buildCampForm(c){
 const isSMS=c.type==='sms';
-const _ii=c.status==='done'||c.status==='completed'||c.status==='stopped'||c.status==='draft';
-const _ds=_ii?0:(c.sent||0),_do=_ii?0:(c.opened||0),_de=_ii?0:(c.errors||0),_dc=_ii?0:(c.clicks||0);
-const pct=_ii?0:(c.emailList.length?Math.round((_ds/c.emailList.length)*100):0);
+const pct=c.emailList.length?Math.round(((c.sent||0)/c.emailList.length)*100):0;
 const dayNames=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
 let h='';
 h+=`<div class="camp-hdr"><input type="text" class="camp-name-inp" id="cn-${c.id}" value="${esc(c.name)}" placeholder="Nom de la campagne" onchange="updC(${c.id},'name',this.value)"><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-ico" onclick="saveCamps();toast('✓ Sauvegardé','success')">💾</button>`;
@@ -758,7 +750,7 @@ if(c.status==='running')h+=`<button class="btp" onclick="pauseCamp(${c.id})">⏸
 else if(c.status==='paused'){h+=`<button class="btn-sm" style="background:rgba(0,255,136,.12);border-color:rgba(0,255,136,.35);color:var(--grn);padding:8px 14px;font-size:11px;font-weight:800" onclick="resumeCamp(${c.id})">▶ Reprendre</button><button class="btl ${isSMS?'pnk':''}" style="opacity:.5" onclick="launchCamp(${c.id})">↺</button>`;}
 else h+=`<button class="btl ${isSMS?'pnk':''}" onclick="launchCamp(${c.id})">▶ Lancer</button>`;
 h+=`<button class="btd" onclick="delCamp(${c.id},'${c.type}')">✕</button></div></div>`;
-h+=`<div class="prog-row"><div class="prc prc-c"><div class="prv" id="prc-contacts-${c.id}">${c.emailList.length.toLocaleString()}</div><div class="prl">CONTACTS</div></div><div class="prc prc-g"><div class="prv" id="prc-sent-${c.id}">${_ds.toLocaleString()}</div><div class="prl">ENVOYÉS</div></div><div class="prc prc-y"><div class="prv" id="prc-open-${c.id}">${isSMS?_de:_do}</div><div class="prl">${isSMS?'ERREURS':'OUVERTS'}</div>${!isSMS?`<div style="font-size:9px;color:rgba(255,34,68,.75);margin-top:2px;font-family:var(--mono)" id="prc-err-${c.id}">${_de>0?_de+' err':''}</div>`:''}</div><div class="prc prc-o" style="position:relative"><div class="prv" id="prc-pct-${c.id}">${pct}%</div><div class="prl">AVANCEMENT</div><button style="position:absolute;top:4px;right:4px;background:rgba(255,34,68,.09);border:1px solid rgba(255,34,68,.25);color:var(--red);border-radius:4px;font-size:9px;padding:2px 5px;cursor:pointer;line-height:1" onclick="event.stopPropagation();resetCampStats(${c.id})">🗑</button></div><div class="prc" style="border-right:none"><div class="prv" id="prc-clics-${c.id}" style="color:var(--cyan)">${_dc}</div><div class="prl" style="color:rgba(0,232,255,.4)">CLICS LIENS</div><div style="font-size:9px;color:var(--text3);margin-top:2px" id="prc-clics-sub-${c.id}">${Math.min(_dc,_ds||_dc)} email${_dc>1?'s':''} cliqué${_dc>1?'s':''}</div></div></div>`;
+h+=`<div class="prog-row"><div class="prc prc-c"><div class="prv" id="prc-contacts-${c.id}">${c.emailList.length.toLocaleString()}</div><div class="prl">CONTACTS</div></div><div class="prc prc-g"><div class="prv" id="prc-sent-${c.id}">${(c.sent||0).toLocaleString()}</div><div class="prl">ENVOYÉS</div></div><div class="prc prc-y"><div class="prv" id="prc-open-${c.id}">${isSMS?(c.errors||0):(c.opened||0)}</div><div class="prl">${isSMS?'ERREURS':'OUVERTS'}</div>${!isSMS?`<div style="font-size:9px;color:rgba(255,34,68,.75);margin-top:2px;font-family:var(--mono)" id="prc-err-${c.id}">${(c.errors||0)>0?(c.errors||0)+' err':''}</div>`:''}</div><div class="prc prc-o" style="position:relative"><div class="prv" id="prc-pct-${c.id}">${pct}%</div><div class="prl">AVANCEMENT</div><button style="position:absolute;top:4px;right:4px;background:rgba(255,34,68,.09);border:1px solid rgba(255,34,68,.25);color:var(--red);border-radius:4px;font-size:9px;padding:2px 5px;cursor:pointer;line-height:1" onclick="event.stopPropagation();resetCampStats(${c.id})">🗑</button></div><div class="prc" style="border-right:none"><div class="prv" id="prc-clics-${c.id}" style="color:var(--cyan)">${c.clicks||0}</div><div class="prl" style="color:rgba(0,232,255,.4)">CLICS LIENS</div><div style="font-size:9px;color:var(--text3);margin-top:2px" id="prc-clics-sub-${c.id}">${Math.min(c.clicks||0,c.sent||c.clicks||0)} email${(c.clicks||0)>1?'s':''} cliqué${(c.clicks||0)>1?'s':''}</div></div></div>`;
 h+=`<div class="pbar"><div class="pfill" id="pbar-${c.id}" style="width:${pct}%;${isSMS?'background:linear-gradient(90deg,var(--pnk),var(--pur));':''}"></div></div>`;
 h+=`<div class="ab sc-c open"><div class="ab-hd" onclick="togAB(this)"><div class="ab-ttl"><span class="ab-n">1</span>${isSMS?'Numéros':'Destinataires'}</div><div class="ab-cv">▾</div></div><div class="ab-body">`;
 h+=`<div class="bulk-zone"><div class="bulk-hd" style="color:${isSMS?'var(--pnk)':'var(--purl)'};">📋 Copier-coller en masse<div style="display:flex;gap:5px;"><button class="ela ${isSMS?'pk':'g'}" onclick="addBulkToList(${c.id})">+ Ajouter tout</button>${!isSMS?`<label class="ela" style="cursor:pointer;">📊 Excel<input type="file" accept=".xlsx,.xls" style="display:none;" onchange="importExcelToEList(this.files[0],${c.id})"></label>`:''}</div></div><textarea class="bulk-ta" id="bulk-ta-${c.id}" placeholder="${isSMS?'+33600000001':'jean@email.com'}" oninput="updBulkCnt(${c.id})"></textarea><div style="display:flex;align-items:center;justify-content:space-between;margin-top:5px;"><span id="bulk-cnt-${c.id}" style="font-size:9px;color:var(--text3);"></span><button class="ela" onclick="clearBulk(${c.id})">✕ Vider</button></div></div>`;
@@ -824,72 +816,14 @@ function updC(id,field,val){const c=S.camps.find(x=>x.id===id);if(!c)return;c[fi
 function setDur(id,v,btn){const c=S.camps.find(x=>x.id===id);if(!c)return;btn.closest('.dur-row').querySelectorAll('.dc').forEach(b=>b.classList.remove('sel'));btn.classList.add('sel');if(v===-1){c.durationInfinite=true;c.durationH=-1;}else{c.durationInfinite=false;c.durationH=v;}saveCamps();const as=$('as-'+id);if(as)as.innerHTML=buildAS(c);}
 function setMC(id,field,val,btn,col){updC(id,field,val);btn.closest('.mcards').querySelectorAll('.mc').forEach(b=>{b.style.color='';b.style.borderColor='';b.style.boxShadow='';});btn.style.color=col;btn.style.borderColor=col;btn.style.boxShadow=`0 0 10px ${col}40`;}
 function togAB(hd){hd.closest('.ab').classList.toggle('open');}
-// ── FIX v39.9 : launchCamp — payload {campaign:{...}} + tpls ──
-async function launchCamp(id){
-  const c=S.camps.find(x=>x.id===id);if(!c)return;
-  if(!c.emailList.length){toast('Ajoutez des destinataires','warn');return;}
-  if(c.type!=='sms'&&!c.templateId&&!c.subject){if(!await pgiConfirm('Aucun template sélectionné. Lancer quand même ?','⚠️'))return;}
-  saveCampBodyAndAll(id);
-  c.status='running';c.sent=0;c.opened=0;c.errors=0;c.clicks=0;c.unsubscribed=0;
-  c.launchedAt=new Date().toISOString();c.pausePosition=0;
-  c.emailList.forEach(e=>e.status='pending');
-  saveCamps();renderCampList(c.type);openCamp(id,c.type);
-  const smtpCfg=S.smtpConfig&&Object.keys(S.smtpConfig).length?S.smtpConfig:null;
-  await syncW('/campaign/launch',{campaign:{
-    id,name:c.name,type:c.type,
-    emailList:c.emailList,
-    templateId:c.templateId,
-    subject:c.subject,
-    html:c.html||'',body:c.body||'',
-    smsText:c.smsText,mmsUrl:c.mmsUrl,
-    provider:c.campProvider||S.prov,
-    campFromEmail:c.campFromEmail||S.ce||S.email,
-    campFromName:c.campFromName||S.cn||'',
-    rateEffectivePerMin:c.rateEffectivePerMin||10,
-    dailyLimit:c.dailyLimit||9999,
-    durationH:c.durationH,durationInfinite:c.durationInfinite,
-    sendOrder:c.sendOrder,endOfList:c.endOfList,
-    schedEnabled:c.schedEnabled,days:c.days,daySchedules:c.daySchedules,
-    startDate:c.startDate,endDate:c.endDate,
-    smtpConfig:smtpCfg,
-    attachments:(c.attachments||[]).filter(a=>!a.data),
-    tpls:S.tpls.map(t=>({id:t.id,name:t.name,subject:t.subject||'',html:t.html||t.body||'',body:t.body||''})),
-  }});
-  toast('✅ Campagne «'+c.name+'» lancée !','success');
-}
+async function launchCamp(id){const c=S.camps.find(x=>x.id===id);if(!c)return;if(!c.emailList.length){toast('Ajoutez des destinataires','warn');return;}if(c.type!=='sms'&&!c.templateId&&!c.subject){if(!await pgiConfirm('Aucun template sélectionné. Lancer quand même ?','⚠️'))return;}saveCampBodyAndAll(id);c.status='running';c.sent=0;c.opened=0;c.errors=0;c.clicks=0;c.unsubscribed=0;c.launchedAt=new Date().toISOString();c.pausePosition=0;c.emailList.forEach(e=>e.status='pending');saveCamps();renderCampList(c.type);openCamp(id,c.type);const smtpCfg=S.smtpConfig&&Object.keys(S.smtpConfig).length?S.smtpConfig:null;await syncW('/campaign/launch',{campaign:{id,name:c.name,type:c.type,emailList:c.emailList,templateId:c.templateId,subject:c.subject,html:c.html||'',body:c.body||'',smsText:c.smsText,mmsUrl:c.mmsUrl,provider:c.campProvider||S.prov,campFromEmail:c.campFromEmail||S.ce||S.email,campFromName:c.campFromName||S.cn||'',rateEffectivePerMin:c.rateEffectivePerMin||10,dailyLimit:c.dailyLimit||9999,durationH:c.durationH,durationInfinite:c.durationInfinite,sendOrder:c.sendOrder,endOfList:c.endOfList,schedEnabled:c.schedEnabled,days:c.days,daySchedules:c.daySchedules,startDate:c.startDate,endDate:c.endDate,smtpConfig:smtpCfg,attachments:(c.attachments||[]).filter(a=>!a.data),tpls:S.tpls.map(t=>({id:t.id,name:t.name,subject:t.subject||'',html:t.html||t.body||'',body:t.body||''})),}});toast('✅ Campagne «'+c.name+'» lancée !','success');}
 async function pauseCamp(id){const c=S.camps.find(x=>x.id===id);if(!c||c.status!=='running')return;c.status='paused';c.pausePosition=c.emailList.findIndex(e=>e.status==='pending');saveCamps();renderCampList(c.type);openCamp(id,c.type);await syncW('/campaign/pause',{id});toast('⏸ Campagne mise en pause','info');}
-// ── FIX v39.9 : resumeCamp — payload {campaign:{...}} + tpls ──
-async function resumeCamp(id){
-  const c=S.camps.find(x=>x.id===id);if(!c||c.status!=='paused')return;
-  c.status='running';saveCamps();renderCampList(c.type);openCamp(id,c.type);
-  const smtpCfg=S.smtpConfig&&Object.keys(S.smtpConfig).length?S.smtpConfig:null;
-  await syncW('/campaign/resume',{campaign:{
-    id,name:c.name,type:c.type,
-    emailList:c.emailList,
-    templateId:c.templateId,
-    subject:c.subject,
-    html:c.html||'',body:c.body||'',
-    smsText:c.smsText,
-    provider:c.campProvider||S.prov,
-    campFromEmail:c.campFromEmail||S.ce||S.email,
-    rateEffectivePerMin:c.rateEffectivePerMin||10,
-    dailyLimit:c.dailyLimit||9999,
-    durationH:c.durationH,durationInfinite:c.durationInfinite,
-    sendOrder:c.sendOrder,endOfList:c.endOfList,
-    schedEnabled:c.schedEnabled,days:c.days,daySchedules:c.daySchedules,
-    smtpConfig:smtpCfg,
-    attachments:(c.attachments||[]).filter(a=>!a.data),
-    tpls:S.tpls.map(t=>({id:t.id,name:t.name,subject:t.subject||'',html:t.html||t.body||'',body:t.body||''})),
-  }});
-  toast('▶ Campagne reprise','success');
-}
+async function resumeCamp(id){const c=S.camps.find(x=>x.id===id);if(!c||c.status!=='paused')return;c.status='running';saveCamps();renderCampList(c.type);openCamp(id,c.type);const smtpCfg=S.smtpConfig&&Object.keys(S.smtpConfig).length?S.smtpConfig:null;await syncW('/campaign/resume',{campaign:{id,name:c.name,type:c.type,emailList:c.emailList,templateId:c.templateId,subject:c.subject,html:c.html||'',body:c.body||'',smsText:c.smsText,provider:c.campProvider||S.prov,campFromEmail:c.campFromEmail||S.ce||S.email,rateEffectivePerMin:c.rateEffectivePerMin||10,dailyLimit:c.dailyLimit||9999,durationH:c.durationH,durationInfinite:c.durationInfinite,sendOrder:c.sendOrder,endOfList:c.endOfList,schedEnabled:c.schedEnabled,days:c.days,daySchedules:c.daySchedules,smtpConfig:smtpCfg,attachments:(c.attachments||[]).filter(a=>!a.data),tpls:S.tpls.map(t=>({id:t.id,name:t.name,subject:t.subject||'',html:t.html||t.body||'',body:t.body||''})),}});toast('▶ Campagne reprise','success');}
 async function delCamp(id,type){if(!await pgiConfirm('Supprimer cette campagne ?','🗑'))return;S.camps=S.camps.filter(x=>x.id!==id);saveCamps();renderCampList(type);const det=$(type==='sms'?'detail-sms':'detail-email');if(det)det.innerHTML='<div class="empty"><p>Aucune campagne sélectionnée</p></div>';if(type==='sms')S.activeSMS=null;else S.activeCamp=null;}
 function resetCampStats(id){const c=S.camps.find(x=>x.id===id);if(!c)return;c.sent=0;c.opened=0;c.errors=0;c.clicks=0;c.unsubscribed=0;c.dailySent=0;saveCamps();openCamp(id,c.type);toast('Stats réinitialisées','info');}
 function saveCampBodyAndAll(id){const c=S.camps.find(x=>x.id===id);if(!c)return;const subj=$('camp-subj2-'+id);if(subj)c.subject=subj.value;const smsEl=$('camp-sms-'+id);if(smsEl)c.smsText=smsEl.value;const mmsEl=$('mms-url-'+id);if(mmsEl)c.mmsUrl=mmsEl.value;const nameEl=$('cn-'+id);if(nameEl)c.name=nameEl.value;}
 function selectCampTpl(id,tplId){const c=S.camps.find(x=>x.id===id);if(!c)return;c.templateId=tplId?parseInt(tplId)||tplId:null;const tpl=tplId?S.tpls.find(t=>t.id==tplId):null;if(tpl&&tpl.subject&&!c.subject){c.subject=tpl.subject;const el=$('camp-subj2-'+id);if(el)el.value=tpl.subject;}const status=$('camp-tpl-status-'+id);if(status){if(tpl)status.innerHTML=`<div style="background:rgba(0,255,136,.05);border:1px solid rgba(0,255,136,.2);border-radius:7px;padding:10px;margin-bottom:10px;"><div style="color:var(--grn);font-weight:700;margin-bottom:3px;">✓ ${esc(tpl.name)}</div><div style="color:var(--text2);font-size:10px;">Objet : ${esc(tpl.subject||'(aucun)')}</div></div>`;else status.innerHTML=`<div style="background:rgba(255,230,0,.05);border:1px solid rgba(255,230,0,.2);border-radius:7px;padding:10px;margin-bottom:10px;font-size:11px;color:var(--yel);">⚠️ Aucun template sélectionné.</div>`;}const prevBtn=$('camp-prev-btn-'+id);if(prevBtn){prevBtn.disabled=!tpl;prevBtn.style.opacity=tpl?'1':'0.4';}saveCamps();}
 function prevCampTpl(id){const c=S.camps.find(x=>x.id===id);if(!c||!c.templateId)return;const tpl=S.tpls.find(t=>t.id==c.templateId);if(!tpl)return;const subj=$('prev-subj'),body=$('prev-body');if(subj)subj.textContent=applyVars(c.subject||tpl.subject||'(aucun objet)',EX);if(body)body.innerHTML=applyVars(tpl.html||tpl.body||'',EX);showModal('modal-prev');}
-function refreshQuotaBanner(){const banner=$('quota-global-banner');if(!banner)return;const running=S.camps.filter(c=>c.type!=='sms'&&c.status==='running');const paused=S.camps.filter(c=>c.type!=='sms'&&c.status==='paused');if(!running.length&&!paused.length){banner.classList.remove('show');return;}banner.classList.add('show');let lines=[];running.forEach(camp=>{const pending=camp.emailList.filter(e=>e.status==='pending').length;const total=camp.emailList.length;const sent=camp.sent||0;lines.push(`⚡ <strong style="color:var(--yel)">${esc(camp.name)}</strong> — <strong style="color:var(--grn)">${pending.toLocaleString()} emails restants</strong> sur ${total.toLocaleString()} au total`);});paused.forEach(camp=>{const pending=camp.emailList.filter(e=>e.status==='pending').length;const total=camp.emailList.length;lines.push(`⏸ <strong style="color:var(--text2)">${esc(camp.name)}</strong> — En pause · <strong style="color:var(--text2)">${pending.toLocaleString()} restants</strong> sur ${total.toLocaleString()}`);});banner.className='quota-banner show warn';banner.style.background='rgba(255,230,0,.07)';banner.style.border='1px solid rgba(255,230,0,.25)';banner.style.color='var(--yel)';banner.style.flexDirection='column';banner.style.gap='4px';banner.style.alignItems='flex-start';banner.innerHTML=lines.join('<br>');}
-// ── EMAIL LIST OPS ──
 function buildEListHTML(c){if(!c.emailList.length)return'<div style="padding:12px;text-align:center;color:var(--text3);font-size:10px">Aucune adresse — ajoutez ci-dessous</div>';const MAX=200;const shown=c.emailList.slice(0,MAX);let html=shown.map((e,i)=>`<div class="eli"><span class="eli-n">${i+1}</span><span class="eli-e">${e.email}</span><span class="eli-st ${e.status||'pending'}">${e.status==='sent'?'✓ ENV':e.status==='opened'?'👁 LU':e.status==='error'?'✕ ERR':'⏳'}</span><button class="eli-del" onclick="removeEmail(${c.id},${i})">×</button></div>`).join('');if(c.emailList.length>MAX)html+=`<div style="padding:8px;text-align:center;font-size:10px;color:var(--text3)">... et ${(c.emailList.length-MAX).toLocaleString()} de plus</div>`;return html;}
 function refreshEList(c){const b=$('elsc-'+c.id),ct=$('elcnt-'+c.id);if(b)b.innerHTML=buildEListHTML(c);if(ct)ct.textContent=c.emailList.length>0?c.emailList.length.toLocaleString()+' adresse(s)':'Aucune adresse';const as=$('as-'+c.id);if(as)as.innerHTML=buildAS(c);}
 function addBulkToList(id){const c=S.camps.find(x=>x.id===id);if(!c)return;const ta=$('bulk-ta-'+id);if(!ta||!ta.value.trim()){toast('Zone de collage vide','warn');return;}const isSMS=c.type==='sms';const items=ta.value.split(/[\n,;\t]+/).map(x=>x.trim()).filter(x=>x.length>2);const existingSet=new Set(c.emailList.map(x=>x.email));const toAdd=[];let dupes=0,invalid=0;items.forEach(item=>{if(isSMS){const clean=cleanPhone(item);if(!clean.match(/^(\+|00)?[0-9]{8,15}$/)){invalid++;return;}if(existingSet.has(clean)){dupes++;return;}existingSet.add(clean);toAdd.push({email:clean,status:'pending'});}else{const email=item.replace(/^[^a-zA-Z0-9.]+|[^a-zA-Z0-9]+$/g,'');if(!isEmail(email)){invalid++;return;}if(existingSet.has(email)){dupes++;return;}existingSet.add(email);toAdd.push({email:email,status:'pending'});}});ta.value='';const cntEl=$('bulk-cnt-'+id);if(cntEl)cntEl.textContent='';if(!toAdd.length){toast('Aucun élément valide'+(dupes?' · '+dupes+' doublons':''),'warn');return;}toast('Import de '+toAdd.length.toLocaleString()+'...','info');const CHUNK=5000;let idx=0;function insertChunk(){var end=Math.min(idx+CHUNK,toAdd.length);for(var i=idx;i<end;i++)c.emailList.push(toAdd[i]);idx=end;if(idx<toAdd.length)setTimeout(insertChunk,0);else{saveCamps();refreshEList(c);toast('✓ '+toAdd.length.toLocaleString()+' ajouté(s)'+(dupes?' · '+dupes+' doublons':'')+(invalid?' · '+invalid+' invalides':''),'success');}}insertChunk();}
@@ -903,100 +837,6 @@ function importFromContactList(id){const c=S.camps.find(x=>x.id===id);if(!c)retu
 function importListToEList(id,listId){if(!listId)return;const camp=S.camps.find(x=>x.id===id);if(!camp)return;const existingSet=new Set(camp.emailList.map(e=>e.email));const toAdd=[];const contacts=listId==='all'?S.contacts:S.contacts.filter(x=>x.listIds?.includes(listId));contacts.forEach(x=>{if(x.email&&!existingSet.has(x.email)){existingSet.add(x.email);toAdd.push({email:x.email,status:'pending'});}});const list=S.lists.find(l=>l.id===listId);if(list?.emails?.length)list.emails.forEach(email=>{if(email&&!existingSet.has(email)){existingSet.add(email);toAdd.push({email,status:'pending'});}});if(!toAdd.length){toast('Aucun email à importer','warn');return;}toast('Import de '+toAdd.length.toLocaleString()+'...','info');const CHUNK=5000;let idx=0;function doChunk(){var end=Math.min(idx+CHUNK,toAdd.length);for(var i=idx;i<end;i++)camp.emailList.push(toAdd[i]);idx=end;if(idx<toAdd.length){const cntEl=$('elcnt-'+camp.id);if(cntEl)cntEl.textContent=camp.emailList.length.toLocaleString()+' adresse(s)';setTimeout(doChunk,0);}else{saveCamps();refreshEList(camp);toast('✓ '+toAdd.length.toLocaleString()+' importés','success');}}doChunk();}
 function importEFile(file,id){if(!file)return;const r=new FileReader();r.onload=e=>{const c=S.camps.find(x=>x.id===id);if(!c)return;let added=0;e.target.result.split(/[\n,;]+/).forEach(line=>{const item=line.trim();if(item.length>2&&!c.emailList.find(x=>x.email===item)){c.emailList.push({email:item,status:'pending'});added++;}});saveCamps();refreshEList(c);toast(added+' importés','success');};r.readAsText(file);}
 function importExcelToEList(file,campId){if(!file||!window.XLSX){toast('SheetJS non chargé','warn');return;}const c=S.camps.find(x=>x.id===campId);if(!c)return;const reader=new FileReader();reader.onload=e=>{try{const wb=XLSX.read(e.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});let added=0;rows.flat().forEach(cell=>{const val=String(cell).trim();if(isEmail(val)&&!c.emailList.find(x=>x.email===val)){c.emailList.push({email:val,status:'pending'});added++;}});saveCamps();refreshEList(c);toast(added+' emails depuis Excel','success');}catch(err){toast('Erreur Excel : '+err.message,'error');}};reader.readAsBinaryString(file);}
-// ── WORKER SYNC MERGE ──
-function mergeWorkerCampaignTracking(wc,local){let changed=false;
-// Ouvertures
-if(wc.opens&&Array.isArray(wc.opens)){if(!local.trackingOpens)local.trackingOpens=[];wc.opens.forEach(o=>{if(!local.trackingOpens.find(x=>x.email===o.email)){local.trackingOpens.push(o);changed=true;}});}
-// Clics (le worker peut retourner clicks objet, clickedList ou clicksList)
-if(wc.clicks&&typeof wc.clicks==='object'&&!Array.isArray(wc.clicks)){local.trackingClicks=wc.clicks;changed=true;}
-if(wc.clickedList&&Array.isArray(wc.clickedList)){local.clickedList=wc.clickedList;changed=true;}
-if(wc.clicksList&&Array.isArray(wc.clicksList)){
-  if(!local.trackingClicksList)local.trackingClicksList=[];
-  wc.clicksList.forEach(cl=>{const ex=local.trackingClicksList.find(x=>x.email===cl.email&&x.url===cl.url&&x.at===cl.at);if(!ex){local.trackingClicksList.push(cl);changed=true;}});
-}
-return changed;}
-
-/* PGI v40.5 — helpers tracking safe: aucune modification de l'automatisation */
-function pgiSafeArr(v){return Array.isArray(v)?v:[];}
-function getOpenListSafe(x){
-  const out=[];
-  pgiSafeArr(x&&x.opens).forEach(o=>{if(o)out.push(typeof o==='string'?{at:o}:o);});
-  if(x&&x.openedAt&&!out.find(o=>o.at===x.openedAt))out.push({at:x.openedAt,first:true});
-  if(x&&x.lastOpenedAt&&!out.find(o=>o.at===x.lastOpenedAt))out.push({at:x.lastOpenedAt,last:true});
-  return out.filter(o=>o&&o.at).sort((a,b)=>new Date(a.at)-new Date(b.at));
-}
-function getOpenCountSafe(x){
-  const list=getOpenListSafe(x);
-  const n=Number(x&&x.openCount)||0;
-  return Math.max(n,list.length,(x&&x.opened)?1:0);
-}
-function getFirstOpenSafe(x){
-  const list=getOpenListSafe(x);
-  return (x&&x.firstOpenedAt)|| (list[0]&&list[0].at) || (x&&x.openedAt) || null;
-}
-function getLastOpenSafe(x){
-  const list=getOpenListSafe(x);
-  return (x&&x.lastOpenedAt)|| (list[list.length-1]&&list[list.length-1].at) || (x&&x.openedAt) || null;
-}
-function getClickListSafe(x){
-  const out=[];
-  pgiSafeArr(x&&x.clicks).forEach(c=>{if(c)out.push(c);});
-  if(x&&x.lastClickedUrl&&!out.find(c=>c.url===x.lastClickedUrl&&c.at===x.lastClickedAt)){
-    out.push({url:x.lastClickedUrl,label:x.lastClickedLabel||x.lastClickedUrl,at:x.lastClickedAt||x.date||null});
-  }
-  return out.filter(c=>c&&(c.url||c.label)).sort((a,b)=>new Date(a.at||0)-new Date(b.at||0));
-}
-function getClickCountSafe(x){
-  const list=getClickListSafe(x);
-  const n=Number(x&&x.clickCount)||0;
-  return Math.max(n,list.length);
-}
-function pgiClickLabel(c){
-  if(!c)return '—';
-  if(c.label)return c.label;
-  if(c.url){try{const u=new URL(c.url);return (u.hostname+u.pathname).replace(/\/$/,'')||c.url;}catch(e){return c.url;}}
-  return '—';
-}
-function openDetailCellSafe(x){
-  const n=getOpenCountSafe(x);
-  if(!n)return '<span class="tg tg-unrd">⊘ NON LU</span>';
-  const first=getFirstOpenSafe(x);
-  const last=getLastOpenSafe(x);
-  const title='Ouvertures : '+n+(first?'\nPremière : '+fDt(first):'')+(last?'\nDernière : '+fDt(last):'');
-  return `<div title="${esc(title)}" style="line-height:1.45">
-    <span class="tg tg-open">👁 LU x${n}</span>
-    <div style="font-size:8px;color:var(--text3);font-family:var(--mono);margin-top:2px">1ère ${fDt(first)}<br>Dern. ${fDt(last)}</div>
-  </div>`;
-}
-function clickDetailCellSafe(x){
-  const clicks=getClickListSafe(x);
-  if(!clicks.length)return '<span style="color:var(--text3);font-size:10px">—</span>';
-  const latest=clicks[clicks.length-1];
-  const label=pgiClickLabel(latest);
-  const url=latest.url||'';
-  const byUrl={};
-  clicks.forEach(c=>{const k=c.url||c.label||'lien';byUrl[k]=(byUrl[k]||0)+1;});
-  const details=Object.entries(byUrl).map(([u,n])=>`${n} clic${n>1?'s':''} · ${u}`).join('\n');
-  return `<div title="${esc(details)}" style="min-width:210px;max-width:360px;line-height:1.5">
-    <div><span class="tg tg-open" style="background:rgba(0,232,255,.10);color:var(--cyan);border:1px solid rgba(0,232,255,.25)">🔗 x${clicks.length}</span>
-    <span style="font-size:8px;color:var(--text3);font-family:var(--mono);margin-left:4px">${fDt(latest.at)}</span></div>
-    <div style="font-size:10px;color:var(--cyan);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(label)}</div>
-    <div style="font-size:8px;color:var(--text3);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(url)}</div>
-  </div>`;
-}
-function pgiCopyTrackingFields(target, source){
-  if(!target||!source)return target;
-  ['sentAt','openedAt','firstOpenedAt','lastOpenedAt','openCount','unsubscribed','unsubAt','lastClickedAt','lastClickedUrl','lastClickedLabel','clickCount','errorMsg'].forEach(k=>{
-    if(source[k]!==undefined&&source[k]!==null&&source[k]!=='')target[k]=source[k];
-  });
-  if(Array.isArray(source.opens))target.opens=source.opens;
-  if(Array.isArray(source.clicks))target.clicks=source.clicks;
-  if(source.status)target.status=source.status;
-  if(getOpenCountSafe(target)>0)target.opened=true;
-  target.clickCount=getClickCountSafe(target);
-  return target;
-}
-
 // ── DASHBOARD ──
 var _df={mode:'today',from:null,to:null};
 var _efMode='all',_sfMode='all';
@@ -1011,194 +851,43 @@ function setSMSFilter(f,btn){_sfMode=f;document.querySelectorAll('[id^="sf-"]').
 function sortAnalytics(f){if(_analyticsSort.f===f)_analyticsSort.asc=!_analyticsSort.asc;else{_analyticsSort.f=f;_analyticsSort.asc=false;}_analyticsPage=0;renderAnalytics();}
 function loadMoreAnalytics(){_analyticsPage++;renderAnalytics(true);}
 function loadMoreSMS(){_smsPage++;renderSMSAnalytics(true);}
-function getAllEmailLogs(){
-  const analyticsLogs=(S.analytics||[])
-    .filter(x=>x.type==='email'&&x.status!=='pending_send')
-    .map(x=>pgiCopyTrackingFields({...x},x));
-  const merged=[...analyticsLogs];
-  const keyIndex={};
-  merged.forEach((a,i)=>{keyIndex[(a.email||'')+'|'+(a.campaign||'')]=i;});
-
-  (S.camps||[]).forEach(c=>{
-    if(c.type==='sms'||!c.emailList)return;
-    c.emailList.forEach(e=>{
-      if(e.status!=='sent'&&e.status!=='opened'&&e.status!=='error'&&e.status!=='unsubscribed')return;
-      const key=(e.email||'')+'|'+(c.name||'');
-      if(key in keyIndex){
-        const existing=merged[keyIndex[key]];
-        pgiCopyTrackingFields(existing,e);
-        if(e.status==='error')existing.status='error';
-        else if(existing.status!=='error')existing.status='sent';
-        if(!!e.unsubscribed)existing.unsubscribed=true;
-      }else{
-        const row=pgiCopyTrackingFields({
-          type:'email',
-          email:e.email,
-          campaign:c.name,
-          campaignId:c.id||null,
-          date:e.sentAt||c.launchedAt||c.created||new Date().toISOString(),
-          status:e.status==='error'?'error':'sent',
-          opened:e.status==='opened'||!!e.opened||getOpenCountSafe(e)>0,
-          openedAt:e.openedAt||null,
-          unsubscribed:!!e.unsubscribed,
-          clicks:e.clicks||[]
-        },e);
-        keyIndex[key]=merged.length;
-        merged.push(row);
-      }
-    });
-
-    (c.recentlyChanged||[]).forEach(rc=>{
-      if(rc.status!=='sent'&&rc.status!=='opened')return;
-      const key=(rc.email||'')+'|'+(c.name||'');
-      if(key in keyIndex){
-        pgiCopyTrackingFields(merged[keyIndex[key]],rc);
-      }else{
-        const row=pgiCopyTrackingFields({
-          type:'email',
-          email:rc.email,
-          campaign:c.name,
-          campaignId:c.id||null,
-          date:rc.sentAt||rc.openedAt||new Date().toISOString(),
-          status:'sent',
-          opened:rc.status==='opened'||!!rc.opened||getOpenCountSafe(rc)>0,
-          openedAt:rc.openedAt||null,
-          unsubscribed:false,
-          clicks:[]
-        },rc);
-        keyIndex[key]=merged.length;
-        merged.push(row);
-      }
-    });
-  });
-
-  return merged.sort((a,b)=>new Date(b.date)-new Date(a.date));
-}
+// helpers tracking
+function pgiSafeArr(v){return Array.isArray(v)?v:[];}
+function getOpenListSafe(x){const out=[];pgiSafeArr(x&&x.opens).forEach(o=>{if(o)out.push(typeof o==='string'?{at:o}:o);});if(x&&x.openedAt&&!out.find(o=>o.at===x.openedAt))out.push({at:x.openedAt,first:true});if(x&&x.lastOpenedAt&&!out.find(o=>o.at===x.lastOpenedAt))out.push({at:x.lastOpenedAt,last:true});return out.filter(o=>o&&o.at).sort((a,b)=>new Date(a.at)-new Date(b.at));}
+function getOpenCountSafe(x){const list=getOpenListSafe(x);const n=Number(x&&x.openCount)||0;return Math.max(n,list.length,(x&&x.opened)?1:0);}
+function getFirstOpenSafe(x){const list=getOpenListSafe(x);return (x&&x.firstOpenedAt)||(list[0]&&list[0].at)||(x&&x.openedAt)||null;}
+function getLastOpenSafe(x){const list=getOpenListSafe(x);return (x&&x.lastOpenedAt)||(list[list.length-1]&&list[list.length-1].at)||(x&&x.openedAt)||null;}
+function getClickListSafe(x){const out=[];pgiSafeArr(x&&x.clicks).forEach(c=>{if(c)out.push(c);});if(x&&x.lastClickedUrl&&!out.find(c=>c.url===x.lastClickedUrl&&c.at===x.lastClickedAt)){out.push({url:x.lastClickedUrl,label:x.lastClickedLabel||x.lastClickedUrl,at:x.lastClickedAt||x.date||null});}return out.filter(c=>c&&(c.url||c.label)).sort((a,b)=>new Date(a.at||0)-new Date(b.at||0));}
+function getClickCountSafe(x){const list=getClickListSafe(x);const n=Number(x&&x.clickCount)||0;return Math.max(n,list.length);}
+function pgiClickLabel(c){if(!c)return'—';if(c.label)return c.label;if(c.url){try{const u=new URL(c.url);return(u.hostname+u.pathname).replace(/\/$/,'')||c.url;}catch(e){return c.url;}}return'—';}
+function openDetailCellSafe(x){const n=getOpenCountSafe(x);if(!n)return'<span class="tg tg-unrd">⊘ NON LU</span>';const first=getFirstOpenSafe(x);const last=getLastOpenSafe(x);const title='Ouvertures : '+n+(first?'\nPremière : '+fDt(first):'')+(last?'\nDernière : '+fDt(last):'');return`<div title="${esc(title)}" style="line-height:1.45"><span class="tg tg-open">👁 LU x${n}</span><div style="font-size:8px;color:var(--text3);font-family:var(--mono);margin-top:2px">1ère ${fDt(first)}<br>Dern. ${fDt(last)}</div></div>`;}
+function clickDetailCellSafe(x){const clicks=getClickListSafe(x);if(!clicks.length)return'<span style="color:var(--text3);font-size:10px">—</span>';const latest=clicks[clicks.length-1];const label=pgiClickLabel(latest);const url=latest.url||'';const byUrl={};clicks.forEach(c=>{const k=c.url||c.label||'lien';byUrl[k]=(byUrl[k]||0)+1;});const details=Object.entries(byUrl).map(([u,n])=>`${n} clic${n>1?'s':''} · ${u}`).join('\n');return`<div title="${esc(details)}" style="min-width:210px;max-width:360px;line-height:1.5"><div><span class="tg tg-open" style="background:rgba(0,232,255,.10);color:var(--cyan);border:1px solid rgba(0,232,255,.25)">🔗 x${clicks.length}</span><span style="font-size:8px;color:var(--text3);font-family:var(--mono);margin-left:4px">${fDt(latest.at)}</span></div><div style="font-size:10px;color:var(--cyan);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(label)}</div><div style="font-size:8px;color:var(--text3);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(url)}</div></div>`;}
 function renderDashboard(){if(S.currentView!=='dashboard')return;renderActiveCamps();renderAllCamps();renderAnalytics();renderSMSAnalytics();renderPeriodStats();renderUnsubByCamp();const totalContactsAll=S.contacts.length+S.lists.filter(l=>!l.system&&l.emails?.length).reduce((s,l)=>s+(l.emails?.length||0),0);const cq=$('cq-total');if(cq)cq.textContent=totalContactsAll.toLocaleString();const lq=$('lists-quick');if(lq){lq.innerHTML=S.lists.filter(l=>!l.system).map(l=>`<div style="padding:5px 10px;border-radius:5px;border:1px solid var(--b2);background:var(--bg3);font-size:10px;font-weight:700;color:${l.color||'var(--purl)'};">${l.name} · ${S.contacts.filter(x=>x.listIds?.includes(l.id)).length}</div>`).join('');}renderQuotaBox();}
-function renderActiveCamps(){const tbody=$('active-camps-body');if(!tbody)return;const badge=$('badge-actives');const active=S.camps.filter(c=>c.status==='running');if(badge)badge.textContent=active.length;if(!active.length){tbody.innerHTML='<tr><td colspan="10"><div class="empty" style="padding:20px"><p>Aucune campagne en cours</p></div></td></tr>';return;}const todayStr=new Date().toDateString();tbody.innerHTML=active.map(c=>{const total=c.emailList.length||1;const pct=Math.round(((c.sent||0)/total)*100);const sentToday=(c.dailyDate===todayStr)?(c.dailySent||0):0;const rpm=c.rateEffectivePerMin||10;let cadence;if(rpm>=60)cadence=Math.round(rpm/60)+'/h';else if(rpm>=1)cadence=Math.round(rpm)+'/min';else cadence=Math.round(60/rpm)+'s/envoi';const fp=c.emailList.findIndex(e=>e.status==='pending');const pos=fp===-1?c.emailList.length:fp+1;return`<tr><td style="font-weight:700;color:var(--text)">${esc(c.name)}</td><td><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:${c.type==='sms'?'rgba(255,45,120,.1)':'rgba(0,232,255,.1)'};color:${c.type==='sms'?'var(--pnk)':'var(--cyan)'};">${c.type.toUpperCase()}</span></td><td class="mono">${(c.sent||0).toLocaleString()}</td><td class="mono">${pos.toLocaleString()}/${total.toLocaleString()}</td><td><div style="display:flex;align-items:center;gap:6px;"><div style="width:80px;height:3px;background:var(--bg4);border-radius:2px;"><div style="height:100%;background:var(--grn);border-radius:2px;width:${pct}%;"></div></div><span style="font-size:9px;font-family:var(--mono);color:var(--text3)">${pct}%</span></div></td><td style="font-family:var(--mono);font-size:10px;color:var(--yel)">${cadence}</td><td class="mono">${(c.opened||0).toLocaleString()}</td><td class="mono" style="color:${(c.errors||0)>0?'var(--red)':'var(--text3)'}">${(c.errors||0)}</td><td style="font-size:10px;color:var(--text3)">${c.durationInfinite?'∞':c.durationH+'h'}</td><td><button class="btn-sm yel" onclick="pauseCamp(${c.id})">⏸</button></td></tr>`;}).join('');const lbl=$('lbl-next');if(lbl){const minRpm=Math.min(...active.map(c=>c.rateEffectivePerMin||10));const nextMin=60/minRpm;lbl.textContent=nextMin<2?'~'+Math.round(nextMin*60)+'s/email':nextMin<60?'~'+Math.round(nextMin)+'min/email':'~'+Math.round(nextMin/60)+'h/email';}}
-function renderAllCamps(){
-  const tbody=$('all-camps-body');if(!tbody)return;
-  if(!S.camps.length){tbody.innerHTML='<tr><td colspan="10"><div class="empty" style="padding:16px"><p>Aucune campagne</p></div></td></tr>';return;}
-  // Construire un index des logs pour avoir les vraies stats
-  const allLogs=getAllEmailLogs();
-  const logsByCamp={};
-  allLogs.forEach(l=>{if(!logsByCamp[l.campaign])logsByCamp[l.campaign]={sent:0,opened:0,clicks:0,unsub:0,openers:[],clickers:[]};const g=logsByCamp[l.campaign];g.sent++;if(l.opened){g.opened++;g.openers.push({email:l.email,at:l.openedAt});}if((l.clicks||[]).length){g.clicks+=(l.clicks||[]).length;l.clicks.forEach(cl=>g.clickers.push({email:l.email,url:cl.url,at:cl.at}));}if(l.unsubscribed)g.unsub++;});
-
-  tbody.innerHTML=S.camps.map(c=>{
-    const lg=logsByCamp[c.name]||{};
-    // Prendre le max entre c.sent et les logs (source la plus fiable)
-    const realSent=Math.max(c.sent||0, lg.sent||0);
-    const realOpened=Math.max(c.opened||0, lg.opened||0);
-    const realClicks=Math.max(c.clicks||0, lg.clicks||0);
-    const openRate=realSent>0?Math.round(realOpened/realSent*100):0;
-    const total=c.emailList.length;
-    const pending=c.emailList.filter(e=>e.status==='pending').length;
-
-    // Tooltip détail openers
-    const openersTip=(lg.openers||[]).slice(0,5).map(o=>`${o.email} @ ${o.at?new Date(o.at).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'?'}`).join('\n');
-    const clickersTip=(lg.clickers||[]).slice(0,5).map(cl=>`${cl.email} @ ${cl.at?new Date(cl.at).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'?'}`).join('\n');
-
-    return`<tr onclick="showView('${c.type}');openCamp(${c.id},'${c.type}')" style="cursor:pointer;">
-<td style="font-weight:700;color:var(--text)">${esc(c.name)}</td>
-<td><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:${c.type==='sms'?'rgba(255,45,120,.1)':'rgba(0,232,255,.1)'};color:${c.type==='sms'?'var(--pnk)':'var(--cyan)'};">${c.type.toUpperCase()}</span></td>
-<td><span class="stbadge ${stCls(c.status)}">${stLbl(c.status)}</span></td>
-<td class="mono" title="${pending} en attente">${total.toLocaleString()}</td>
-<td class="mono" style="color:var(--grn)">${realSent.toLocaleString()}</td>
-<td class="mono" title="${openersTip||'Aucune ouverture'}" style="color:${realOpened>0?'var(--purl)':'var(--text3)'};cursor:${realOpened>0?'help':'default'}">${realOpened.toLocaleString()}${realOpened>0?` <span style="font-size:8px">ℹ</span>`:''}</td>
-<td style="font-family:var(--mono);font-size:10px;color:${openRate>=20?'var(--grn)':openRate>=10?'var(--yel)':'var(--text3)'}">${openRate}%</td>
-<td class="mono" title="${clickersTip||'Aucun clic'}" style="color:${realClicks>0?'var(--cyan)':'var(--text3)'};cursor:${realClicks>0?'help':'default'}">${realClicks.toLocaleString()}${realClicks>0?` <span style="font-size:8px">ℹ</span>`:''}</td>
-<td class="mono" style="color:${(c.errors||0)>0?'var(--red)':'var(--text3)'}">${(c.errors||0)}</td>
-<td style="font-size:10px;color:var(--text3)">${fDt(c.created)}</td>
-</tr>`;
-  }).join('');
-}
-function renderPeriodStats(){const logs=getAllEmailLogs().filter(x=>inRange(x.date));const smsLogs=(S.analytics||[]).filter(x=>x.type==='sms'&&inRange(x.date));const sent=logs.length,opened=logs.filter(x=>x.opened).length;const clicks=logs.reduce((s,x)=>s+((x.clicks||[]).length),0);const smsSent=smsLogs.length,unsub=logs.filter(x=>x.unsubscribed).length;const ps=$('ps-sent');if(ps)ps.textContent=sent.toLocaleString();const po=$('ps-open');if(po)po.textContent=sent>0?Math.round(opened/sent*100)+'%':'0%';const pc=$('ps-clicks');if(pc)pc.textContent=clicks.toLocaleString();const pp=$('ps-sms');if(pp)pp.textContent=smsSent.toLocaleString();const pu=$('ps-unsub');if(pu)pu.textContent=unsub.toLocaleString();const eb=$('email-stats-bar');if(eb){const noRead=sent-opened;eb.innerHTML=`<span class="stat-mini sent">✓ ${sent} envoyés</span><span class="stat-mini open">👁 ${opened} ouverts</span><span class="stat-mini noread">⊘ ${noRead} non lus</span>${clicks?`<span class="stat-mini open">🔗 ${clicks} clics</span>`:''}`; }}
 function renderAnalytics(append=false){
   const tbody=$('analytics-body');if(!tbody)return;
   let logs=getAllEmailLogs();
   if(_df.mode!=='all')logs=logs.filter(x=>inRange(x.date));
-  if(_efMode==='sent')logs=logs.filter(x=>!x.opened&&!x.unsubscribed&&x.status!=='error');
+  if(_efMode==='sent')logs=logs.filter(x=>!x.opened&&getOpenCountSafe(x)===0&&!x.unsubscribed&&x.status!=='error');
   else if(_efMode==='opened')logs=logs.filter(x=>x.opened||getOpenCountSafe(x)>0);
   else if(_efMode==='noread')logs=logs.filter(x=>!x.opened&&getOpenCountSafe(x)===0&&!x.unsubscribed&&x.status!=='error');
   else if(_efMode==='error')logs=logs.filter(x=>x.status==='error');
   else if(_efMode==='unsub')logs=logs.filter(x=>x.unsubscribed);
   logs.sort((a,b)=>{const va=_analyticsSort.f==='email'?a.email:a.date;const vb=_analyticsSort.f==='email'?b.email:b.date;return _analyticsSort.asc?(va<vb?-1:1):(va>vb?-1:1);});
   const cnt=$('email-count-lbl');if(cnt)cnt.textContent=logs.length.toLocaleString()+' email(s)';
-  const start=0,end=(_analyticsPage+1)*PAGE_SZ;
-  const slice=logs.slice(start,end);
+  const end=(_analyticsPage+1)*PAGE_SZ;
+  const slice=logs.slice(0,end);
   const more=$('analytics-more');if(more)more.style.display=logs.length>end?'block':'none';
   if(!slice.length){tbody.innerHTML='<tr><td colspan="8"><div class="empty" style="padding:16px"><p>Aucun envoi sur cette période</p></div></td></tr>';return;}
   const rows=slice.map(x=>{
     const clicks=getClickListSafe(x);
     const statusTag=x.unsubscribed?'<span class="tg tg-unsb">🚫 STOP</span>':(x.status==='error'?'<span class="tg tg-err">✕ ERR</span>':'<span class="tg tg-sent">✓ ENV</span>');
-    return `<tr>
-      <td class="em">${esc(x.email||'?')}</td>
-      <td style="font-size:10px;color:var(--text2)">${esc(x.campaign||'—')}</td>
-      <td style="font-family:var(--mono);font-size:9px;color:var(--text3)">${fDt(x.date)}</td>
-      <td>${statusTag}</td>
-      <td>${openDetailCellSafe(x)}</td>
-      <td style="font-family:var(--mono);font-size:10px;color:${clicks.length?'var(--cyan)':'var(--text3)'}">${clicks.length}</td>
-      <td>${clickDetailCellSafe(x)}</td>
-      <td>${x.unsubscribed?'<span class="tg tg-unsb">🚫</span>':''}</td>
-    </tr>`;
+    return`<tr><td class="em">${esc(x.email||'?')}</td><td style="font-size:10px;color:var(--text2)">${esc(x.campaign||'—')}</td><td style="font-family:var(--mono);font-size:9px;color:var(--text3)">${fDt(x.date)}</td><td>${statusTag}</td><td>${openDetailCellSafe(x)}</td><td style="font-family:var(--mono);font-size:10px;color:${clicks.length?'var(--cyan)':'var(--text3)'}">${clicks.length}</td><td>${clickDetailCellSafe(x)}</td><td>${x.unsubscribed?'<span class="tg tg-unsb">🚫</span>':''}</td></tr>`;
   }).join('');
   if(append)tbody.innerHTML+=rows;else tbody.innerHTML=rows;
 }
 function renderSMSAnalytics(append=false){const tbody=$('sms-analytics-body');if(!tbody)return;let logs=(S.analytics||[]).filter(x=>x.type==='sms');if(_df.mode!=='all')logs=logs.filter(x=>inRange(x.date));if(_sfMode==='sent')logs=logs.filter(x=>!x.read&&!x.stop&&x.status!=='error');else if(_sfMode==='read')logs=logs.filter(x=>x.read);else if(_sfMode==='noread')logs=logs.filter(x=>!x.read&&!x.stop);else if(_sfMode==='stop')logs=logs.filter(x=>x.stop);else if(_sfMode==='error')logs=logs.filter(x=>x.status==='error');const cnt=$('sms-count-lbl');if(cnt)cnt.textContent=logs.length.toLocaleString()+' SMS';const end=(_smsPage+1)*PAGE_SZ,slice=logs.slice(0,end);const more=$('sms-analytics-more');if(more)more.style.display=logs.length>end?'block':'none';if(!slice.length){tbody.innerHTML='<tr><td colspan="6"><div class="empty" style="padding:16px"><p>Aucun SMS</p></div></td></tr>';return;}const rows=slice.map(x=>`<tr><td class="mono">${esc(x.phone||x.email||'?')}</td><td style="font-size:10px;color:var(--text2)">${esc(x.campaign||'—')}</td><td style="font-family:var(--mono);font-size:9px;color:var(--text3)">${fDt(x.date)}</td><td><span class="stat-mini sms-ok">✓ Envoyé</span></td><td>${x.read?'<span class="stat-mini sms-read">👁 Lu</span>':''}</td><td>${x.stop?'<span class="stat-mini sms-stop">🚫 STOP</span>':''}</td></tr>`).join('');if(append)tbody.innerHTML+=rows;else tbody.innerHTML=rows;}
 function renderUnsubByCamp(){const el=$('unsub-per-camp-list'),badge=$('badge-unsub-total');if(!el)return;const bycamp={};(S.analytics||[]).forEach(a=>{if(a.unsubscribed&&a.campaign){if(!bycamp[a.campaign])bycamp[a.campaign]=[];bycamp[a.campaign].push(a.email);}});S.camps.forEach(c=>{(c.emailList||[]).forEach(e=>{if(e.unsubscribed){if(!bycamp[c.name])bycamp[c.name]=[];if(!bycamp[c.name].includes(e.email))bycamp[c.name].push(e.email);}});});const total=Object.values(bycamp).reduce((s,arr)=>s+arr.length,0);if(badge)badge.textContent=total;if(!total){el.innerHTML='<div class="empty" style="padding:20px"><p>Aucun désabonné</p></div>';return;}el.innerHTML=Object.entries(bycamp).map(([camp,emails])=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--b1);cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='flex'?'none':'flex'"><span style="flex:1;font-weight:700;font-size:12px;">${esc(camp)}</span><span style="background:rgba(255,34,68,.1);color:var(--red);font-size:9px;padding:2px 7px;border-radius:10px;font-weight:700">${emails.length}</span></div><div style="display:none;flex-wrap:wrap;gap:5px;padding:6px 0;">${emails.map(e=>`<span style="font-size:9px;font-family:var(--mono);color:var(--purl);background:var(--pur-bg);border:1px solid var(--pur-b);padding:2px 7px;border-radius:4px;cursor:pointer;" title="Cliquer pour copier" onclick="navigator.clipboard.writeText('${esc(e)}').then(()=>toast('Email copié','success'))">${esc(e)}</span>`).join('')}</div>`).join('');}
 function renderQuotaBox(){const box=$('dash-quota-box');if(!box)return;const running=S.camps.filter(c=>c.status==='running'&&c.type!=='sms');if(!running.length){box.style.display='none';return;}box.style.display='block';const q=getGlobalQuota();const text=$('dash-quota-text'),bar=$('dash-quota-bar'),detail=$('dash-quota-detail');const pct=Math.min(100,q.percent);if(text)text.textContent=`${running.length} campagne(s) active(s) — ${q.committed.toLocaleString()} engagés / ${q.limit.toLocaleString()} max/j (${pct}%)`;if(bar){bar.style.width=pct+'%';bar.style.background=pct>=100?'var(--red)':pct>=80?'var(--yel)':'var(--grn)';}if(detail)detail.textContent=`Utilisés aujourd'hui : ${q.used.toLocaleString()} · Disponibles : ${q.available.toLocaleString()} · Provider : ${(QUOTAS[S.prov]||QUOTAS.custom).lbl}`;}
-function updateStats(){
-  // v40.6 : les cartes Dashboard utilisent la source la plus complète entre campagnes et historique.
-  // Cela évite d'afficher 142 quand l'historique consolidé contient déjà 526 envois.
-  const all=getAllEmailLogs();
-  const emailCamps=S.camps.filter(c=>c.type!=='sms');
-  const campsSent=emailCamps.reduce((s,c)=>s+(Number(c.sent)||0),0);
-  const campsOpened=emailCamps.reduce((s,c)=>s+(Number(c.opened)||0),0);
-  const campsErrors=emailCamps.reduce((s,c)=>s+(Number(c.errors)||0),0);
-  const campsUnsub=emailCamps.reduce((s,c)=>s+(Number(c.unsubscribed)||0),0);
-  const campsClics=emailCamps.reduce((s,c)=>s+(Number(c.clicks)||0),0);
-
-  const analyticsSent=all.filter(x=>x.status!=='error').length;
-  const analyticsOpenedUnique=all.filter(x=>x.opened||getOpenCountSafe(x)>0).length;
-  const analyticsOpenEvents=all.reduce((s,x)=>s+getOpenCountSafe(x),0);
-  const analyticsClicks=all.reduce((s,x)=>s+getClickCountSafe(x),0);
-  const analyticsUnsub=all.filter(x=>x.unsubscribed).length;
-
-  const totalSent=Math.max(campsSent,analyticsSent);
-  const totalOpened=Math.max(campsOpened,analyticsOpenedUnique);
-  const totalOpenEvents=Math.max(analyticsOpenEvents,totalOpened);
-  const totalUnsub=Math.max(campsUnsub,analyticsUnsub);
-  const totalClics=Math.max(campsClics,analyticsClicks);
-  const totalCliquésU=all.filter(x=>getClickCountSafe(x)>0).length;
-
-  const smsList=(S.analytics||[]).filter(x=>x.type==='sms');
-  const campsSMS=S.camps.filter(c=>c.type==='sms').reduce((s,c)=>s+(c.sent||0),0);
-  const totalSMS=Math.max(smsList.length,campsSMS);
-  const totalSMSRead=smsList.filter(x=>x.read).length;
-  const openRate=totalSent>0?Math.round(totalOpened/totalSent*100):0;
-  const noRead=Math.max(0,totalSent-totalOpened);
-
-  const kves=$('kv-es');if(kves)kves.textContent=totalSent.toLocaleString();
-  const todayStr=new Date().toDateString();
-  const sentToday=emailCamps.reduce((s,camp)=>s+((camp.dailyDate===todayStr)?(camp.dailySent||0):0),0);
-  const kses=$('ks-es');if(kses)kses.textContent=sentToday.toLocaleString()+" aujourd’hui";
-  const kvop=$('kv-op');if(kvop)kvop.textContent=openRate+'%';
-  const kvno=$('kv-no');if(kvno)kvno.textContent=noRead.toLocaleString();
-  const kvcl=$('kv-cl');if(kvcl)kvcl.textContent=totalClics.toLocaleString();
-  const kvun=$('kv-un');if(kvun)kvun.textContent=totalUnsub.toLocaleString();
-  const kvsm=$('kv-sm');if(kvsm)kvsm.textContent=totalSMS.toLocaleString();
-
-  const ksop=$('ks-op');if(ksop)ksop.textContent=totalOpened.toLocaleString()+' ouverts · '+totalOpenEvents.toLocaleString()+' ouvertures';
-  const kscl=$('ks-cl');if(kscl)kscl.textContent=totalCliquésU+' email'+(totalCliquésU>1?'s':'')+' cliqué'+(totalCliquésU>1?'s':'');
-  const kssm=$('ks-sm');if(kssm)kssm.textContent=totalSMSRead.toLocaleString()+' lus';
-
-  const sge=$('sg-e');if(sge)sge.textContent=totalSent.toLocaleString();
-  const sgo=$('sg-o');if(sgo)sgo.textContent=totalOpened.toLocaleString();
-  const sgs=$('sg-s');if(sgs)sgs.textContent=totalSMS.toLocaleString();
-  const sgk=$('sg-k');if(sgk)sgk.textContent=S.camps.length;
-  const sgc=$('sg-c');if(sgc)sgc.textContent=S.contacts.length.toLocaleString();
-  const sgt=$('sg-t');if(sgt)sgt.textContent=S.tpls.length;
-}
 async function resetDashboard(){if(!await pgiConfirm('Réinitialiser les stats locales seulement ?','🗑'))return;S.analytics=[];lsS(SK.analytics,S.analytics);S.camps.forEach(c=>{c.sent=0;c.opened=0;c.errors=0;c.clicks=0;c.unsubscribed=0;c.dailySent=0;c.recentlyChanged=[];});persistCamps();renderDashboard();updateStats();toast('Stats locales réinitialisées','info');}
 async function resetDashboardAndWorker(){if(!await pgiConfirm('Réinitialiser les stats locales ET Worker ?\nCette action est irréversible !','⚠️'))return;S.analytics=[];lsS(SK.analytics,S.analytics);S.camps.forEach(c=>{c.sent=0;c.opened=0;c.errors=0;c.clicks=0;c.unsubscribed=0;c.dailySent=0;c.recentlyChanged=[];if(c.status==='running')c.status='paused';});persistCamps();renderDashboard();updateStats();if(S.wurl){try{await fetch(S.wurl+'/reset-stats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:true})});}catch(e){console.warn('Worker reset:',e.message);}}const rb=$('btn-resume-sync');if(rb)rb.style.display='inline-flex';toast('Tout réinitialisé','success');}
 async function resumeSyncAfterReset(){const rb=$('btn-resume-sync');if(rb)rb.style.display='none';S.camps.filter(c=>c.status==='paused').forEach(c=>c.status='running');persistCamps();startAutoSync();toast('Sync relancée','success');}
@@ -1273,7 +962,7 @@ function updateQSEmailCnt(){const ta=$('qs-email-to'),cnt=$('qs-email-cnt');if(!
 function updateQSSMSToCnt(){const ta=$('qs-sms-to'),cnt=$('qs-sms-to-cnt');if(!ta||!cnt)return;const n=ta.value.split(/[\n,;]+/).map(x=>x.trim()).filter(x=>x.length>5).length;cnt.textContent=n?n.toLocaleString()+' numéro(s)':'';}
 function clearQSEmail(){const ta=$('qs-email-to');if(ta)ta.value='';updateQSEmailCnt();}
 function clearQSSMS(){const ta=$('qs-sms-to');if(ta)ta.value='';updateQSSMSToCnt();}
-function updQSSMSCnt(){const ta=$('qs-sms-body');if(!ta)return;const l=ta.value.length;const lbl=document.querySelector('#qs-sms-cnt-lbl');if(lbl){lbl.textContent=l+' / 160'+(l>160?' ('+Math.ceil(l/160)+' SMS)':'');lbl.style.color=l>160?'var(--yel)':'var(--text3)';}}
+function updQSSMSCnt(){const ta=$('qs-sms-body');if(!ta)return;}
 function insertQSImg(){const url=window.prompt('URL de l\'image :','https://');if(url)document.execCommand('insertHTML',false,`<img src="${esc(url)}" style="max-width:100%;height:auto;display:block;margin:8px auto;">`);}
 function insertQSLink(){const url=window.prompt('URL :','https://');if(url)document.execCommand('createLink',false,url);}
 function insertQSEmoji(){const e=window.prompt('Emoji :','😊');if(e)document.execCommand('insertText',false,e);}
@@ -1283,8 +972,8 @@ function addQSAttachments(input){const files=Array.from(input.files);let added=0
 function renderQSAttachments(){const el=$('qs-attachments-list'),cnt=$('qs-att-count');if(!el)return;if(!S._qsAttachments.length){el.innerHTML='<span style="font-size:10px;color:var(--text3);font-style:italic">Aucune pièce jointe</span>';if(cnt)cnt.textContent='';return;}if(cnt)cnt.textContent='— '+S._qsAttachments.length+' fichier'+(S._qsAttachments.length>1?'s':'');el.innerHTML=S._qsAttachments.map((a,i)=>`<div style="display:flex;align-items:center;gap:5px;background:var(--bg4);border:1px solid var(--b2);border-radius:5px;padding:4px 8px;"><span style="font-size:10px;color:var(--text2)">${a.name}</span><span style="font-size:8px;color:var(--text3)">${Math.round(a.size/1024)}KB</span><button onclick="S._qsAttachments.splice(${i},1);renderQSAttachments()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px">×</button></div>`).join('');}
 async function sendQuickEmail(){const to=($('qs-email-to')?.value||'').split(/[\n,;]+/).map(x=>x.trim()).filter(isEmail);if(!to.length){toast('Aucun destinataire valide','warn');return;}const subj=$('qs-email-subj')?.value.trim();if(!subj){toast('Sujet manquant','warn');return;}const r=$('qs-email-rich');if(!r||!r.innerHTML.trim()){toast('Message vide','warn');return;}toast('Envoi en cours...','info');const smtpCfg=S.smtpConfig&&Object.keys(S.smtpConfig).length?S.smtpConfig:null;await syncW('/quick-send',{type:'email',to,subject:subj,html:r.innerHTML,from:S.ce||S.email,fromName:S.cn||'',provider:S.prov,smtpConfig:smtpCfg,attachments:S._qsAttachments});toast('✓ Envoi déclenché via le Worker','success');}
 async function sendQuickSMS(){const to=($('qs-sms-to')?.value||'').split(/[\n,;]+/).map(x=>x.trim()).filter(x=>x.length>5);if(!to.length){toast('Aucun numéro','warn');return;}const body=$('qs-sms-body')?.value.trim();if(!body){toast('Message vide','warn');return;}toast('Envoi SMS en cours...','info');await syncW('/quick-send',{type:'sms',to,message:body,provider:S.smsProv,apiKey:S.smsKey,apiSecret:S.smsSecret,from:S.smsFrom});toast('✓ SMS déclenché via le Worker','success');}
-// ── EXPORT/IMPORT ──
-function exportData(){const data={camps:S.camps.map(c=>Object.assign({},c,{emailList:c.emailList})),contacts:S.contacts,tpls:S.tpls,lists:S.lists,analytics:S.analytics,smtpConfig:S.smtpConfig,exported:new Date().toISOString(),version:'39.9'};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='pgi-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url);toast('Export téléchargé','success');}
+// ── EXPORT / IMPORT ──
+function exportData(){const data={camps:S.camps.map(c=>Object.assign({},c,{emailList:c.emailList})),contacts:S.contacts,tpls:S.tpls,lists:S.lists,analytics:S.analytics,smtpConfig:S.smtpConfig,exported:new Date().toISOString(),version:'40.7'};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='pgi-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url);toast('Export téléchargé','success');}
 async function resetData(){if(!await pgiConfirm('SUPPRIMER TOUTES les données ?\n(Campagnes, contacts, templates, analytics)','⚠️'))return;Object.values(SK).forEach(k=>{try{localStorage.removeItem(k);}catch(_){}});location.reload();}
 // ── SETTINGS SMTP UI ──
 function onSmtpProviderChange(val){const p=SMTP_PROVIDERS[val]||SMTP_PROVIDERS.custom;S.prov=val;lsS(SK.prov,val);['smtp-oauth-block','smtp-direct-block','smtp-api-block','smtp-mailchannels-block'].forEach(id=>{const el=$(id);if(el)el.style.display='none';});if(p.type==='oauth'){const b=$('smtp-oauth-block');if(b)b.style.display='block';}else if(p.type==='smtp'){const b=$('smtp-direct-block');if(b)b.style.display='block';if(p.host&&$('smtp-host')&&!$('smtp-host').value)$('smtp-host').value=p.host;if(p.port&&$('smtp-port'))$('smtp-port').value=p.port;if(p.tls&&$('smtp-tls'))$('smtp-tls').value=p.tls;const info=$('smtp-host-info');if(info&&p.info){info.innerHTML='<strong style="color:var(--cyan)">'+p.lbl+' :</strong> '+p.info;info.style.display='block';}}else if(p.type==='api'){const b=$('smtp-api-block');if(b)b.style.display='block';const info=$('smtp-api-info');if(info&&p.info){info.innerHTML='<strong style="color:var(--purl)">'+p.lbl+' :</strong> '+p.info;info.style.display='block';}}else if(p.type==='mailchannels'){const b=$('smtp-mailchannels-block');if(b)b.style.display='block';}if(S.smtpConfig&&S.smtpConfig.provider===val){if($('smtp-host')&&S.smtpConfig.host)$('smtp-host').value=S.smtpConfig.host;if($('smtp-port')&&S.smtpConfig.port)$('smtp-port').value=S.smtpConfig.port;if($('smtp-user')&&S.smtpConfig.user)$('smtp-user').value=S.smtpConfig.user;if($('smtp-from-name')&&S.smtpConfig.fromName)$('smtp-from-name').value=S.smtpConfig.fromName;if($('smtp-api-from')&&S.smtpConfig.fromEmail)$('smtp-api-from').value=S.smtpConfig.fromEmail;if($('smtp-api-from-name')&&S.smtpConfig.fromName)$('smtp-api-from-name').value=S.smtpConfig.fromName;if($('smtp-mc-from')&&S.smtpConfig.fromEmail)$('smtp-mc-from').value=S.smtpConfig.fromEmail;if($('smtp-mc-from-name')&&S.smtpConfig.fromName)$('smtp-mc-from-name').value=S.smtpConfig.fromName;}}
@@ -1292,27 +981,12 @@ function saveSmtpConfig(){const cfg={provider:S.prov,type:'smtp',host:$('smtp-ho
 function saveSmtpApiConfig(){const cfg={provider:S.prov,type:'api',apiKey:$('smtp-api-key')?.value.trim()||'',fromEmail:$('smtp-api-from')?.value.trim()||'',fromName:$('smtp-api-from-name')?.value.trim()||''};S.smtpConfig=cfg;S.ce=cfg.fromEmail;S.cn=cfg.fromName;lsS(SK.smtpConfig,cfg);lsS(SK.ce,cfg.fromEmail);lsS(SK.cn,cfg.fromName);const st=$('sw-email-st');if(st){st.textContent='✓ '+cfg.provider.toUpperCase()+' API configuré';st.style.color='var(--grn)';}toast('✓ Config API enregistrée','success');}
 function saveMailChannelsConfig(){const cfg={provider:'mailchannels',type:'mailchannels',fromEmail:$('smtp-mc-from')?.value.trim()||'',fromName:$('smtp-mc-from-name')?.value.trim()||''};S.smtpConfig=cfg;S.ce=cfg.fromEmail;S.cn=cfg.fromName;lsS(SK.smtpConfig,cfg);lsS(SK.ce,cfg.fromEmail);lsS(SK.cn,cfg.fromName);const st=$('sw-email-st');if(st){st.textContent='✓ MailChannels configuré';st.style.color='var(--grn)';}toast('✓ MailChannels configuré — vérifiez votre SPF','success');}
 function initSettingsUI(){const sel=$('smtp-provider-sel');if(sel&&S.prov){sel.value=S.prov;onSmtpProviderChange(S.prov);}if($('worker-url-inp')&&S.wurl)$('worker-url-inp').value=S.wurl;if($('cid-inp')&&S.cid)$('cid-inp').value=S.cid;const cfg=S.smtpConfig||{};if(cfg.type==='smtp'||cfg.type==='custom'){if($('smtp-host')&&cfg.host)$('smtp-host').value=cfg.host;if($('smtp-port')&&cfg.port)$('smtp-port').value=cfg.port;if($('smtp-user')&&cfg.user)$('smtp-user').value=cfg.user;if($('smtp-pass')&&cfg.pass)$('smtp-pass').value=cfg.pass;if($('smtp-from-name')&&cfg.fromName)$('smtp-from-name').value=cfg.fromName;if($('smtp-tls')&&cfg.tls)$('smtp-tls').value=cfg.tls;const st=$('sw-email-st');if(st&&cfg.user){st.textContent='✓ '+(cfg.provider||S.prov).toUpperCase()+' configuré — '+cfg.user;st.style.color='var(--grn)';}}else if(cfg.type==='api'){if($('smtp-api-key')&&cfg.apiKey)$('smtp-api-key').value=cfg.apiKey;if($('smtp-api-from')&&cfg.fromEmail)$('smtp-api-from').value=cfg.fromEmail;if($('smtp-api-from-name')&&cfg.fromName)$('smtp-api-from-name').value=cfg.fromName;const st=$('sw-email-st');if(st&&cfg.fromEmail){st.textContent='✓ '+(cfg.provider||S.prov).toUpperCase()+' API configuré';st.style.color='var(--grn)';}}else if(cfg.type==='mailchannels'){if($('smtp-mc-from')&&cfg.fromEmail)$('smtp-mc-from').value=cfg.fromEmail;if($('smtp-mc-from-name')&&cfg.fromName)$('smtp-mc-from-name').value=cfg.fromName;const st=$('sw-email-st');if(st&&cfg.fromEmail){st.textContent='✓ MailChannels configuré';st.style.color='var(--grn)';}}if($('sms-key-inp')&&S.smsKey)$('sms-key-inp').value=S.smsKey;if($('sms-secret-inp')&&S.smsSecret)$('sms-secret-inp').value=S.smsSecret;if($('sms-from-inp')&&S.smsFrom)$('sms-from-inp').value=S.smsFrom;if($('sms-webhook-url')&&S.smsWebhook)$('sms-webhook-url').value=S.smsWebhook;if($('sms-webhook-body')&&S.smsWebhookBody)$('sms-webhook-body').value=S.smsWebhookBody;setSMSP(S.smsProv);}
-// ── WORKER SYNC ──
-var _syncInterval=null,_isSyncing=false;
-function _refreshOpenCampMetrics(){const campId=S.activeCamp||S.activeSMS;if(!campId)return;const c=S.camps.find(x=>x.id===campId);if(!c)return;const total=c.emailList?c.emailList.length:(c.workerTotal||0);const _isLive=c.status==='running'||c.status==='paused'||c.status==='oauth_error';const sent=_isLive?(c.sent||0):0;const opened=_isLive?(c.opened||0):0;const err=_isLive?(c.errors||0):0;const pct=(_isLive&&total)?Math.round((sent/total)*100):0;const clics=c.clicks||0;const cliques=Math.min(clics,sent||clics);const els={'prc-sent-':sent.toLocaleString(),'prc-open-':opened.toLocaleString(),'prc-pct-':pct+'%','prc-contacts-':total.toLocaleString()};Object.keys(els).forEach(prefix=>{const el=document.getElementById(prefix+campId);if(el)el.textContent=els[prefix];});const errEl=document.getElementById('prc-err-'+campId);if(errEl)errEl.textContent=err>0?err+' err':'';const pbarEl=document.getElementById('pbar-'+campId);if(pbarEl)pbarEl.style.width=pct+'%';const ce=document.getElementById('prc-clics-'+campId);if(ce)ce.textContent=clics;const cs=document.getElementById('prc-clics-sub-'+campId);if(cs)cs.textContent=cliques+' email'+(cliques>1?'s':'')+' cliqué'+(cliques>1?'s':'');const asEl=document.getElementById('as-'+campId);if(asEl&&typeof buildAS==='function')asEl.innerHTML=buildAS(c);}
-async function syncFromWorker(){if(!S.wurl||_isSyncing)return;_isSyncing=true;
-try{
-const campRes=await fetch(S.wurl+'/sync/campaigns');
-if(campRes.ok){const data=await campRes.json();if(data.campaigns&&Array.isArray(data.campaigns)){var updated=0;data.campaigns.forEach(wc=>{var local=S.camps.find(c=>c.id==wc.id);if(!local||local.status==='draft')return;if(wc.sent>=(local.sent||0)){local.sent=wc.sent;updated++;}if(wc.opened>(local.opened||0)){local.opened=wc.opened;updated++;}if(wc.errors>(local.errors||0)){local.errors=wc.errors;updated++;}if(wc.unsubscribed!==undefined)local.unsubscribed=wc.unsubscribed;if(wc.clicks>(local.clicks||0)){local.clicks=wc.clicks;updated++;}if(mergeWorkerCampaignTracking(wc,local))updated++;if(wc.pending!==undefined){local.workerPending=wc.pending;updated++;}if(wc.dailySent!==undefined){local.dailySent=wc.dailySent;local.dailyDate=new Date().toDateString();updated++;}if(wc.contacts&&Array.isArray(wc.contacts)){if(!local.recentlyChanged)local.recentlyChanged=[];wc.contacts.forEach(wContact=>{if(wContact.status==='sent'||wContact.status==='opened'){const ex=local.recentlyChanged.find(r=>r.email===wContact.email);if(!ex)local.recentlyChanged.push(wContact);}const lC=local.emailList&&local.emailList.find(e=>e.email===wContact.email);if(lC){pgiCopyTrackingFields(lC,wContact);}
-// Synchroniser S.analytics pour que getAllEmailLogs soit cohérent
-if(lC){const aEntry=S.analytics.find(a=>a.type==='email'&&a.email===lC.email&&a.campaign===local.name);if(aEntry){const before=JSON.stringify({o:aEntry.openCount,lo:aEntry.lastOpenedAt,c:aEntry.clickCount,lc:aEntry.lastClickedAt});pgiCopyTrackingFields(aEntry,wContact);if(wContact.status==='opened'||lC.status==='opened'||getOpenCountSafe(lC)>0){aEntry.opened=true;aEntry.openedAt=aEntry.openedAt||wContact.openedAt||lC.openedAt||new Date().toISOString();}if(wContact.unsubscribed)aEntry.unsubscribed=true;if(before!==JSON.stringify({o:aEntry.openCount,lo:aEntry.lastOpenedAt,c:aEntry.clickCount,lc:aEntry.lastClickedAt}))changed=true;}}
-});}const prevStatus=local.status;if(wc.status&&wc.status!==local.status){local.status=wc.status;updated++;if(wc.status==='oauth_error')toast('⚠ OAuth error — campagne «'+(local.name||'')+'»','error');if(wc.status==='completed')toast('✅ Campagne «'+(local.name||'')+'» terminée !','success');}if(local.status!==prevStatus){if(S.activeCamp===local.id)setTimeout(()=>openCamp(local.id,local.type),50);}});if(updated>0){persistCamps();renderCampList('email');renderCampList('sms');renderDashboard();updateStats();refreshQuotaBanner();_refreshOpenCampMetrics();}}}
-const analRes=await fetch(S.wurl+'/sync/analytics');
-if(analRes.ok){const data2=await analRes.json();if(data2.analytics&&Array.isArray(data2.analytics)&&data2.analytics.length>0){var changed=false;if(data2.compact){data2.analytics.forEach(wc=>{var local=S.camps.find(c=>c.id==wc.id);if(!local&&wc.campaign)local=S.camps.find(c=>c.name===wc.campaign);if(!local||local.status==='draft')return;if(wc.sent>(local.sent||0)){local.sent=wc.sent;changed=true;}if(wc.opened>(local.opened||0)){local.opened=wc.opened;changed=true;}if(wc.clicks>(local.clicks||0)){local.clicks=wc.clicks;changed=true;}local.unsubscribed=wc.unsubscribed||0;});}else{S.analytics=data2.analytics;lsS(SK.analytics,S.analytics);changed=true;}if(changed){persistCamps();renderDashboard();updateStats();}}}
-var injected=0;var eKeys=new Set(S.analytics.map(a=>(a.email||'')+'|'+(a.campaign||'')));S.camps.filter(c=>c.type!=='sms').forEach(c=>{(c.recentlyChanged||[]).forEach(rc=>{if(rc.status!=='sent'&&rc.status!=='opened')return;const key=(rc.email||'')+'|'+(c.name||'');if(eKeys.has(key))return;eKeys.add(key);S.analytics.push({type:'email',email:rc.email,campaign:c.name,date:rc.sentAt||rc.openedAt||new Date().toISOString(),status:'sent',opened:rc.status==='opened'||!!rc.opened,openedAt:rc.openedAt||null,unsubscribed:false,clicks:[]});injected++;});(c.emailList||[]).forEach(e=>{if(e.status!=='sent'&&e.status!=='opened')return;const key=(e.email||'')+'|'+(c.name||'');if(eKeys.has(key))return;eKeys.add(key);S.analytics.push({type:'email',email:e.email,campaign:c.name,date:e.sentAt||c.launchedAt||c.created||new Date().toISOString(),status:'sent',opened:e.status==='opened'||!!e.opened,openedAt:e.openedAt||null,unsubscribed:!!e.unsubscribed,clicks:e.clicks||[]});injected++;});});
-if(injected>0){if(S.analytics.length>50000)S.analytics=S.analytics.slice(S.analytics.length-50000);try{lsS(SK.analytics,S.analytics);}catch(_){}renderDashboard();updateStats();}
-const chip=$('wchip');if(chip)chip.className='wchip ok';const now=new Date(),ts=now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');const wlbl=$('wlbl');if(wlbl)wlbl.textContent='Worker actif · '+ts;const banner=$('sync-banner'),sl=$('sync-status-lbl'),pl=$('sync-pos-lbl'),ll=$('sync-last-lbl');if(banner)banner.style.display='flex';if(sl){const ac=S.camps.filter(c=>c.status==='running'),pc=S.camps.filter(c=>c.status==='paused');if(ac.length){sl.innerHTML='⚡ <strong style="color:var(--yel);">'+ac.length+' campagne(s) en cours</strong>'+(pc.length?' · ⏸ '+pc.length+' en pause':'')+' — Worker actif';sl.style.color='var(--yel)';if(pl){const lines=ac.map(c=>{const fp=c.emailList.findIndex(e=>e.status==='pending');const pos=fp===-1?c.emailList.length:fp+1;const st=(c.dailyDate===new Date().toDateString())?(c.dailySent||0):0;return c.name+' : '+pos+'/'+c.emailList.length+' · '+st+'/'+(c.dailyLimit||'∞')+' aujourd\'hui';});pl.textContent=lines.join(' | ');pl.style.display='block';}}else{const provLbl=(QUOTAS[S.prov]||QUOTAS.custom).lbl;sl.innerHTML=pc.length?'⏸ <strong style="color:var(--yel);">'+pc.length+' en pause</strong>':'✅ <strong style="color:var(--grn);">Synchronisé</strong> — <strong style="color:var(--cyan);">'+provLbl+'</strong>';sl.style.color=pc.length?'var(--yel)':'var(--grn)';if(pl)pl.style.display='none';}}if(ll)ll.textContent='Dernière sync : '+ts;
-}catch(e){console.warn('syncFromWorker:',e.message);const chip2=$('wchip');if(chip2)chip2.className='wchip err';const wlbl2=$('wlbl');if(wlbl2)wlbl2.textContent='Worker inactif';const sl2=$('sync-status-lbl');if(sl2){sl2.innerHTML='⚠️ <strong style="color:var(--red)">Worker inaccessible</strong>';sl2.style.color='var(--red)';}}
-_isSyncing=false;}
+// ── AUTO SYNC ──
+var _syncInterval=null;
 function startAutoSync(){if(!S.wurl){const b=$('sync-banner');if(b)b.style.display='none';return;}setTimeout(syncFromWorker,2000);if(_syncInterval)clearInterval(_syncInterval);_syncInterval=setInterval(syncFromWorker,60000);}
 async function forceSyncNow(){if(!S.wurl){toast('Worker non configuré','warn');return;}toast('Synchronisation...','info');await syncFromWorker();toast('✓ Synchronisé','success');}
 // ── SMTP DEBUG TEST ──
-function runSmtpDebugTest(){const to=$('smtp-test-to')?.value.trim();if(!to){toast('Entrez un email destinataire','warn');return;}if(!S.wurl){toast('Worker URL manquante — configurez le Worker d\'abord','error');return;}const resultEl=$('smtp-debug-result');if(resultEl){resultEl.style.display='block';resultEl.textContent='⏳ Test en cours...\nConnexion au Worker: '+S.wurl+'\nDestinataire: '+to+'\n';}toast('Test SMTP lancé...','info');fetch(S.wurl+'/debug/send-test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to,subject:'Test PGI Send Station — '+new Date().toLocaleString('fr-FR'),html:'<h2>✓ Test SMTP PGI Send Station</h2><p>Si vous recevez cet email, le SMTP fonctionne correctement.</p><p>Heure: '+new Date().toISOString()+'</p>'})}).then(r=>r.json()).then(data=>{console.log('[PGI SMTP TEST]',JSON.stringify(data,null,2));const safe=(v,fallback)=>(v!==undefined&&v!==null&&v!==''&&v!=='undefined')?String(v):(fallback||'—');let txt='';txt+='══ RÉSULTAT TEST SMTP ══\n';txt+=(data.ok?'✅ SUCCÈS — Email envoyé !':'❌ ÉCHEC — Email non envoyé')+'\n\n';txt+='Provider: '+safe(data.provider)+'\nHost: '+safe(data.host)+'\nPort: '+safe(data.port||data.port_tried)+'\nFrom: '+safe(data.from)+'\nTo: '+safe(data.to)+'\nÉtape: '+safe(data.step,'inconnue')+'\n';if(!data.ok){const errMsg=data.error||data.diagnosis||'Aucun détail';txt+='\n❌ Erreur: '+safe(errMsg,'Erreur inconnue')+'\n';if(data.diagnosis&&data.diagnosis!==data.error)txt+='\n💡 Diagnostic: '+data.diagnosis+'\n';}if(data.missing&&Object.values(data.missing).some(Boolean)){txt+='\n⚠️ Secrets Worker manquants:\n';Object.entries(data.missing).forEach(([k,v])=>{if(v)txt+='  — '+k+'\n';});}if(data.log&&data.log.length){txt+='\n══ LOG SMTP ══\n';data.log.forEach(entry=>{txt+='\n['+safe(entry.step,'?')+']\n';if(entry.sent&&entry.sent!=='[user base64]'&&entry.sent!=='[pass base64]')txt+='  → '+entry.sent+'\n';if(entry.response)txt+='  ← '+entry.response+'\n';});}if(resultEl)resultEl.textContent=txt;if(data.ok)toast('✅ Email envoyé avec succès !','success');else toast('❌ '+(data.error||data.diagnosis||'Échec SMTP').slice(0,60),'error');}).catch(err=>{if(resultEl)resultEl.textContent='❌ Erreur réseau: '+err.message+'\nVérifiez que le Worker est actif.';toast('Erreur: '+err.message,'error');});}
+function runSmtpDebugTest(){const to=$('smtp-test-to')?.value.trim();if(!to){toast('Entrez un email destinataire','warn');return;}if(!S.wurl){toast('Worker URL manquante — configurez le Worker d\'abord','error');return;}const resultEl=$('smtp-debug-result');if(resultEl){resultEl.style.display='block';resultEl.textContent='⏳ Test en cours...\nConnexion au Worker: '+S.wurl+'\nDestinataire: '+to+'\n';}toast('Test SMTP lancé...','info');fetch(S.wurl+'/debug/send-test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to,subject:'Test PGI Send Station — '+new Date().toLocaleString('fr-FR'),html:'<h2>✓ Test SMTP PGI Send Station</h2><p>Si vous recevez cet email, le SMTP fonctionne correctement.</p><p>Heure: '+new Date().toISOString()+'</p>'})}).then(r=>r.json()).then(data=>{const safe=(v,fallback)=>(v!==undefined&&v!==null&&v!==''&&v!=='undefined')?String(v):(fallback||'—');let txt='';txt+='══ RÉSULTAT TEST SMTP ══\n';txt+=(data.ok?'✅ SUCCÈS — Email envoyé !':'❌ ÉCHEC — Email non envoyé')+'\n\n';txt+='Provider: '+safe(data.provider)+'\nHost: '+safe(data.host)+'\nPort: '+safe(data.port||data.port_tried)+'\nFrom: '+safe(data.from)+'\nTo: '+safe(data.to)+'\nÉtape: '+safe(data.step,'inconnue')+'\n';if(!data.ok){const errMsg=data.error||data.diagnosis||'Aucun détail';txt+='\n❌ Erreur: '+safe(errMsg,'Erreur inconnue')+'\n';if(data.diagnosis&&data.diagnosis!==data.error)txt+='\n💡 Diagnostic: '+data.diagnosis+'\n';}if(data.missing&&Object.values(data.missing).some(Boolean)){txt+='\n⚠️ Secrets Worker manquants:\n';Object.entries(data.missing).forEach(([k,v])=>{if(v)txt+='  — '+k+'\n';});}if(data.log&&data.log.length){txt+='\n══ LOG SMTP ══\n';data.log.forEach(entry=>{txt+='\n['+safe(entry.step,'?')+']\n';if(entry.sent&&entry.sent!=='[user base64]'&&entry.sent!=='[pass base64]')txt+='  → '+entry.sent+'\n';if(entry.response)txt+='  ← '+entry.response+'\n';});}if(resultEl)resultEl.textContent=txt;if(data.ok)toast('✅ Email envoyé avec succès !','success');else toast('❌ '+(data.error||data.diagnosis||'Échec SMTP').slice(0,60),'error');}).catch(err=>{if(resultEl)resultEl.textContent='❌ Erreur réseau: '+err.message+'\nVérifiez que le Worker est actif.';toast('Erreur: '+err.message,'error');});}
 // ── INIT ──
 function init(){
   setDateFilter('today',document.querySelector('#date-quick-btns .date-qbtn'));
@@ -1321,12 +995,16 @@ function init(){
   updateStats();renderDashboard();refreshQuotaBanner();
   S.camps.forEach(c=>{if(c.status!=='draft'){try{recalcRate(c.id);}catch(_){}}});
   setTimeout(()=>{
-    let injected=0;const eKeys=new Set(S.analytics.map(a=>(a.email||'')+'|'+(a.campaign||'')));
+    let injected=0;
+    const eKeys=new Set(S.analytics.map(a=>(String(a.email||'').toLowerCase())+'|'+(String(a.campaignId||a.campaign||''))));
     S.camps.filter(c=>c.type!=='sms').forEach(c=>{
       (c.emailList||[]).forEach(e=>{
-        if(e.status!=='sent'&&e.status!=='opened')return;
-        const key=(e.email||'')+'|'+(c.name||'');if(eKeys.has(key))return;
-        eKeys.add(key);S.analytics.push({type:'email',email:e.email,campaign:c.name,date:e.sentAt||c.launchedAt||c.created||new Date().toISOString(),status:'sent',opened:e.status==='opened'||!!e.opened,openedAt:e.openedAt||null,unsubscribed:!!e.unsubscribed,clicks:e.clicks||[]});injected++;
+        if(e.status!=='sent'&&e.status!=='opened'&&e.status!=='error'&&e.status!=='unsubscribed')return;
+        const key=String(e.email||'').toLowerCase()+'|'+String(c.id);
+        if(eKeys.has(key))return;
+        eKeys.add(key);
+        S.analytics.push({type:'email',email:e.email,campaign:c.name,campaignId:c.id,date:e.sentAt||c.launchedAt||c.created||new Date().toISOString(),status:e.status==='error'?'error':'sent',opened:e.status==='opened'||!!e.opened,openedAt:e.openedAt||null,firstOpenedAt:e.firstOpenedAt||e.openedAt||null,lastOpenedAt:e.lastOpenedAt||e.openedAt||null,opens:e.opens||[],openCount:e.openCount||((e.opened||e.openedAt)?1:0),unsubscribed:!!e.unsubscribed,clicks:e.clicks||[],clickCount:e.clickCount||(e.clicks||[]).length,lastClickedAt:e.lastClickedAt||null,lastClickedUrl:e.lastClickedUrl||null});
+        injected++;
       });
     });
     if(injected>0){try{lsS(SK.analytics,S.analytics);}catch(_){}renderDashboard();updateStats();}
@@ -1348,98 +1026,772 @@ function init(){
   });
 })();
 
-// PGI v40.7 — métriques unifiées, correction ciblée sans toucher à l'automatisation.
-// Objectif : toutes les cartes d'affichage lisent la même source consolidée.
-(function(){
-  if(window.__PGI_METRICS_UNIFIED_V407__) return;
-  window.__PGI_METRICS_UNIFIED_V407__=true;
-  function n(v){return Number(v)||0;}
-  function fmt(v){return n(v).toLocaleString('fr-FR');}
-  function safeArr(a){return Array.isArray(a)?a:[];}
-  function isEmailLog(x){return x && x.type==='email' && x.status!=='pending_send';}
-  function oc(x){try{return typeof getOpenCountSafe==='function'?getOpenCountSafe(x):(n(x.openCount)||((x.opened||x.openedAt)?1:0));}catch(_){return n(x.openCount)||((x.opened||x.openedAt)?1:0);}}
-  function cc(x){try{return typeof getClickCountSafe==='function'?getClickCountSafe(x):(n(x.clickCount)||safeArr(x.clicks).length);}catch(_){return n(x.clickCount)||safeArr(x.clicks).length;}}
-  function allEmailLogs(){try{return (typeof getAllEmailLogs==='function'?getAllEmailLogs():safeArr(S.analytics).filter(isEmailLog)).filter(isEmailLog);}catch(_){return safeArr(S.analytics).filter(isEmailLog);}}
-  function sameCamp(log,c){if(!log||!c)return false;return (log.campaignId&&String(log.campaignId)===String(c.id))||(log.campaign&&c.name&&String(log.campaign)===String(c.name));}
-  function campLogs(c){return allEmailLogs().filter(l=>sameCamp(l,c));}
-  function unifiedCamp(c){
-    const logs=campLogs(c);
-    const total=safeArr(c&&c.emailList).length || n(c&&c.workerTotal);
-    const logSent=logs.filter(l=>l.status!=='error').length;
-    const logErrors=logs.filter(l=>l.status==='error').length;
-    const sent=Math.max(logSent,n(c&&c.sent));
-    const errors=Math.max(logErrors,n(c&&c.errors));
-    const openedUnique=Math.max(logs.filter(l=>l.opened||oc(l)>0).length,n(c&&c.opened));
-    const openEvents=Math.max(logs.reduce((s,l)=>s+oc(l),0),openedUnique);
-    const clicks=Math.max(logs.reduce((s,l)=>s+cc(l),0),n(c&&c.clicks));
-    const clickers=Math.max(logs.filter(l=>cc(l)>0).length, clicks>0?1:0);
-    const unsub=Math.max(logs.filter(l=>l.unsubscribed).length,n(c&&c.unsubscribed));
-    const pct=total?Math.round((sent/total)*100):0;
-    const remaining=Math.max(0,total-sent-errors);
-    return {logs,total,sent,errors,openedUnique,openEvents,clicks,clickers,unsub,pct,remaining};
+// ═══════════════════════════════════════════════════════════════
+// PGI Send Station — Métriques Unifiées v1.0
+// Source unique : getCanonicalMetrics() — tous les widgets alignés
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * PGI Send Station — Patch Métriques Unifiées v1.0
+ * ─────────────────────────────────────────────────
+ * UNE SEULE SOURCE DE VÉRITÉ : getCanonicalMetrics(campId)
+ *
+ * Principe :
+ *   Worker KV  ←→  S.analytics  ←→  S.camps[i].emailList
+ *   On prend toujours le MAX de toutes les sources disponibles.
+ *   Tous les widgets (dashboard, email, cartes KPI, avancement, bannière)
+ *   appellent getCanonicalMetrics() → chiffres identiques partout.
+ *
+ * Corrections apportées :
+ *   1. getCanonicalMetrics(campId) — fusionne 3 sources, évite les doublons
+ *   2. getCanonicalGlobal() — agrège toutes les campagnes via canonical
+ *   3. syncFromWorker() — merge propre sans écraser les compteurs locaux
+ *   4. renderActiveCamps / renderAllCamps / updateStats / renderPeriodStats
+ *      → tous lisent canonical
+ *   5. _refreshOpenCampMetrics — même source, pas de divergence
+ *   6. refreshQuotaBanner — idem
+ *   7. Avancement % toujours basé sur emailList.length (source locale fiable)
+ */
+
+'use strict';
+
+// ─── HELPERS INTERNES ────────────────────────────────────────────────────────
+
+function _n(v) { return Number(v) || 0; }
+function _fmt(v) { return _n(v).toLocaleString('fr-FR'); }
+function _safeArr(a) { return Array.isArray(a) ? a : []; }
+
+/** Nombre d'ouvertures uniques d'un enregistrement (contact ou log analytique) */
+function _openCount(x) {
+  if (!x) return 0;
+  const fromOpens = _safeArr(x.opens).length;
+  const fromField = _n(x.openCount);
+  const fromBool  = (x.opened || x.openedAt) ? 1 : 0;
+  return Math.max(fromOpens, fromField, fromBool);
+}
+
+/** Nombre de clics d'un enregistrement */
+function _clickCount(x) {
+  if (!x) return 0;
+  return Math.max(_safeArr(x.clicks).length, _n(x.clickCount));
+}
+
+/** Retourne true si deux emails sont identiques (insensible à la casse) */
+function _emailEq(a, b) {
+  return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+}
+
+/** Clé de déduplification pour un log analytique */
+function _logKey(log) {
+  return (String(log.email || '').toLowerCase()) + '|' + (String(log.campaignId || log.campaign || ''));
+}
+
+// ─── SOURCE DE VÉRITÉ PRINCIPALE ─────────────────────────────────────────────
+
+/**
+ * getCanonicalMetrics(campId)
+ * Fusionne les 3 sources disponibles pour une campagne :
+ *   A) S.campaigns[i] (compteurs agrégés : sent, opened, clicks, errors, unsub)
+ *   B) S.campaigns[i].emailList (statut par contact, enrichi par le Worker via sync)
+ *   C) S.analytics (logs bruts poussés par le Worker via /sync/analytics)
+ *
+ * Règle : on prend toujours MAX(A, B, C) pour chaque métrique.
+ * Retourne un objet {total, sent, errors, openedUnique, openEvents, clicks,
+ *                    clickers, unsub, pct, remaining, openRate, logs}
+ */
+function getCanonicalMetrics(campId) {
+  const c = S.camps.find(x => String(x.id) === String(campId));
+  if (!c) return _emptyMetrics();
+
+  // ── Source A : compteurs agrégés locaux
+  const A = {
+    sent    : _n(c.sent),
+    opened  : _n(c.opened),
+    clicks  : _n(c.clicks),
+    errors  : _n(c.errors),
+    unsub   : _n(c.unsubscribed),
+  };
+
+  // ── Source B : emailList (état contact par contact)
+  const emailList = _safeArr(c.emailList);
+  const B = {
+    sent    : emailList.filter(e => e.status === 'sent' || e.status === 'opened' || e.status === 'unsubscribed').length,
+    errors  : emailList.filter(e => e.status === 'error').length,
+    opened  : emailList.filter(e => _openCount(e) > 0 || e.status === 'opened').length,
+    clicks  : emailList.reduce((s, e) => s + _clickCount(e), 0),
+    unsub   : emailList.filter(e => e.unsubscribed).length,
+  };
+
+  // ── Source C : S.analytics (logs Worker)
+  // On filtre par campaignId OU par campaign name pour attraper les deux cas
+  const logs = _safeArr(S.analytics).filter(x =>
+    x && x.type === 'email' && x.status !== 'pending_send' && (
+      (x.campaignId && String(x.campaignId) === String(c.id)) ||
+      (x.campaign   && x.campaign === c.name)
+    )
+  );
+
+  // Déduplique les logs par email (garde le plus riche)
+  const logMap = new Map();
+  logs.forEach(l => {
+    const k = String(l.email || '').toLowerCase();
+    const ex = logMap.get(k);
+    if (!ex) { logMap.set(k, l); return; }
+    // Merge : garde le plus complet
+    if (_openCount(l) > _openCount(ex)) { ex.opens = l.opens; ex.openCount = l.openCount; }
+    if (l.opened || l.openedAt) { ex.opened = true; ex.openedAt = ex.openedAt || l.openedAt; }
+    if (_clickCount(l) > _clickCount(ex)) { ex.clicks = l.clicks; ex.clickCount = l.clickCount; }
+    if (l.unsubscribed) ex.unsubscribed = true;
+    if (l.status === 'error') ex.status = 'error';
+    else if (ex.status !== 'error') ex.status = l.status || ex.status;
+  });
+  const dedupLogs = Array.from(logMap.values());
+
+  const C = {
+    sent    : dedupLogs.filter(l => l.status !== 'error').length,
+    errors  : dedupLogs.filter(l => l.status === 'error').length,
+    opened  : dedupLogs.filter(l => l.opened || _openCount(l) > 0).length,
+    clicks  : dedupLogs.reduce((s, l) => s + _clickCount(l), 0),
+    unsub   : dedupLogs.filter(l => l.unsubscribed).length,
+  };
+
+  // ── Fusion MAX
+  const total       = emailList.length || _n(c.workerTotal);
+  const sent        = Math.max(A.sent,   B.sent,   C.sent);
+  const errors      = Math.max(A.errors, B.errors, C.errors);
+  const openedUnique= Math.max(A.opened, B.opened, C.opened);
+  const openEvents  = Math.max(
+    _n(c.totalOpenEvents),
+    dedupLogs.reduce((s, l) => s + _openCount(l), 0),
+    openedUnique
+  );
+  const clicks      = Math.max(A.clicks,  B.clicks,  C.clicks);
+  const clickers    = Math.max(
+    dedupLogs.filter(l => _clickCount(l) > 0).length,
+    emailList.filter(e => _clickCount(e) > 0).length,
+    clicks > 0 ? 1 : 0
+  );
+  const unsub       = Math.max(A.unsub, B.unsub, C.unsub);
+  const pct         = total > 0 ? Math.min(100, Math.round((sent / total) * 100)) : 0;
+  const remaining   = Math.max(0, emailList.filter(e => e.status === 'pending').length);
+  const openRate    = sent > 0 ? Math.round((openedUnique / sent) * 100) : 0;
+
+  return { total, sent, errors, openedUnique, openEvents, clicks, clickers,
+           unsub, pct, remaining, openRate, logs: dedupLogs };
+}
+
+function _emptyMetrics() {
+  return { total:0, sent:0, errors:0, openedUnique:0, openEvents:0,
+           clicks:0, clickers:0, unsub:0, pct:0, remaining:0, openRate:0, logs:[] };
+}
+
+/**
+ * getCanonicalGlobal()
+ * Agrège toutes les campagnes via getCanonicalMetrics + déduplique S.analytics
+ * pour les métriques globales (cartes KPI dashboard, settings).
+ */
+function getCanonicalGlobal() {
+  // Agrégation par campagne
+  const byCamp = {};
+  S.camps.forEach(c => {
+    const m = getCanonicalMetrics(c.id);
+    byCamp[c.id] = m;
+  });
+
+  // Déduplique tous les logs de toutes les campagnes par (email + campaignId)
+  const globalLogMap = new Map();
+  _safeArr(S.analytics).filter(x => x && x.type === 'email' && x.status !== 'pending_send')
+    .forEach(l => {
+      const k = String(l.email || '').toLowerCase() + '|' + String(l.campaignId || l.campaign || '');
+      const ex = globalLogMap.get(k);
+      if (!ex) { globalLogMap.set(k, { ...l }); return; }
+      if (_openCount(l) > _openCount(ex)) { ex.opens = l.opens; ex.openCount = l.openCount; }
+      if (l.opened || l.openedAt) { ex.opened = true; ex.openedAt = ex.openedAt || l.openedAt; }
+      if (_clickCount(l) > _clickCount(ex)) { ex.clicks = l.clicks; ex.clickCount = l.clickCount; }
+      if (l.unsubscribed) ex.unsubscribed = true;
+    });
+  const globalLogs = Array.from(globalLogMap.values());
+
+  // Compteurs agrégés (max entre camps + logs globaux)
+  const campSent    = S.camps.filter(c => c.type !== 'sms').reduce((s, c) => s + (byCamp[c.id]?.sent || 0), 0);
+  const campOpened  = S.camps.filter(c => c.type !== 'sms').reduce((s, c) => s + (byCamp[c.id]?.openedUnique || 0), 0);
+  const campClicks  = S.camps.filter(c => c.type !== 'sms').reduce((s, c) => s + (byCamp[c.id]?.clicks || 0), 0);
+  const campErrors  = S.camps.filter(c => c.type !== 'sms').reduce((s, c) => s + (byCamp[c.id]?.errors || 0), 0);
+  const campUnsub   = S.camps.filter(c => c.type !== 'sms').reduce((s, c) => s + (byCamp[c.id]?.unsub || 0), 0);
+  const campOpenEvt = S.camps.filter(c => c.type !== 'sms').reduce((s, c) => s + (byCamp[c.id]?.openEvents || 0), 0);
+  const campClickers= S.camps.filter(c => c.type !== 'sms').reduce((s, c) => s + (byCamp[c.id]?.clickers || 0), 0);
+
+  const logSent    = globalLogs.filter(l => l.status !== 'error').length;
+  const logOpened  = globalLogs.filter(l => l.opened || _openCount(l) > 0).length;
+  const logClicks  = globalLogs.reduce((s, l) => s + _clickCount(l), 0);
+  const logErrors  = globalLogs.filter(l => l.status === 'error').length;
+  const logUnsub   = globalLogs.filter(l => l.unsubscribed).length;
+  const logOpenEvt = globalLogs.reduce((s, l) => s + _openCount(l), 0);
+  const logClickers= globalLogs.filter(l => _clickCount(l) > 0).length;
+
+  const sent       = Math.max(campSent,    logSent);
+  const openedUnique= Math.max(campOpened, logOpened);
+  const clicks     = Math.max(campClicks,  logClicks);
+  const errors     = Math.max(campErrors,  logErrors);
+  const unsub      = Math.max(campUnsub,   logUnsub);
+  const openEvents = Math.max(campOpenEvt, logOpenEvt, openedUnique);
+  const clickers   = Math.max(campClickers, logClickers);
+  const noRead     = Math.max(0, sent - openedUnique);
+  const openRate   = sent > 0 ? Math.round((openedUnique / sent) * 100) : 0;
+
+  // SMS
+  const smsList    = _safeArr(S.analytics).filter(x => x.type === 'sms');
+  const campsSMS   = S.camps.filter(c => c.type === 'sms').reduce((s, c) => s + _n(c.sent), 0);
+  const totalSMS   = Math.max(smsList.length, campsSMS);
+  const smsRead    = smsList.filter(x => x.read).length;
+
+  return { sent, openedUnique, openEvents, clicks, clickers, errors, unsub,
+           noRead, openRate, totalSMS, smsRead, globalLogs };
+}
+
+// ─── SYNC WORKER : MERGE PROPRE ──────────────────────────────────────────────
+
+/**
+ * Remplace syncFromWorker() — fusionne sans écraser les compteurs locaux.
+ * Règle : local = MAX(local, worker) pour chaque champ numérique.
+ */
+async function syncFromWorker() {
+  if (!S.wurl || window._pgiSyncing) return;
+  window._pgiSyncing = true;
+
+  try {
+    // ── 1. /sync/campaigns ──
+    const campRes = await fetch(S.wurl + '/sync/campaigns');
+    if (campRes.ok) {
+      const data = await campRes.json();
+      if (data.campaigns && Array.isArray(data.campaigns)) {
+        let updated = 0;
+        data.campaigns.forEach(wc => {
+          const local = S.camps.find(c => String(c.id) === String(wc.id));
+          if (!local) return;
+
+          // Compteurs : toujours MAX
+          ['sent','opened','clicks','errors'].forEach(k => {
+            if (_n(wc[k]) > _n(local[k])) { local[k] = wc[k]; updated++; }
+          });
+          if (_n(wc.unsubscribed) > _n(local.unsubscribed)) {
+            local.unsubscribed = wc.unsubscribed; updated++;
+          }
+          if (_n(wc.totalOpenEvents) > _n(local.totalOpenEvents)) {
+            local.totalOpenEvents = wc.totalOpenEvents; updated++;
+          }
+          if (wc.dailySent !== undefined) {
+            local.dailySent = _n(wc.dailySent);
+            local.dailyDate = new Date().toDateString();
+            updated++;
+          }
+          if (wc.lastSentAt) local.lastSentAt = wc.lastSentAt;
+
+          // Statut : ne rétrograder que si le Worker dit completed/paused/oauth_error
+          const prevStatus = local.status;
+          if (wc.status && wc.status !== local.status) {
+            const workerTrumps = ['completed','paused','oauth_error','stopped'];
+            if (workerTrumps.includes(wc.status)) {
+              local.status = wc.status; updated++;
+              if (wc.status === 'oauth_error') toast('⚠ OAuth error — «' + (local.name||'') + '»', 'error');
+              if (wc.status === 'completed')   toast('✅ Campagne «' + (local.name||'') + '» terminée !', 'success');
+            }
+          }
+
+          // Contacts : merge par email (enrichissement, pas écrasement)
+          _safeArr(wc.contacts).forEach(wContact => {
+            const lContact = _safeArr(local.emailList).find(e => _emailEq(e.email, wContact.email));
+            if (!lContact) return;
+
+            // Statut : envoi/ouverture/désabonnement ne reculent jamais
+            const rank = { pending:0, sent:1, error:1, opened:2, unsubscribed:3 };
+            const wRank = rank[wContact.status] || 0;
+            const lRank = rank[lContact.status] || 0;
+            if (wRank > lRank) lContact.status = wContact.status;
+
+            // Champs tracking : MAX ou union
+            if (wContact.sentAt && !lContact.sentAt) lContact.sentAt = wContact.sentAt;
+            if (wContact.openedAt && !lContact.openedAt) {
+              lContact.openedAt = wContact.openedAt;
+              lContact.opened   = true;
+            }
+            if (wContact.firstOpenedAt && !lContact.firstOpenedAt) lContact.firstOpenedAt = wContact.firstOpenedAt;
+            if (wContact.lastOpenedAt)  lContact.lastOpenedAt = wContact.lastOpenedAt;
+            if (_n(wContact.openCount) > _n(lContact.openCount)) {
+              lContact.openCount = wContact.openCount;
+              lContact.opens     = _safeArr(wContact.opens).length ? wContact.opens : lContact.opens;
+            }
+            if (wContact.unsubscribed) { lContact.unsubscribed = true; lContact.status = 'unsubscribed'; }
+            if (_n(wContact.clickCount) > _n(lContact.clickCount)) {
+              lContact.clicks        = wContact.clicks;
+              lContact.clickCount    = wContact.clickCount;
+              lContact.lastClickedAt = wContact.lastClickedAt;
+              lContact.lastClickedUrl= wContact.lastClickedUrl;
+              lContact.lastClickedLabel= wContact.lastClickedLabel;
+            }
+            if (wContact.errorMsg && !lContact.errorMsg) lContact.errorMsg = wContact.errorMsg;
+            updated++;
+          });
+        });
+        if (updated > 0) persistCamps();
+      }
+    }
+
+    // ── 2. /sync/analytics ──
+    const analRes = await fetch(S.wurl + '/sync/analytics');
+    if (analRes.ok) {
+      const data2 = await analRes.json();
+      if (_safeArr(data2.analytics).length > 0) {
+        // Merge dans S.analytics : déduplique par (email|campaignId)
+        const keyIndex = new Map();
+        S.analytics.forEach((a, i) => keyIndex.set(_logKey(a), i));
+
+        data2.analytics.forEach(wa => {
+          if (!wa || !wa.email) return;
+          const k = _logKey(wa);
+          if (keyIndex.has(k)) {
+            const local = S.analytics[keyIndex.get(k)];
+            // Enrichissement uniquement
+            if (wa.opened || wa.openedAt) {
+              local.opened    = true;
+              local.openedAt  = local.openedAt || wa.openedAt;
+              local.firstOpenedAt = local.firstOpenedAt || wa.firstOpenedAt || wa.openedAt;
+              local.lastOpenedAt  = wa.lastOpenedAt || local.lastOpenedAt;
+            }
+            if (_openCount(wa) > _openCount(local)) {
+              local.opens     = wa.opens;
+              local.openCount = wa.openCount;
+            }
+            if (_clickCount(wa) > _clickCount(local)) {
+              local.clicks        = wa.clicks;
+              local.clickCount    = wa.clickCount;
+              local.lastClickedAt = wa.lastClickedAt;
+              local.lastClickedUrl= wa.lastClickedUrl;
+              local.lastClickedLabel= wa.lastClickedLabel;
+            }
+            if (wa.unsubscribed) { local.unsubscribed = true; local.status = 'unsubscribed'; }
+            const statusRank = { sent:1, error:1, opened:2, unsubscribed:3 };
+            if ((statusRank[wa.status]||0) > (statusRank[local.status]||0)) local.status = wa.status;
+          } else {
+            keyIndex.set(k, S.analytics.length);
+            S.analytics.push({ ...wa });
+          }
+        });
+
+        // Déduplique les doublons (type=open, type=click bruts)
+        S.analytics = S.analytics.filter(a =>
+          a.type === 'email' || a.type === 'sms'
+        );
+        if (S.analytics.length > 50000) S.analytics = S.analytics.slice(-50000);
+        try { lsS(SK.analytics, S.analytics); } catch(_) {}
+      }
+    }
+
+    // ── 3. Injection manuelle depuis emailList → analytics (filet de sécurité)
+    const eKeys = new Set(S.analytics.map(a => _logKey(a)));
+    let injected = 0;
+    S.camps.filter(c => c.type !== 'sms').forEach(c => {
+      _safeArr(c.emailList).forEach(e => {
+        if (!['sent','opened','error','unsubscribed'].includes(e.status)) return;
+        const k = String(e.email||'').toLowerCase() + '|' + String(c.id);
+        if (eKeys.has(k)) return;
+        eKeys.add(k);
+        S.analytics.push({
+          type: 'email', email: e.email, campaign: c.name,
+          campaignId: c.id,
+          date: e.sentAt || c.launchedAt || c.created || new Date().toISOString(),
+          status: e.status === 'error' ? 'error' : 'sent',
+          sent: e.status !== 'error',
+          opened: e.status === 'opened' || !!e.opened || _openCount(e) > 0,
+          openedAt: e.openedAt || null,
+          firstOpenedAt: e.firstOpenedAt || e.openedAt || null,
+          lastOpenedAt: e.lastOpenedAt || e.openedAt || null,
+          opens: e.opens || [],
+          openCount: _openCount(e),
+          unsubscribed: !!e.unsubscribed,
+          clicks: e.clicks || [],
+          clickCount: _clickCount(e),
+          lastClickedAt: e.lastClickedAt || null,
+          lastClickedUrl: e.lastClickedUrl || null,
+          lastClickedLabel: e.lastClickedLabel || null,
+        });
+        injected++;
+      });
+    });
+    if (injected > 0) {
+      try { lsS(SK.analytics, S.analytics); } catch(_) {}
+    }
+
+    // ── 4. Rafraîchissement UI
+    persistCamps();
+    renderCampList('email');
+    renderCampList('sms');
+    renderDashboard();
+    updateStats();
+    refreshQuotaBanner();
+    _refreshOpenCampMetrics();
+
+    // ── Statut chip
+    const chip = $('wchip'), wlbl = $('wlbl');
+    if (chip) chip.className = 'wchip ok';
+    const ts = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+    if (wlbl) wlbl.textContent = 'Worker actif · ' + ts;
+
+    // ── Bandeau sync
+    const banner = $('sync-banner'), sl = $('sync-status-lbl'), pl = $('sync-pos-lbl'), ll = $('sync-last-lbl');
+    if (banner) banner.style.display = 'flex';
+    if (sl) {
+      const ac = S.camps.filter(c => c.status === 'running');
+      const pc = S.camps.filter(c => c.status === 'paused');
+      if (ac.length) {
+        sl.innerHTML = '⚡ <strong style="color:var(--yel);">' + ac.length + ' campagne(s) en cours</strong>' +
+          (pc.length ? ' · ⏸ ' + pc.length + ' en pause' : '') + ' — Worker actif';
+        sl.style.color = 'var(--yel)';
+        if (pl) {
+          pl.textContent = ac.map(c => {
+            const m = getCanonicalMetrics(c.id);
+            const todayStr = new Date().toDateString();
+            const st = c.dailyDate === todayStr ? _n(c.dailySent) : 0;
+            return c.name + ' : ' + _fmt(m.sent) + '/' + _fmt(m.total) + ' · ' + st + '/' + (c.dailyLimit || '∞') + ' auj.';
+          }).join(' | ');
+          pl.style.display = 'block';
+        }
+      } else {
+        sl.innerHTML = pc.length
+          ? '⏸ <strong style="color:var(--yel);">' + pc.length + ' en pause</strong>'
+          : '✅ <strong style="color:var(--grn);">Synchronisé</strong>';
+        sl.style.color = pc.length ? 'var(--yel)' : 'var(--grn)';
+        if (pl) pl.style.display = 'none';
+      }
+    }
+    if (ll) ll.textContent = 'Dernière sync : ' + ts;
+
+  } catch(e) {
+    console.warn('[PGI sync]', e.message);
+    const chip = $('wchip'), wlbl = $('wlbl');
+    if (chip) chip.className = 'wchip err';
+    if (wlbl) wlbl.textContent = 'Worker inactif';
+    const sl = $('sync-status-lbl');
+    if (sl) { sl.innerHTML = '⚠️ <strong style="color:var(--red)">Worker inaccessible</strong>'; sl.style.color = 'var(--red)'; }
   }
-  function unifiedGlobal(){
-    const logs=allEmailLogs();
-    const sent=logs.filter(l=>l.status!=='error').length;
-    const errors=logs.filter(l=>l.status==='error').length;
-    const openedUnique=logs.filter(l=>l.opened||oc(l)>0).length;
-    const openEvents=Math.max(logs.reduce((s,l)=>s+oc(l),0),openedUnique);
-    const clicks=logs.reduce((s,l)=>s+cc(l),0);
-    const clickers=logs.filter(l=>cc(l)>0).length;
-    const unsub=logs.filter(l=>l.unsubscribed).length;
-    const noRead=Math.max(0,sent-openedUnique);
-    const openRate=sent?Math.round(openedUnique/sent*100):0;
-    return {logs,sent,errors,openedUnique,openEvents,clicks,clickers,unsub,noRead,openRate};
+
+  window._pgiSyncing = false;
+}
+
+// ─── WIDGETS UI ──────────────────────────────────────────────────────────────
+
+/** Mise à jour des cartes métriques dans le formulaire campagne (en-tête) */
+function _refreshOpenCampMetrics() {
+  const campId = S.activeCamp || S.activeSMS;
+  if (!campId) return;
+  const c = S.camps.find(x => x.id === campId);
+  if (!c || c.type === 'sms') return;
+  const m = getCanonicalMetrics(campId);
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('prc-contacts-' + campId, _fmt(m.total));
+  set('prc-sent-'     + campId, _fmt(m.sent));
+  set('prc-open-'     + campId, _fmt(m.openedUnique));
+  set('prc-pct-'      + campId, m.pct + '%');
+  set('prc-clics-'    + campId, _fmt(m.clicks));
+  set('prc-clics-sub-'+ campId, _fmt(m.clickers) + ' email' + (m.clickers > 1 ? 's' : '') + ' cliqué' + (m.clickers > 1 ? 's' : ''));
+  const errEl = document.getElementById('prc-err-' + campId);
+  if (errEl) errEl.textContent = m.errors > 0 ? _fmt(m.errors) + ' err' : '';
+  const pbarEl = document.getElementById('pbar-' + campId);
+  if (pbarEl) pbarEl.style.width = m.pct + '%';
+  const asEl = document.getElementById('as-' + campId);
+  if (asEl && typeof buildAS === 'function') asEl.innerHTML = buildAS(c);
+}
+
+/** Cartes KPI globales + settings */
+function updateStats() {
+  const g = getCanonicalGlobal();
+  const todayStr = new Date().toDateString();
+  const sentToday = S.camps.filter(c => c.type !== 'sms')
+    .reduce((s, c) => s + (c.dailyDate === todayStr ? _n(c.dailySent) : 0), 0);
+
+  const set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+  set('kv-es',  _fmt(g.sent));
+  set('ks-es',  _fmt(sentToday) + " aujourd'hui");
+  set('kv-op',  g.openRate + '%');
+  set('kv-no',  _fmt(g.noRead));
+  set('kv-cl',  _fmt(g.clicks));
+  set('kv-un',  _fmt(g.unsub));
+  set('kv-sm',  _fmt(g.totalSMS));
+  set('ks-op',  _fmt(g.openedUnique) + ' ouverts · ' + _fmt(g.openEvents) + ' ouvertures');
+  set('ks-cl',  _fmt(g.clickers) + ' email' + (g.clickers > 1 ? 's' : '') + ' cliqué' + (g.clickers > 1 ? 's' : ''));
+  set('ks-sm',  _fmt(g.smsRead) + ' lus');
+  // Settings
+  set('sg-e', _fmt(g.sent));
+  set('sg-o', _fmt(g.openedUnique));
+  set('sg-s', _fmt(g.totalSMS));
+  set('sg-k', S.camps.length);
+  set('sg-c', _fmt(S.contacts.length));
+  set('sg-t', S.tpls.length);
+  // Rafraîchir aussi la vue campagne ouverte
+  try { _refreshOpenCampMetrics(); } catch(_) {}
+}
+
+/** Tableau "campagnes actives" */
+function renderActiveCamps() {
+  const tbody = $('active-camps-body'); if (!tbody) return;
+  const badge = $('badge-actives');
+  const active = S.camps.filter(c => c.status === 'running');
+  if (badge) badge.textContent = active.length;
+  if (!active.length) {
+    tbody.innerHTML = '<tr><td colspan="10"><div class="empty" style="padding:20px"><p>Aucune campagne en cours</p></div></td></tr>';
+    return;
   }
-  window.pgiUnifiedCampMetrics=unifiedCamp;
-  window.pgiUnifiedGlobalMetrics=unifiedGlobal;
+  tbody.innerHTML = active.map(c => {
+    const m = getCanonicalMetrics(c.id);
+    const rpm = c.rateEffectivePerMin || 10;
+    let cadence;
+    if (rpm >= 60) cadence = Math.round(rpm / 60) + '/h';
+    else if (rpm >= 1) cadence = Math.round(rpm) + '/min';
+    else cadence = Math.round(60 / rpm) + 's/envoi';
+    const pos = Math.min(m.total, m.sent + m.errors + 1);
+    return `<tr>
+      <td style="font-weight:700;color:var(--text)">${esc(c.name)}</td>
+      <td><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;
+        background:${c.type==='sms'?'rgba(255,45,120,.1)':'rgba(0,232,255,.1)'};
+        color:${c.type==='sms'?'var(--pnk)':'var(--cyan)'};">${c.type.toUpperCase()}</span></td>
+      <td class="mono">${_fmt(m.sent)}</td>
+      <td class="mono">${_fmt(pos)}/${_fmt(m.total)}</td>
+      <td><div style="display:flex;align-items:center;gap:6px;">
+        <div style="width:80px;height:3px;background:var(--bg4);border-radius:2px;">
+          <div style="height:100%;background:var(--grn);border-radius:2px;width:${m.pct}%;"></div>
+        </div>
+        <span style="font-size:9px;font-family:var(--mono);color:var(--text3)">${m.pct}%</span>
+      </div></td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--yel)">${cadence}</td>
+      <td class="mono">${_fmt(m.openedUnique)}</td>
+      <td class="mono" style="color:${m.errors>0?'var(--red)':'var(--text3)'}">${_fmt(m.errors)}</td>
+      <td style="font-size:10px;color:var(--text3)">${c.durationInfinite?'∞':c.durationH+'h'}</td>
+      <td><button class="btn-sm yel" onclick="pauseCamp(${c.id})">⏸</button></td>
+    </tr>`;
+  }).join('');
+  // Prochaine action
+  const lbl = $('lbl-next');
+  if (lbl && active.length) {
+    const minRpm = Math.min(...active.map(c => c.rateEffectivePerMin || 10));
+    const nextMin = 60 / minRpm;
+    lbl.textContent = nextMin < 2 ? '~' + Math.round(nextMin * 60) + 's/email'
+      : nextMin < 60 ? '~' + Math.round(nextMin) + 'min/email'
+      : '~' + Math.round(nextMin / 60) + 'h/email';
+  }
+}
 
-  const oldBuildAS=window.buildAS;
-  window.buildAS=function(c){
-    if(!c||c.type==='sms'||typeof oldBuildAS!=='function') return oldBuildAS?oldBuildAS(c):'';
-    const m=unifiedCamp(c);let html=oldBuildAS(c);
-    try{const sentCount=safeArr(c.emailList).filter(e=>e.status==='sent'||e.status==='opened').length;const pendCount=safeArr(c.emailList).filter(e=>e.status==='pending').length;const errCount=safeArr(c.emailList).filter(e=>e.status==='error').length;html=html.replace('✓'+sentCount,'✓'+m.sent);html=html.replace('⏳'+pendCount,'⏳'+m.remaining);if(errCount&&m.errors!==errCount)html=html.replace('✕'+errCount,'✕'+m.errors);}catch(_){}
-    return html;
-  };
+/** Tableau "toutes les campagnes" */
+function renderAllCamps() {
+  const tbody = $('all-camps-body'); if (!tbody) return;
+  if (!S.camps.length) {
+    tbody.innerHTML = '<tr><td colspan="10"><div class="empty" style="padding:16px"><p>Aucune campagne</p></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = S.camps.map(c => {
+    const m = getCanonicalMetrics(c.id);
+    // Tooltip openers
+    const openersTip = m.logs.filter(l => l.opened || _openCount(l) > 0).slice(0, 5)
+      .map(l => l.email + (l.openedAt ? ' @ ' + new Date(l.openedAt).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '')).join('\n');
+    const clickersTip = m.logs.filter(l => _clickCount(l) > 0).slice(0, 5)
+      .map(l => l.email + (l.lastClickedAt ? ' @ ' + new Date(l.lastClickedAt).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '')).join('\n');
+    return `<tr onclick="showView('${c.type}');openCamp(${c.id},'${c.type}')" style="cursor:pointer;">
+      <td style="font-weight:700;color:var(--text)">${esc(c.name)}</td>
+      <td><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;
+        background:${c.type==='sms'?'rgba(255,45,120,.1)':'rgba(0,232,255,.1)'};
+        color:${c.type==='sms'?'var(--pnk)':'var(--cyan)'};">${c.type.toUpperCase()}</span></td>
+      <td><span class="stbadge ${stCls(c.status)}">${stLbl(c.status)}</span></td>
+      <td class="mono" title="${_n(m.remaining)} en attente">${_fmt(m.total)}</td>
+      <td class="mono" style="color:var(--grn)">${_fmt(m.sent)}</td>
+      <td class="mono" title="${openersTip||'Aucune ouverture'}"
+        style="color:${m.openedUnique>0?'var(--purl)':'var(--text3)'};cursor:${m.openedUnique>0?'help':'default'}">
+        ${_fmt(m.openedUnique)}${m.openedUnique>0?' <span style="font-size:8px">ℹ</span>':''}
+      </td>
+      <td style="font-family:var(--mono);font-size:10px;color:${m.openRate>=20?'var(--grn)':m.openRate>=10?'var(--yel)':'var(--text3)'}">
+        ${m.openRate}%
+      </td>
+      <td class="mono" title="${clickersTip||'Aucun clic'}"
+        style="color:${m.clicks>0?'var(--cyan)':'var(--text3)'};cursor:${m.clicks>0?'help':'default'}">
+        ${_fmt(m.clicks)}${m.clicks>0?' <span style="font-size:8px">ℹ</span>':''}
+      </td>
+      <td class="mono" style="color:${m.errors>0?'var(--red)':'var(--text3)'}">${_fmt(m.errors)}</td>
+      <td style="font-size:10px;color:var(--text3)">${fDt(c.created)}</td>
+    </tr>`;
+  }).join('');
+}
 
-  window._refreshOpenCampMetrics=function(){
-    const campId=S.activeCamp||S.activeSMS;if(!campId)return;const c=S.camps.find(x=>x.id===campId);if(!c||c.type==='sms')return;const m=unifiedCamp(c);
-    const els={['prc-sent-'+campId]:fmt(m.sent),['prc-open-'+campId]:fmt(m.openedUnique),['prc-pct-'+campId]:m.pct+'%',['prc-contacts-'+campId]:fmt(m.total),['prc-clics-'+campId]:fmt(m.clicks)};
-    Object.entries(els).forEach(([id,val])=>{const el=document.getElementById(id);if(el)el.textContent=val;});
-    const errEl=document.getElementById('prc-err-'+campId);if(errEl)errEl.textContent=m.errors>0?fmt(m.errors)+' err':'';
-    const pbarEl=document.getElementById('pbar-'+campId);if(pbarEl)pbarEl.style.width=m.pct+'%';
-    const cs=document.getElementById('prc-clics-sub-'+campId);if(cs)cs.textContent=fmt(m.clickers)+' email'+(m.clickers>1?'s':'')+' cliqué'+(m.clickers>1?'s':'');
-    const asEl=document.getElementById('as-'+campId);if(asEl&&typeof buildAS==='function')asEl.innerHTML=buildAS(c);
-  };
+/** Statistiques de période */
+function renderPeriodStats() {
+  // On filtre les logs globaux par période sélectionnée
+  const g = getCanonicalGlobal();
+  const logs = g.globalLogs.filter(x => typeof inRange === 'function' ? inRange(x.date) : true);
+  const smsLogs = _safeArr(S.analytics).filter(x => x.type === 'sms' && (typeof inRange !== 'function' || inRange(x.date)));
 
-  const oldOpenCamp=window.openCamp;
-  window.openCamp=function(){const r=oldOpenCamp&&oldOpenCamp.apply(this,arguments);setTimeout(()=>{try{window._refreshOpenCampMetrics();}catch(e){}},0);return r;};
+  const sent       = logs.filter(x => x.status !== 'error').length;
+  const opened     = logs.filter(x => x.opened || _openCount(x) > 0).length;
+  const openEvents = Math.max(logs.reduce((s, x) => s + _openCount(x), 0), opened);
+  const clicks     = logs.reduce((s, x) => s + _clickCount(x), 0);
+  const unsub      = logs.filter(x => x.unsubscribed).length;
+  const noRead     = Math.max(0, sent - opened);
 
-  window.refreshQuotaBanner=function(){
-    const banner=document.getElementById('quota-global-banner');if(!banner)return;const running=S.camps.filter(c=>c.type!=='sms'&&c.status==='running');const paused=S.camps.filter(c=>c.type!=='sms'&&c.status==='paused');
-    if(!running.length&&!paused.length){banner.classList.remove('show');return;}banner.classList.add('show');let lines=[];
-    running.forEach(c=>{const m=unifiedCamp(c);lines.push(`⚡ <strong style="color:var(--yel)">${esc(c.name)}</strong> — <strong style="color:var(--grn)">${fmt(m.remaining)} emails restants</strong> sur ${fmt(m.total)} au total · ${fmt(m.sent)} envoyés · ${fmt(m.errors)} err`);});
-    paused.forEach(c=>{const m=unifiedCamp(c);lines.push(`⏸ <strong style="color:var(--text2)">${esc(c.name)}</strong> — En pause · <strong style="color:var(--text2)">${fmt(m.remaining)} restants</strong> sur ${fmt(m.total)} · ${fmt(m.sent)} envoyés`);});
-    banner.className='quota-banner show warn';banner.style.background='rgba(255,230,0,.07)';banner.style.border='1px solid rgba(255,230,0,.25)';banner.style.color='var(--yel)';banner.style.flexDirection='column';banner.style.gap='4px';banner.style.alignItems='flex-start';banner.innerHTML=lines.join('<br>');
-  };
+  const set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+  set('ps-sent',  _fmt(sent));
+  set('ps-open',  sent ? Math.round(opened / sent * 100) + '%' : '0%');
+  set('ps-clicks',_fmt(clicks));
+  set('ps-sms',   _fmt(smsLogs.length));
+  set('ps-unsub', _fmt(unsub));
 
-  window.renderActiveCamps=function(){
-    const tbody=document.getElementById('active-camps-body');if(!tbody)return;const active=S.camps.filter(c=>c.status==='running');const badge=document.getElementById('badge-actives');if(badge)badge.textContent=active.length;
-    if(!active.length){tbody.innerHTML='<tr><td colspan="10"><div class="empty" style="padding:20px"><p>Aucune campagne en cours</p></div></td></tr>';return;}
-    tbody.innerHTML=active.map(c=>{const m=unifiedCamp(c);const total=m.total||1;const rpm=c.rateEffectivePerMin||10;let cadence;if(rpm>=60)cadence=Math.round(rpm/60)+'/h';else if(rpm>=1)cadence=Math.round(rpm)+'/min';else cadence=Math.round(60/rpm)+'s/envoi';const pos=Math.min(total,m.sent+m.errors+1);return`<tr><td style="font-weight:700;color:var(--text)">${esc(c.name)}</td><td><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:${c.type==='sms'?'rgba(255,45,120,.1)':'rgba(0,232,255,.1)'};color:${c.type==='sms'?'var(--pnk)':'var(--cyan)'};">${c.type.toUpperCase()}</span></td><td class="mono">${fmt(m.sent)}</td><td class="mono">${fmt(pos)}/${fmt(total)}</td><td><div style="display:flex;align-items:center;gap:6px;"><div style="width:80px;height:3px;background:var(--bg4);border-radius:2px;"><div style="height:100%;background:var(--grn);border-radius:2px;width:${m.pct}%;"></div></div><span style="font-size:9px;font-family:var(--mono);color:var(--text3)">${m.pct}%</span></div></td><td style="font-family:var(--mono);font-size:10px;color:var(--yel)">${cadence}</td><td class="mono">${fmt(m.openedUnique)}</td><td class="mono" style="color:${m.errors>0?'var(--red)':'var(--text3)'}">${fmt(m.errors)}</td><td style="font-size:10px;color:var(--text3)">${c.durationInfinite?'∞':c.durationH+'h'}</td><td><button class="btn-sm yel" onclick="pauseCamp(${c.id})">⏸</button></td></tr>`;}).join('');
-  };
+  const eb = $('email-stats-bar');
+  if (eb) {
+    eb.innerHTML =
+      `<span class="stat-mini sent">✓ ${_fmt(sent)} envoyés</span>` +
+      `<span class="stat-mini open">👁 ${_fmt(opened)} ouverts · ${_fmt(openEvents)} ouvertures</span>` +
+      `<span class="stat-mini noread">⊘ ${_fmt(noRead)} non lus</span>` +
+      (clicks ? `<span class="stat-mini open">🔗 ${_fmt(clicks)} clics</span>` : '');
+  }
+}
 
-  window.updateStats=function(){
-    const g=unifiedGlobal();const smsList=safeArr(S.analytics).filter(x=>x.type==='sms');const campsSMS=S.camps.filter(c=>c.type==='sms').reduce((s,c)=>s+n(c.sent),0);const totalSMS=Math.max(smsList.length,campsSMS);const totalSMSRead=smsList.filter(x=>x.read).length;const set=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val;};
-    set('kv-es',fmt(g.sent));const todayStr=new Date().toDateString();const sentToday=S.camps.filter(c=>c.type!=='sms').reduce((s,c)=>s+((c.dailyDate===todayStr)?n(c.dailySent):0),0);set('ks-es',fmt(sentToday)+' aujourd’hui');set('kv-op',g.openRate+'%');set('kv-no',fmt(g.noRead));set('kv-cl',fmt(g.clicks));set('kv-un',fmt(g.unsub));set('kv-sm',fmt(totalSMS));set('ks-op',fmt(g.openedUnique)+' ouverts · '+fmt(g.openEvents)+' ouvertures');set('ks-cl',fmt(g.clickers)+' email'+(g.clickers>1?'s':'')+' cliqué'+(g.clickers>1?'s':''));set('ks-sm',fmt(totalSMSRead)+' lus');set('sg-e',fmt(g.sent));set('sg-o',fmt(g.openedUnique));set('sg-s',fmt(totalSMS));set('sg-k',S.camps.length);set('sg-c',fmt(S.contacts.length));set('sg-t',S.tpls.length);try{window._refreshOpenCampMetrics();}catch(e){}
-  };
+/** Bannière quota campagnes actives */
+function refreshQuotaBanner() {
+  const banner = $('quota-global-banner'); if (!banner) return;
+  const running = S.camps.filter(c => c.type !== 'sms' && c.status === 'running');
+  const paused  = S.camps.filter(c => c.type !== 'sms' && c.status === 'paused');
+  if (!running.length && !paused.length) { banner.classList.remove('show'); return; }
+  banner.classList.add('show');
+  let lines = [];
+  running.forEach(c => {
+    const m = getCanonicalMetrics(c.id);
+    lines.push(`⚡ <strong style="color:var(--yel)">${esc(c.name)}</strong> — ` +
+      `<strong style="color:var(--grn)">${_fmt(m.remaining)} restants</strong> sur ${_fmt(m.total)} · ` +
+      `${_fmt(m.sent)} envoyés · ${_fmt(m.openedUnique)} ouverts · ${_fmt(m.errors)} err`);
+  });
+  paused.forEach(c => {
+    const m = getCanonicalMetrics(c.id);
+    lines.push(`⏸ <strong style="color:var(--text2)">${esc(c.name)}</strong> — En pause · ` +
+      `<strong style="color:var(--text2)">${_fmt(m.remaining)} restants</strong> sur ${_fmt(m.total)} · ${_fmt(m.sent)} envoyés`);
+  });
+  banner.className = 'quota-banner show warn';
+  banner.style.cssText = 'background:rgba(255,230,0,.07);border:1px solid rgba(255,230,0,.25);color:var(--yel);flex-direction:column;gap:4px;align-items:flex-start;';
+  banner.innerHTML = lines.join('<br>');
+}
 
-  window.renderPeriodStats=function(){
-    const logs=allEmailLogs().filter(x=>typeof inRange==='function'?inRange(x.date):true);const smsLogs=safeArr(S.analytics).filter(x=>x.type==='sms'&&(typeof inRange!=='function'||inRange(x.date)));const sent=logs.filter(x=>x.status!=='error').length;const opened=logs.filter(x=>x.opened||oc(x)>0).length;const openEvents=logs.reduce((s,x)=>s+oc(x),0);const clicks=logs.reduce((s,x)=>s+cc(x),0);const unsub=logs.filter(x=>x.unsubscribed).length;const set=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val;};set('ps-sent',fmt(sent));set('ps-open',sent?Math.round(opened/sent*100)+'%':'0%');set('ps-clicks',fmt(clicks));set('ps-sms',fmt(smsLogs.length));set('ps-unsub',fmt(unsub));const eb=document.getElementById('email-stats-bar');if(eb){const noRead=Math.max(0,sent-opened);eb.innerHTML=`<span class="stat-mini sent">✓ ${fmt(sent)} envoyés</span><span class="stat-mini open">👁 ${fmt(opened)} ouverts · ${fmt(Math.max(openEvents,opened))} ouvertures</span><span class="stat-mini noread">⊘ ${fmt(noRead)} non lus</span>${clicks?`<span class="stat-mini open">🔗 ${fmt(clicks)} clics</span>`:''}`;}
-  };
-})();
+// ─── HISTORIQUE EMAILS : source canonique ─────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded',init);
+/**
+ * Remplace getAllEmailLogs() — retourne les logs dédupliqués
+ * enrichis depuis emailList pour chaque campagne.
+ */
+function getAllEmailLogs() {
+  const keyIndex = new Map();
+  const merged = [];
+
+  // Seed depuis S.analytics
+  _safeArr(S.analytics).filter(x => x && x.type === 'email' && x.status !== 'pending_send')
+    .forEach(x => {
+      const k = _logKey(x);
+      if (!keyIndex.has(k)) {
+        keyIndex.set(k, merged.length);
+        merged.push({ ...x });
+      } else {
+        const ex = merged[keyIndex.get(k)];
+        if (x.opened || x.openedAt) { ex.opened = true; ex.openedAt = ex.openedAt || x.openedAt; }
+        if (_openCount(x) > _openCount(ex)) { ex.opens = x.opens; ex.openCount = x.openCount; }
+        if (_clickCount(x) > _clickCount(ex)) { ex.clicks = x.clicks; ex.clickCount = x.clickCount; }
+        if (x.unsubscribed) ex.unsubscribed = true;
+      }
+    });
+
+  // Enrich/inject depuis emailList
+  S.camps.filter(c => c.type !== 'sms').forEach(c => {
+    _safeArr(c.emailList).forEach(e => {
+      if (!['sent','opened','error','unsubscribed'].includes(e.status) && !e.sentAt) return;
+      const k = String(e.email || '').toLowerCase() + '|' + String(c.id);
+      if (keyIndex.has(k)) {
+        const ex = merged[keyIndex.get(k)];
+        if (e.opened || e.openedAt || _openCount(e) > 0) {
+          ex.opened = true;
+          ex.openedAt = ex.openedAt || e.openedAt;
+          ex.firstOpenedAt = ex.firstOpenedAt || e.firstOpenedAt || e.openedAt;
+          ex.lastOpenedAt  = e.lastOpenedAt || ex.lastOpenedAt;
+        }
+        if (_openCount(e) > _openCount(ex)) { ex.opens = e.opens; ex.openCount = e.openCount; }
+        if (_clickCount(e) > _clickCount(ex)) {
+          ex.clicks = e.clicks; ex.clickCount = e.clickCount;
+          ex.lastClickedAt = e.lastClickedAt; ex.lastClickedUrl = e.lastClickedUrl;
+          ex.lastClickedLabel = e.lastClickedLabel;
+        }
+        if (e.unsubscribed) ex.unsubscribed = true;
+        if (e.status === 'error') ex.status = 'error';
+        else if (ex.status !== 'error') {
+          const r = {sent:1,opened:2,unsubscribed:3};
+          if ((r[e.status]||0) > (r[ex.status]||0)) ex.status = e.status;
+        }
+      } else {
+        keyIndex.set(k, merged.length);
+        merged.push({
+          type: 'email', email: e.email, campaign: c.name, campaignId: c.id,
+          date: e.sentAt || c.launchedAt || c.created || new Date().toISOString(),
+          status: e.status === 'error' ? 'error' : (e.opened || _openCount(e) > 0 ? 'opened' : 'sent'),
+          sent: e.status !== 'error', opened: e.status === 'opened' || !!e.opened || _openCount(e) > 0,
+          openedAt: e.openedAt || null, firstOpenedAt: e.firstOpenedAt || e.openedAt || null,
+          lastOpenedAt: e.lastOpenedAt || e.openedAt || null,
+          opens: e.opens || [], openCount: _openCount(e),
+          unsubscribed: !!e.unsubscribed,
+          clicks: e.clicks || [], clickCount: _clickCount(e),
+          lastClickedAt: e.lastClickedAt || null, lastClickedUrl: e.lastClickedUrl || null,
+          lastClickedLabel: e.lastClickedLabel || null,
+        });
+      }
+    });
+  });
+
+  return merged.sort((a, b) => new Date(b.date) - new Date(a.date));
+}
+
+// ─── EXPOSITION GLOBALE ───────────────────────────────────────────────────────
+
+// On surcharge toutes les fonctions globales utilisées dans le HTML existant
+window.getCanonicalMetrics   = getCanonicalMetrics;
+window.getCanonicalGlobal    = getCanonicalGlobal;
+window.getAllEmailLogs        = getAllEmailLogs;
+window.syncFromWorker        = syncFromWorker;
+window.updateStats           = updateStats;
+window.renderActiveCamps     = renderActiveCamps;
+window.renderAllCamps        = renderAllCamps;
+window.renderPeriodStats     = renderPeriodStats;
+window.refreshQuotaBanner    = refreshQuotaBanner;
+window._refreshOpenCampMetrics = _refreshOpenCampMetrics;
+
+// buildAS enrichi pour utiliser getCanonicalMetrics
+const _origBuildAS = window.buildAS;
+window.buildAS = function(c) {
+  if (!c || c.type === 'sms' || typeof _origBuildAS !== 'function') return _origBuildAS ? _origBuildAS(c) : '';
+  const m = getCanonicalMetrics(c.id);
+  let html = _origBuildAS(c);
+  // Remplace les compteurs dans le résumé
+  try {
+    const emailList = _safeArr(c.emailList);
+    const lSentCount = emailList.filter(e => e.status === 'sent' || e.status === 'opened').length;
+    const lPendCount = emailList.filter(e => e.status === 'pending').length;
+    const lErrCount  = emailList.filter(e => e.status === 'error').length;
+    html = html.replace('✓' + lSentCount, '✓' + _fmt(m.sent));
+    html = html.replace('⏳' + lPendCount, '⏳' + _fmt(m.remaining));
+    if (lErrCount && m.errors !== lErrCount) html = html.replace('✕' + lErrCount, '✕' + _fmt(m.errors));
+  } catch(_) {}
+  return html;
+};
+
+// openCamp : force refresh après ouverture
+const _origOpenCamp = window.openCamp;
+window.openCamp = function() {
+  const r = _origOpenCamp && _origOpenCamp.apply(this, arguments);
+  setTimeout(() => { try { _refreshOpenCampMetrics(); } catch(_) {} }, 50);
+  return r;
+};
+
+console.log('[PGI Metrics] Patch v1.0 chargé — source unique getCanonicalMetrics()');
+
+
+document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>
