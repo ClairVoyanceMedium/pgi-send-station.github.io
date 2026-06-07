@@ -708,7 +708,23 @@ const cleanPhone=s=>s.replace(/[\s.\-()]/g,'');
 const esc=str=>(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 var escHtml=esc;
 let S={prov:ls(SK.prov)||'gmail',cid:ls(SK.cid)||'',tok:'',email:ls(SK.email)||'',wurl:ls(SK.wurl)||'',ce:ls(SK.ce)||'',cn:ls(SK.cn)||'',smsProv:ls(SK.smsProv)||'twilio',smsKey:ls(SK.smsKey)||'',smsSecret:ls(SK.smsSecret)||'',smsFrom:ls(SK.smsFrom)||'',smsWebhook:ls(SK.smsWebhook)||'',smsWebhookBody:ls(SK.smsWebhookBody)||'',smtpConfig:lsJ(SK.smtpConfig,{}),contacts:lsJ(SK.contacts,[]),tpls:lsJ(SK.tpls,[]),camps:lsJ(SK.camps,[]),lists:lsJ(SK.lists,[{id:'all',name:'Tous les contacts',color:'#c060ff',system:true}]),imgLib:lsJ(SK.imgLib,[]),analytics:lsJ(SK.analytics,[]),stats:lsJ(SK.stats,{emailToday:0,smsToday:0,lastDay:''}),isAuth:false,tokenClient:null,_qsAttachments:[],currentView:'dashboard',activeCamp:null,activeSMS:null,activeTpl:null,activeList:'all',tplMode:'rich',cSort:{f:'prénom',asc:true},csvData:[],selectedLC:'#c060ff',prevOpen:false};
-function getGlobalQuota(){const q=QUOTAS[S.prov]||QUOTAS.custom;const ac=S.camps.filter(c=>c.status==='running'&&c.type!=='sms');const todayStr=new Date().toDateString();const used=ac.reduce((sum,c)=>{const s=(c.dailyDate===todayStr)?(c.dailySent||c.sent||0):(c.sent||0);return sum+s;},0);const committed=ac.reduce((sum,c)=>sum+(c.dailyLimit||0),0);return{used,committed,available:Math.max(0,q.day-committed),percent:Math.round((committed/q.day)*100),limit:q.day,safe:q.safe};}
+function getGlobalQuota(){
+  const q=QUOTAS[S.prov]||QUOTAS.custom;
+  const ac=S.camps.filter(c=>c.status==='running'&&c.type!=='sms');
+  const todayStr=new Date().toDateString();
+  const used=ac.reduce((sum,c)=>{
+    const s=(c.dailyDate===todayStr)?(c.dailySent||0):0;
+    return sum+s;
+  },0);
+  // committed = limite réelle par jour (capper à q.day si pas de limite activée)
+  const committed=ac.reduce((sum,c)=>{
+    const dl=c.rateDEnabled&&c.rateDay>0?c.rateDay:q.day;
+    return sum+Math.min(dl,q.day);
+  },0);
+  const available=Math.max(0,q.day-used);
+  const percent=q.day>0?Math.round((used/q.day)*100):0;
+  return{used,committed,available,percent,limit:q.day,safe:q.safe};
+}
 function showView(name){
   // Forcer le fond sombre sur Samsung Browser qui peut le réinitialiser
   document.body.style.background='#1a1c22';
@@ -924,10 +940,48 @@ function newTpl(){const t={id:Date.now(),name:'Nouveau template',subject:'',html
 function getTplIcon(t){const n=(t.name||'').toLowerCase();if(n.includes('html')||n.includes('code'))return'</>';if(n.includes('sms'))return'💬';if(n.includes('promo')||n.includes('offre'))return'🏷️';if(n.includes('bienvenu')||n.includes('welcome'))return'👋';if(n.includes('vip')||n.includes('premium'))return'💎';if(n.includes('relance'))return'🔔';if(n.includes('merci'))return'🙏';if((t.html||t.body||'').length>500)return'📝';return'✉️';}
 function renderTplList(){const el=$('tpl-scroll');if(!el)return;if(!S.tpls.length){el.innerHTML='<div class="empty" style="padding:24px 10px"><p style="font-size:10px">Aucun template</p></div>';return;}el.innerHTML=S.tpls.map(t=>{const ico=getTplIcon(t);const isHtml=(t.html||t.body||'').trim().startsWith('<');return`<div class="tpl-row ${S.activeTpl==t.id?'sel':''}" onclick="loadTpl(${t.id});closeMob('panel-templates','fab-templates')"><div class="tpl-ico" style="font-size:16px;background:${S.activeTpl==t.id?'var(--pur-bg)':'var(--bg4)'}">${ico}</div><div style="flex:1;min-width:0;"><div class="tpl-nm">${esc(t.name)}</div><div class="tpl-sb">${esc(t.subject||'(pas de sujet)')} · <span style="color:${isHtml?'var(--cyan)':'var(--text3)'};font-size:8px">${isHtml?'HTML':'Texte'}</span></div></div><button class="btn-ico" style="padding:3px 7px;font-size:11px;flex-shrink:0;border-color:var(--pur-b);color:var(--purl)" onclick="event.stopPropagation();loadTpl(${t.id});closeMob('panel-templates','fab-templates')">✏️</button></div>`;}).join('');}
 function loadTpl(id){S.activeTpl=id;document.body.style.background='#1a1c22';renderTplList();const t=S.tpls.find(x=>x.id===id);if(!t)return;const nm=$('te-name');if(nm)nm.value=t.name||'';const su=$('te-subj');if(su)su.value=t.subject||'';const pr=$('pane-rich');if(pr)pr.innerHTML=t.html||t.body||'';const pc=$('pane-code');if(pc)pc.value=t.html||t.body||'';const pp=$('pane-plain');if(pp)pp.value=t.plain||'';S.tplMode='rich';setTTab('rich');renderImgGal();updTEChar();}
-function saveTpl(showDot=false){if(!S.activeTpl)return;const t=S.tpls.find(x=>x.id===S.activeTpl);if(!t)return;const nm=$('te-name');if(nm)t.name=nm.value;const su=$('te-subj');if(su)t.subject=su.value;const pr=$('pane-rich');if(pr)t.html=pr.innerHTML;const pc=$('pane-code');if(pc){if(S.tplMode==='html')t.html=pc.value;}const pp=$('pane-plain');if(pp)t.plain=pp.value;lsS(SK.tpls,S.tpls);renderTplList();if(showDot){const d=$('save-dot');if(d){d.classList.add('show');setTimeout(()=>d.classList.remove('show'),2000);}}}
-async function delTpl(){if(!S.activeTpl)return;if(!await pgiConfirm('Supprimer ce template ?','🗑'))return;S.tpls=S.tpls.filter(x=>x.id!==S.activeTpl);lsS(SK.tpls,S.tpls);S.activeTpl=null;renderTplList();const pr=$('pane-rich');if(pr)pr.innerHTML='';}
+function saveTpl(showDot=false){
+  if(!S.activeTpl)return;
+  const t=S.tpls.find(x=>x.id===S.activeTpl);if(!t)return;
+  const nm=$('te-name');if(nm)t.name=nm.value;
+  const su=$('te-subj');if(su)t.subject=su.value;
+  const pr=$('pane-rich'),pc=$('pane-code'),pp=$('pane-plain');
+  // Sauvegarder selon le mode actif
+  if(S.tplMode==='html'){
+    if(pc)t.html=pc.value;          // HTML brut → sauvegarder code
+    if(pr)pr.innerHTML=t.html;      // Mettre à jour pane-rich aussi
+  } else if(S.tplMode==='rich'){
+    if(pr)t.html=pr.innerHTML;      // Visuel → sauvegarder innerHTML
+    if(pc)pc.value=t.html;          // Mettre à jour pane-code aussi
+  }
+  if(pp)t.plain=pp.value;
+  lsS(SK.tpls,S.tpls);renderTplList();
+  if(showDot){const d=$('save-dot');if(d){d.classList.add('show');setTimeout(()=>d.classList.remove('show'),2000);}}
+}
 function prevTpl(){saveTpl();const t=S.activeTpl?S.tpls.find(x=>x.id===S.activeTpl):null;if(!t)return;const subj=$('prev-subj'),body=$('prev-body');if(subj)subj.textContent=applyVars(t.subject||'(aucun objet)',EX);if(body)body.innerHTML=applyVars(t.html||t.body||'',EX);showModal('modal-prev');}
-function setTTab(tab){S.tplMode=tab;['rich','html','plain'].forEach(t=>{const btn=$('etab-'+t);if(btn)btn.classList.toggle('active',t===tab);});const pr=$('pane-rich'),hp=$('html-pane'),pp=$('pane-plain'),tb=$('te-toolbar'),ib=$('te-img-bar'),ig=$('img-gal');if(pr)pr.style.display=tab==='rich'?'block':'none';if(hp)hp.classList.toggle('show',tab==='html');if(pp)pp.style.display=tab==='plain'?'block':'none';if(tb)tb.innerHTML=tab==='rich'?buildRichToolbar():'';if(ib){ib.className='img-bar';ib.style.display=tab==='rich'?'flex':'none';}if(ig){ig.className=tab==='rich'&&S.imgLib.length?'img-gal show':'img-gal';ig.style.display=tab==='rich'&&S.imgLib.length?'flex':'none';}if(tab==='html'){const t=S.activeTpl?S.tpls.find(x=>x.id===S.activeTpl):null;if(t){const pc=$('pane-code');if(pc)pc.value=t.html||t.body||'';}}if(tab==='plain'){const t=S.activeTpl?S.tpls.find(x=>x.id===S.activeTpl):null;if(t){const pp2=$('pane-plain');if(pp2)pp2.value=t.plain||'';}}syncPrev();}
+function setTTab(tab){
+  const pr=$('pane-rich'),hp=$('html-pane'),pp=$('pane-plain'),pc=$('pane-code');
+  // Sauvegarder le contenu du mode courant AVANT de changer
+  const prev=S.tplMode;
+  if(prev==='rich'&&pr) { if(pc)pc.value=pr.innerHTML; }  // rich→ sync vers code
+  if(prev==='html'&&pc) { if(pr)pr.innerHTML=pc.value; }  // html→ sync vers rich
+  // Changer le mode
+  S.tplMode=tab;
+  ['rich','html','plain'].forEach(t=>{const btn=$('etab-'+t);if(btn)btn.classList.toggle('active',t===tab);});
+  const tb=$('te-toolbar'),ib=$('te-img-bar'),ig=$('img-gal');
+  if(pr)pr.style.display=tab==='rich'?'block':'none';
+  if(hp)hp.classList.toggle('show',tab==='html');
+  if(pp)pp.style.display=tab==='plain'?'block':'none';
+  if(tb)tb.innerHTML=tab==='rich'?buildRichToolbar():'';
+  if(ib){ib.className='img-bar';ib.style.display=tab==='rich'?'flex':'none';}
+  if(ig){ig.className=tab==='rich'&&S.imgLib.length?'img-gal show':'img-gal';ig.style.display=tab==='rich'&&S.imgLib.length?'flex':'none';}
+  // Charger le contenu dans le nouveau mode
+  const t=S.activeTpl?S.tpls.find(x=>x.id===S.activeTpl):null;
+  if(tab==='html'&&pc&&t) pc.value=t.html||t.body||'';
+  if(tab==='rich'&&pr&&t&&prev!=='html') pr.innerHTML=t.html||t.body||''; // seulement si on ne vient PAS de html (déjà synced)
+  if(tab==='plain'&&pp&&t) pp.value=t.plain||'';
+  syncPrev();
+}
 function buildRichToolbar(){return`<select class="tfont" onchange="execT('fontName',this.value)" style="max-width:95px"><option value="">Police</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Montserrat">Montserrat</option><option value="Verdana">Verdana</option><option value="Times New Roman">Times</option><option value="Courier New">Courier</option></select><select class="tsel" style="width:44px" onchange="execT('fontSize',this.value)"><option value="3">T</option><option value="1">10</option><option value="2">12</option><option value="3">14</option><option value="4">16</option><option value="5">20</option><option value="6">24</option><option value="7">32</option></select><select class="tsel" onchange="execT('formatBlock',this.value);this.value='p'"><option value="p">P</option><option value="h1">H1</option><option value="h2">H2</option><option value="h3">H3</option></select><div class="tbs"></div><button class="tb" onclick="execT('bold')"><b>B</b></button><button class="tb" onclick="execT('italic')"><i>I</i></button><button class="tb" onclick="execT('underline')"><u>U</u></button><button class="tb" onclick="execT('strikeThrough')"><s>S</s></button><div class="tbs"></div><button class="tb" onclick="execT('justifyLeft')">⬛</button><button class="tb" onclick="execT('justifyCenter')">⬜</button><button class="tb" onclick="execT('justifyRight')">⬛</button><div class="tbs"></div><button class="tb" onclick="execT('insertUnorderedList')">•</button><button class="tb" onclick="execT('insertOrderedList')">1.</button><div class="tbs"></div><label class="tb" style="cursor:pointer">A<input type="color" style="display:none;width:0;height:0" oninput="execT('foreColor',this.value)"></label><label class="tb" style="cursor:pointer">◼<input type="color" style="display:none;width:0;height:0" oninput="execT('hiliteColor',this.value)"></label><div class="tbs"></div><button class="tb" onclick="showImgBar()">🖼</button><button class="tb" onclick="insertLink()">🔗</button><button class="tb" onclick="insertEmoji()">😊</button><div class="tbs"></div><button class="tb" onclick="insertTable()">⊞</button><button class="tb" onclick="execT('insertHorizontalRule')">—</button><button class="tb" onclick="execT('removeFormat')" style="font-size:8px">✕fmt</button>`;}
 function execT(cmd,val){const pr=$('pane-rich');if(!pr)return;pr.focus();document.execCommand(cmd,false,val||null);saveTpl();updTEChar();}
 function iVar(v){const pr=$('pane-rich');if(!pr)return;pr.focus();document.execCommand('insertText',false,v);saveTpl();}
