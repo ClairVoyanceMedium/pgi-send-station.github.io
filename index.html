@@ -699,7 +699,7 @@ const DUR_OPTS=[{v:1,l:'1h'},{v:2,l:'2h'},{v:6,l:'6h'},{v:12,l:'12h'},{v:24,l:'2
 const EX={prénom:'Frederick',nom:'',email:'contact@example.com',entreprise:'MonEntreprise',téléphone:'06 95 46 89 23',ville:'Paris',custom1:'VIP',custom2:'',date:new Date().toLocaleDateString('fr-FR'),heure:new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),annee:String(new Date().getFullYear()),mois:new Date().toLocaleDateString('fr-FR',{month:'long'})};
 const ls=k=>localStorage.getItem(k)||'';
 const lsJ=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))||d;}catch{return d;}};
-const lsS=(k,v)=>{try{localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v));}catch(e){console.warn('[PGI] localStorage plein:',k);}};
+const lsS=(k,v)=>{try{const s=typeof v==='string'?v:JSON.stringify(v);localStorage.setItem(k,s);}catch(e){console.warn('[PGI] localStorage plein pour',k,'— taille:',typeof v==='string'?v.length:(JSON.stringify(v)||'').length,'chars');}};
 const $=id=>document.getElementById(id);
 const fDt=iso=>{if(!iso)return'—';try{const d=new Date(iso);return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'})+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});}catch{return'—';}};
 const applyVars=(str,vars)=>str.replace(/\{\{(\w+)\}\}/g,(_,k)=>vars[k]!==undefined?vars[k]:`{{${k}}}`);
@@ -730,7 +730,39 @@ function updateWorkerUI(){const chip=$('wchip'),lbl=$('wlbl'),dot=$('wdot'),st=$
 async function testWorker(){if(!S.wurl){toast('URL Worker manquante','warn');return;}toast('Test en cours...','info');try{const r=await fetch(S.wurl+'/ping');const d=await r.json();if(d.ok){$('wchip').className='wchip ok';if($('wdot'))$('wdot').classList.remove('p');if($('wlbl'))$('wlbl').textContent='Worker actif';toast('Worker opérationnel','success');if(d.lastRun&&$('sw-last'))$('sw-last').textContent=fDt(d.lastRun);}else{$('wchip').className='wchip warn';toast('Worker — réponse incorrecte','warn');}}catch{$('wchip').className='wchip err';if($('wdot'))$('wdot').classList.add('p');if($('wlbl'))$('wlbl').textContent='Worker inactif';toast('Worker inaccessible','error');}}
 async function syncW(ep,data){if(!S.wurl)return;try{await fetch(S.wurl+ep,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});}catch(e){console.warn('Worker sync:',e.message);}}
 function newCamp(type){const c={id:Date.now(),type,name:type==='sms'?'Nouvelle campagne SMS':'Nouvelle campagne email',status:'draft',templateId:null,subject:'',smsText:'',emailList:[],rateEffectivePerMin:10,rateSecEnabled:false,rateSec:1,rateMinEnabled:false,rateMin:10,rateHEnabled:false,rateH:600,rateDEnabled:false,rateDay:300,dailyLimit:9999,durationH:-1,durationInfinite:true,startDate:'',endDate:'',sendOrder:'inorder',endOfList:'loop',pausePosition:0,schedEnabled:false,days:[1,2,3,4,5,6,7],daySchedules:{day1:{from:'09:00',to:'18:00'},day2:{from:'09:00',to:'18:00'},day3:{from:'09:00',to:'18:00'},day4:{from:'09:00',to:'18:00'},day5:{from:'09:00',to:'18:00'},day6:{from:'10:00',to:'16:00'},day7:{from:'10:00',to:'16:00'}},sent:0,opened:0,errors:0,unsubscribed:0,clicks:0,campProvider:'',campFromEmail:'',attachments:[],created:new Date().toISOString()};S.camps.push(c);saveCamps();renderCampList(type);openCamp(c.id,type);}
-function persistCamps(){const toStore=S.camps.map(c=>{if(!c.attachments||!c.attachments.length)return c;const ns=c.attachments.some(a=>!!a.data);if(!ns)return c;const c2=Object.assign({},c);c2.attachments=c.attachments.map(a=>a.data?{name:a.name,contentType:a.contentType,size:a.size,key:a.key||null}:a);return c2;});lsS(SK.camps,toStore);}
+function persistCamps(){
+  const toStore=S.camps.map(c=>{
+    const c2=Object.assign({},c);
+    // Alléger emailList : garder seulement les champs essentiels (pas opens[] ni clicks[] complets)
+    if(c2.emailList&&c2.emailList.length){
+      c2.emailList=c2.emailList.map(e=>({
+        email:e.email,
+        status:e.status,
+        sentAt:e.sentAt||null,
+        openedAt:e.openedAt||null,
+        opened:e.opened||false,
+        openCount:e.openCount||0,
+        unsubscribed:e.unsubscribed||false,
+        clickCount:e.clickCount||0,
+        lastClickedAt:e.lastClickedAt||null,
+        lastClickedUrl:e.lastClickedUrl||null,
+        lastClickedLabel:e.lastClickedLabel||null,
+        errorMsg:e.errorMsg||null
+      }));
+    }
+    // Alléger pièces jointes (ne pas stocker le contenu base64)
+    if(c2.attachments&&c2.attachments.length){
+      c2.attachments=c2.attachments.map(a=>a.data?{name:a.name,contentType:a.contentType,size:a.size,key:a.key||null}:a);
+    }
+    return c2;
+  });
+  try{lsS(SK.camps,toStore);}catch(err){
+    // Si localStorage plein, sauvegarder sans emailList
+    console.warn('[PGI] localStorage plein, sauvegarde allégée');
+    const minimal=toStore.map(c=>Object.assign({},c,{emailList:(c.emailList||[]).map(e=>({email:e.email,status:e.status}))}));
+    try{lsS(SK.camps,minimal);}catch(_){}
+  }
+}
 var _saveCampsTimer=null;
 function saveCamps(){persistCamps();if(_saveCampsTimer)clearTimeout(_saveCampsTimer);_saveCampsTimer=setTimeout(()=>{_saveCampsTimer=null;},15000);renderDashboard();updateStats();}
 function stCls(s){return{running:'st-run',paused:'st-pause',done:'st-done',draft:'st-draft',oauth_error:'st-pause',completed:'st-done',stopped:'st-done'}[s]||'st-draft';}
