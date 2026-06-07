@@ -1026,241 +1026,452 @@ function init(){
   });
 })();
 
-// ═══════════════════════════════════════════════════════════════
-// PGI Send Station — Métriques Unifiées v1.0
-// Source unique : getCanonicalMetrics() — tous les widgets alignés
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// PGI Send Station — Métriques Unifiées v2.0
+// Fixes: opens multiples, clics multiples, tooltips, raw events, inRange
+// ═══════════════════════════════════════════════════════════════════════
 
 /**
- * PGI Send Station — Patch Métriques Unifiées v1.0
- * ─────────────────────────────────────────────────
- * UNE SEULE SOURCE DE VÉRITÉ : getCanonicalMetrics(campId)
- *
- * Principe :
- *   Worker KV  ←→  S.analytics  ←→  S.camps[i].emailList
- *   On prend toujours le MAX de toutes les sources disponibles.
- *   Tous les widgets (dashboard, email, cartes KPI, avancement, bannière)
- *   appellent getCanonicalMetrics() → chiffres identiques partout.
- *
- * Corrections apportées :
- *   1. getCanonicalMetrics(campId) — fusionne 3 sources, évite les doublons
- *   2. getCanonicalGlobal() — agrège toutes les campagnes via canonical
- *   3. syncFromWorker() — merge propre sans écraser les compteurs locaux
- *   4. renderActiveCamps / renderAllCamps / updateStats / renderPeriodStats
- *      → tous lisent canonical
- *   5. _refreshOpenCampMetrics — même source, pas de divergence
- *   6. refreshQuotaBanner — idem
- *   7. Avancement % toujours basé sur emailList.length (source locale fiable)
+ * PGI Send Station — Métriques Unifiées v2.0
+ * ═══════════════════════════════════════════
+ * Corrections v2 :
+ *  1. getOpenListSafe() → reconstruit depuis openedAt si opens[] vide
+ *  2. getClickListSafe() → reconstruit depuis lastClickedUrl si clicks[] vide
+ *  3. getAllEmailLogs() → enrichit avec les événements bruts type:open/click
+ *  4. renderAllCamps() tooltip → lit camp.emailList + trackingOpens Worker
+ *  5. syncFromWorker() → enrichit depuis trackingOpens/trackingClicks Worker
+ *  6. inRange() → inclut les logs sans date
+ *  7. openDetailCellSafe() → affiche correctement ouvertures multiples
+ *  8. clickDetailCellSafe() → affiche tous les clics avec URLs
  */
-
 'use strict';
 
-// ─── HELPERS INTERNES ────────────────────────────────────────────────────────
+// ─── HELPERS BASE ─────────────────────────────────────────────────────────────
 
 function _n(v) { return Number(v) || 0; }
 function _fmt(v) { return _n(v).toLocaleString('fr-FR'); }
 function _safeArr(a) { return Array.isArray(a) ? a : []; }
-
-/** Nombre d'ouvertures uniques d'un enregistrement (contact ou log analytique) */
-function _openCount(x) {
-  if (!x) return 0;
-  const fromOpens = _safeArr(x.opens).length;
-  const fromField = _n(x.openCount);
-  const fromBool  = (x.opened || x.openedAt) ? 1 : 0;
-  return Math.max(fromOpens, fromField, fromBool);
-}
-
-/** Nombre de clics d'un enregistrement */
-function _clickCount(x) {
-  if (!x) return 0;
-  return Math.max(_safeArr(x.clicks).length, _n(x.clickCount));
-}
-
-/** Retourne true si deux emails sont identiques (insensible à la casse) */
 function _emailEq(a, b) {
-  return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+  return String(a||'').trim().toLowerCase() === String(b||'').trim().toLowerCase();
 }
-
-/** Clé de déduplification pour un log analytique */
 function _logKey(log) {
-  return (String(log.email || '').toLowerCase()) + '|' + (String(log.campaignId || log.campaign || ''));
+  return String(log.email||'').toLowerCase() + '|' + String(log.campaignId||log.campaign||'');
 }
 
-// ─── SOURCE DE VÉRITÉ PRINCIPALE ─────────────────────────────────────────────
+// ─── OPENS : reconstruit l'historique même si opens[] est vide ───────────────
 
-/**
- * getCanonicalMetrics(campId)
- * Fusionne les 3 sources disponibles pour une campagne :
- *   A) S.campaigns[i] (compteurs agrégés : sent, opened, clicks, errors, unsub)
- *   B) S.campaigns[i].emailList (statut par contact, enrichi par le Worker via sync)
- *   C) S.analytics (logs bruts poussés par le Worker via /sync/analytics)
- *
- * Règle : on prend toujours MAX(A, B, C) pour chaque métrique.
- * Retourne un objet {total, sent, errors, openedUnique, openEvents, clicks,
- *                    clickers, unsub, pct, remaining, openRate, logs}
- */
+function getOpenListSafe(x) {
+  if (!x) return [];
+  const out = [];
+  const seen = new Set();
+
+  // 1. Tableau opens[] complet
+  _safeArr(x.opens).forEach(o => {
+    if (!o) return;
+    const ev = typeof o === 'string' ? { at: o } : o;
+    if (ev.at && !seen.has(ev.at)) { seen.add(ev.at); out.push(ev); }
+  });
+
+  // 2. Champs individuels (fallback si opens[] vide)
+  [x.firstOpenedAt, x.openedAt, x.lastOpenedAt].forEach(ts => {
+    if (ts && !seen.has(ts)) { seen.add(ts); out.push({ at: ts }); }
+  });
+
+  // 3. Si boolean opened=true mais aucune date, on crée un événement "inconnu"
+  if (!out.length && (x.opened === true || x.status === 'opened')) {
+    out.push({ at: x.sentAt || x.date || null, synthetic: true });
+  }
+
+  return out.filter(o => o).sort((a, b) => {
+    if (!a.at) return 1; if (!b.at) return -1;
+    return new Date(a.at) - new Date(b.at);
+  });
+}
+
+function getOpenCountSafe(x) {
+  if (!x) return 0;
+  const list = getOpenListSafe(x);
+  return Math.max(_n(x.openCount), list.length, (x.opened || x.openedAt || x.status === 'opened') ? 1 : 0);
+}
+
+function getFirstOpenSafe(x) {
+  const list = getOpenListSafe(x);
+  return (x && x.firstOpenedAt) || (list[0] && list[0].at) || (x && x.openedAt) || null;
+}
+
+function getLastOpenSafe(x) {
+  const list = getOpenListSafe(x);
+  const last = list[list.length - 1];
+  return (x && x.lastOpenedAt) || (last && last.at) || (x && x.openedAt) || null;
+}
+
+// ─── CLICKS : reconstruit même si clicks[] est vide ──────────────────────────
+
+function getClickListSafe(x) {
+  if (!x) return [];
+  const out = [];
+  const seen = new Set();
+
+  // 1. Tableau clicks[] complet
+  _safeArr(x.clicks).forEach(c => {
+    if (!c) return;
+    const key = (c.url||'') + '|' + (c.at||'');
+    if (!seen.has(key)) { seen.add(key); out.push(c); }
+  });
+
+  // 2. Champs lastClicked (fallback si clicks[] vide)
+  if (x.lastClickedUrl) {
+    const key = x.lastClickedUrl + '|' + (x.lastClickedAt||'');
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push({ url: x.lastClickedUrl, label: x.lastClickedLabel || x.lastClickedUrl, at: x.lastClickedAt || null });
+    }
+  }
+
+  return out.filter(c => c && (c.url || c.label))
+    .sort((a, b) => { if (!a.at) return 1; if (!b.at) return -1; return new Date(a.at) - new Date(b.at); });
+}
+
+function getClickCountSafe(x) {
+  if (!x) return 0;
+  const list = getClickListSafe(x);
+  return Math.max(_n(x.clickCount), list.length);
+}
+
+function pgiClickLabel(c) {
+  if (!c) return '—';
+  if (c.label && c.label !== c.url) return c.label;
+  if (c.url) {
+    try { const u = new URL(c.url); return (u.hostname + u.pathname).replace(/\/$/, '') || c.url; }
+    catch { return c.url; }
+  }
+  return '—';
+}
+
+// ─── CELLS D'AFFICHAGE ────────────────────────────────────────────────────────
+
+function openDetailCellSafe(x) {
+  const n = getOpenCountSafe(x);
+  if (!n) return '<span class="tg tg-unrd" style="font-size:9px">⊘ NON LU</span>';
+
+  const list  = getOpenListSafe(x);
+  const first = getFirstOpenSafe(x);
+  const last  = getLastOpenSafe(x);
+  const title = 'Ouvertures : ' + n +
+    (first ? '\nPremière : ' + fDt(first) : '') +
+    (last && last !== first ? '\nDernière : ' + fDt(last) : '');
+
+  return `<div title="${esc(title)}" style="line-height:1.5;cursor:help;">
+    <span class="tg tg-open" style="font-size:9px">👁 LU × ${n}</span>
+    <div style="font-size:8px;color:var(--text3);font-family:var(--mono);margin-top:2px;line-height:1.4;">
+      1ère ${fDt(first)}${last && last !== first ? '<br>Dern. ' + fDt(last) : ''}
+    </div>
+  </div>`;
+}
+
+function clickDetailCellSafe(x) {
+  const clicks = getClickListSafe(x);
+  if (!clicks.length) return '<span style="color:var(--text3);font-size:10px">—</span>';
+
+  const latest = clicks[clicks.length - 1];
+  const label  = pgiClickLabel(latest);
+  const url    = latest.url || '';
+
+  // Grouper par URL pour le résumé
+  const byUrl = {};
+  clicks.forEach(c => {
+    const k = c.url || c.label || 'lien';
+    byUrl[k] = (byUrl[k] || 0) + 1;
+  });
+  const details = Object.entries(byUrl).map(([u, n]) => n + ' clic' + (n > 1 ? 's' : '') + ' · ' + u).join('\n');
+  const shortLabel = label.length > 40 ? label.slice(0, 37) + '…' : label;
+
+  return `<div title="${esc(details)}" style="min-width:180px;max-width:320px;line-height:1.5;cursor:help;">
+    <div>
+      <span class="tg tg-open" style="background:rgba(0,232,255,.10);color:var(--cyan);border:1px solid rgba(0,232,255,.25);font-size:9px">🔗 × ${clicks.length}</span>
+      <span style="font-size:8px;color:var(--text3);font-family:var(--mono);margin-left:4px">${fDt(latest.at)}</span>
+    </div>
+    <div style="font-size:9px;color:var(--cyan);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px;margin-top:2px">${esc(shortLabel)}</div>
+  </div>`;
+}
+
+// ─── SOURCE DE VÉRITÉ : getCanonicalMetrics ───────────────────────────────────
+
 function getCanonicalMetrics(campId) {
   const c = S.camps.find(x => String(x.id) === String(campId));
   if (!c) return _emptyMetrics();
 
-  // ── Source A : compteurs agrégés locaux
-  const A = {
-    sent    : _n(c.sent),
-    opened  : _n(c.opened),
-    clicks  : _n(c.clicks),
-    errors  : _n(c.errors),
-    unsub   : _n(c.unsubscribed),
-  };
-
-  // ── Source B : emailList (état contact par contact)
   const emailList = _safeArr(c.emailList);
+
+  // Source A : compteurs agrégés locaux
+  const A = { sent: _n(c.sent), opened: _n(c.opened), clicks: _n(c.clicks), errors: _n(c.errors), unsub: _n(c.unsubscribed) };
+
+  // Source B : emailList contact par contact
   const B = {
-    sent    : emailList.filter(e => e.status === 'sent' || e.status === 'opened' || e.status === 'unsubscribed').length,
-    errors  : emailList.filter(e => e.status === 'error').length,
-    opened  : emailList.filter(e => _openCount(e) > 0 || e.status === 'opened').length,
-    clicks  : emailList.reduce((s, e) => s + _clickCount(e), 0),
-    unsub   : emailList.filter(e => e.unsubscribed).length,
+    sent   : emailList.filter(e => ['sent','opened','unsubscribed'].includes(e.status)).length,
+    errors : emailList.filter(e => e.status === 'error').length,
+    opened : emailList.filter(e => getOpenCountSafe(e) > 0 || e.status === 'opened').length,
+    clicks : emailList.reduce((s, e) => s + getClickCountSafe(e), 0),
+    unsub  : emailList.filter(e => e.unsubscribed).length,
   };
 
-  // ── Source C : S.analytics (logs Worker)
-  // On filtre par campaignId OU par campaign name pour attraper les deux cas
+  // Source C : S.analytics (logs Worker)
   const logs = _safeArr(S.analytics).filter(x =>
     x && x.type === 'email' && x.status !== 'pending_send' && (
       (x.campaignId && String(x.campaignId) === String(c.id)) ||
-      (x.campaign   && x.campaign === c.name)
+      (x.campaign && x.campaign === c.name)
     )
   );
 
-  // Déduplique les logs par email (garde le plus riche)
+  // Enrichir les logs depuis les événements bruts (type:open, type:click)
+  const rawOpens  = _safeArr(S.analytics).filter(x => x && x.type === 'open'  && (String(x.campaignId||'') === String(c.id) || x.campaign === c.name));
+  const rawClicks = _safeArr(S.analytics).filter(x => x && x.type === 'click' && (String(x.campaignId||'') === String(c.id) || x.campaign === c.name));
+
+  // Déduplique les logs par email
   const logMap = new Map();
   logs.forEach(l => {
-    const k = String(l.email || '').toLowerCase();
+    const k = String(l.email||'').toLowerCase();
     const ex = logMap.get(k);
-    if (!ex) { logMap.set(k, l); return; }
-    // Merge : garde le plus complet
-    if (_openCount(l) > _openCount(ex)) { ex.opens = l.opens; ex.openCount = l.openCount; }
-    if (l.opened || l.openedAt) { ex.opened = true; ex.openedAt = ex.openedAt || l.openedAt; }
-    if (_clickCount(l) > _clickCount(ex)) { ex.clicks = l.clicks; ex.clickCount = l.clickCount; }
+    if (!ex) { logMap.set(k, { ...l }); return; }
+    if (getOpenCountSafe(l) > getOpenCountSafe(ex)) { ex.opens = l.opens; ex.openCount = l.openCount; }
+    if (l.opened || l.openedAt) { ex.opened = true; ex.openedAt = ex.openedAt || l.openedAt; ex.firstOpenedAt = ex.firstOpenedAt || l.firstOpenedAt || l.openedAt; ex.lastOpenedAt = l.lastOpenedAt || ex.lastOpenedAt; }
+    if (getClickCountSafe(l) > getClickCountSafe(ex)) { ex.clicks = l.clicks; ex.clickCount = l.clickCount; ex.lastClickedUrl = l.lastClickedUrl || ex.lastClickedUrl; ex.lastClickedAt = l.lastClickedAt || ex.lastClickedAt; ex.lastClickedLabel = l.lastClickedLabel || ex.lastClickedLabel; }
     if (l.unsubscribed) ex.unsubscribed = true;
     if (l.status === 'error') ex.status = 'error';
     else if (ex.status !== 'error') ex.status = l.status || ex.status;
   });
+
+  // Enrichir depuis raw events
+  rawOpens.forEach(ro => {
+    const k = String(ro.email||'').toLowerCase();
+    const ex = logMap.get(k);
+    if (ex) {
+      ex.opened = true;
+      ex.openedAt = ex.openedAt || ro.at;
+      ex.firstOpenedAt = ex.firstOpenedAt || ro.at;
+      ex.lastOpenedAt = ro.at > (ex.lastOpenedAt||'') ? ro.at : ex.lastOpenedAt;
+      if (!ex.opens) ex.opens = [];
+      if (!ex.opens.find(o => o.at === ro.at)) { ex.opens.push({ at: ro.at }); ex.openCount = ex.opens.length; }
+    }
+  });
+  rawClicks.forEach(rc => {
+    const k = String(rc.email||'').toLowerCase();
+    const ex = logMap.get(k);
+    if (ex) {
+      if (!ex.clicks) ex.clicks = [];
+      const key = (rc.url||'') + '|' + (rc.at||'');
+      if (!ex.clicks.find(c => (c.url||'')+'|'+(c.at||'') === key)) {
+        ex.clicks.push({ url: rc.url, label: rc.label || rc.url, at: rc.at });
+        ex.clickCount = ex.clicks.length;
+        ex.lastClickedAt = rc.at || ex.lastClickedAt;
+        ex.lastClickedUrl = rc.url || ex.lastClickedUrl;
+        ex.lastClickedLabel = rc.label || ex.lastClickedLabel;
+      }
+    }
+  });
+
   const dedupLogs = Array.from(logMap.values());
 
   const C = {
-    sent    : dedupLogs.filter(l => l.status !== 'error').length,
-    errors  : dedupLogs.filter(l => l.status === 'error').length,
-    opened  : dedupLogs.filter(l => l.opened || _openCount(l) > 0).length,
-    clicks  : dedupLogs.reduce((s, l) => s + _clickCount(l), 0),
-    unsub   : dedupLogs.filter(l => l.unsubscribed).length,
+    sent   : dedupLogs.filter(l => l.status !== 'error').length,
+    errors : dedupLogs.filter(l => l.status === 'error').length,
+    opened : dedupLogs.filter(l => l.opened || getOpenCountSafe(l) > 0).length,
+    clicks : dedupLogs.reduce((s, l) => s + getClickCountSafe(l), 0),
+    unsub  : dedupLogs.filter(l => l.unsubscribed).length,
   };
 
-  // ── Fusion MAX
-  const total       = emailList.length || _n(c.workerTotal);
-  const sent        = Math.max(A.sent,   B.sent,   C.sent);
-  const errors      = Math.max(A.errors, B.errors, C.errors);
-  const openedUnique= Math.max(A.opened, B.opened, C.opened);
-  const openEvents  = Math.max(
+  const total        = emailList.length || _n(c.workerTotal);
+  const sent         = Math.max(A.sent, B.sent, C.sent);
+  const errors       = Math.max(A.errors, B.errors, C.errors);
+  const openedUnique = Math.max(A.opened, B.opened, C.opened);
+  const openEvents   = Math.max(
     _n(c.totalOpenEvents),
-    dedupLogs.reduce((s, l) => s + _openCount(l), 0),
+    rawOpens.length + openedUnique,
+    dedupLogs.reduce((s, l) => s + getOpenCountSafe(l), 0),
+    emailList.reduce((s, e) => s + getOpenCountSafe(e), 0),
     openedUnique
   );
-  const clicks      = Math.max(A.clicks,  B.clicks,  C.clicks);
-  const clickers    = Math.max(
-    dedupLogs.filter(l => _clickCount(l) > 0).length,
-    emailList.filter(e => _clickCount(e) > 0).length,
+  const clicks    = Math.max(A.clicks, B.clicks, C.clicks, rawClicks.length);
+  const clickers  = Math.max(
+    dedupLogs.filter(l => getClickCountSafe(l) > 0).length,
+    emailList.filter(e => getClickCountSafe(e) > 0).length,
     clicks > 0 ? 1 : 0
   );
-  const unsub       = Math.max(A.unsub, B.unsub, C.unsub);
-  const pct         = total > 0 ? Math.min(100, Math.round((sent / total) * 100)) : 0;
-  const remaining   = Math.max(0, emailList.filter(e => e.status === 'pending').length);
-  const openRate    = sent > 0 ? Math.round((openedUnique / sent) * 100) : 0;
+  const unsub     = Math.max(A.unsub, B.unsub, C.unsub);
+  const pct       = total > 0 ? Math.min(100, Math.round((sent / total) * 100)) : 0;
+  const remaining = Math.max(0, emailList.filter(e => e.status === 'pending').length);
+  const openRate  = sent > 0 ? Math.round((openedUnique / sent) * 100) : 0;
 
-  return { total, sent, errors, openedUnique, openEvents, clicks, clickers,
-           unsub, pct, remaining, openRate, logs: dedupLogs };
+  return { total, sent, errors, openedUnique, openEvents, clicks, clickers, unsub, pct, remaining, openRate, logs: dedupLogs };
 }
 
 function _emptyMetrics() {
-  return { total:0, sent:0, errors:0, openedUnique:0, openEvents:0,
-           clicks:0, clickers:0, unsub:0, pct:0, remaining:0, openRate:0, logs:[] };
+  return { total:0, sent:0, errors:0, openedUnique:0, openEvents:0, clicks:0, clickers:0, unsub:0, pct:0, remaining:0, openRate:0, logs:[] };
 }
 
-/**
- * getCanonicalGlobal()
- * Agrège toutes les campagnes via getCanonicalMetrics + déduplique S.analytics
- * pour les métriques globales (cartes KPI dashboard, settings).
- */
-function getCanonicalGlobal() {
-  // Agrégation par campagne
-  const byCamp = {};
-  S.camps.forEach(c => {
-    const m = getCanonicalMetrics(c.id);
-    byCamp[c.id] = m;
-  });
+// ─── GLOBAL ───────────────────────────────────────────────────────────────────
 
-  // Déduplique tous les logs de toutes les campagnes par (email + campaignId)
+function getCanonicalGlobal() {
+  const byCamp = {};
+  S.camps.forEach(c => { byCamp[c.id] = getCanonicalMetrics(c.id); });
+
   const globalLogMap = new Map();
-  _safeArr(S.analytics).filter(x => x && x.type === 'email' && x.status !== 'pending_send')
-    .forEach(l => {
-      const k = String(l.email || '').toLowerCase() + '|' + String(l.campaignId || l.campaign || '');
-      const ex = globalLogMap.get(k);
-      if (!ex) { globalLogMap.set(k, { ...l }); return; }
-      if (_openCount(l) > _openCount(ex)) { ex.opens = l.opens; ex.openCount = l.openCount; }
-      if (l.opened || l.openedAt) { ex.opened = true; ex.openedAt = ex.openedAt || l.openedAt; }
-      if (_clickCount(l) > _clickCount(ex)) { ex.clicks = l.clicks; ex.clickCount = l.clickCount; }
-      if (l.unsubscribed) ex.unsubscribed = true;
-    });
+  _safeArr(S.analytics).filter(x => x && x.type === 'email' && x.status !== 'pending_send').forEach(l => {
+    const k = _logKey(l);
+    const ex = globalLogMap.get(k);
+    if (!ex) { globalLogMap.set(k, { ...l }); return; }
+    if (getOpenCountSafe(l) > getOpenCountSafe(ex)) { ex.opens = l.opens; ex.openCount = l.openCount; }
+    if (l.opened || l.openedAt) { ex.opened = true; ex.openedAt = ex.openedAt || l.openedAt; }
+    if (getClickCountSafe(l) > getClickCountSafe(ex)) { ex.clicks = l.clicks; ex.clickCount = l.clickCount; }
+    if (l.unsubscribed) ex.unsubscribed = true;
+  });
   const globalLogs = Array.from(globalLogMap.values());
 
-  // Compteurs agrégés (max entre camps + logs globaux)
-  const campSent    = S.camps.filter(c => c.type !== 'sms').reduce((s, c) => s + (byCamp[c.id]?.sent || 0), 0);
-  const campOpened  = S.camps.filter(c => c.type !== 'sms').reduce((s, c) => s + (byCamp[c.id]?.openedUnique || 0), 0);
-  const campClicks  = S.camps.filter(c => c.type !== 'sms').reduce((s, c) => s + (byCamp[c.id]?.clicks || 0), 0);
-  const campErrors  = S.camps.filter(c => c.type !== 'sms').reduce((s, c) => s + (byCamp[c.id]?.errors || 0), 0);
-  const campUnsub   = S.camps.filter(c => c.type !== 'sms').reduce((s, c) => s + (byCamp[c.id]?.unsub || 0), 0);
-  const campOpenEvt = S.camps.filter(c => c.type !== 'sms').reduce((s, c) => s + (byCamp[c.id]?.openEvents || 0), 0);
-  const campClickers= S.camps.filter(c => c.type !== 'sms').reduce((s, c) => s + (byCamp[c.id]?.clickers || 0), 0);
+  const emailCamps = S.camps.filter(c => c.type !== 'sms');
+  const campSent     = emailCamps.reduce((s, c) => s + (byCamp[c.id]?.sent || 0), 0);
+  const campOpened   = emailCamps.reduce((s, c) => s + (byCamp[c.id]?.openedUnique || 0), 0);
+  const campClicks   = emailCamps.reduce((s, c) => s + (byCamp[c.id]?.clicks || 0), 0);
+  const campErrors   = emailCamps.reduce((s, c) => s + (byCamp[c.id]?.errors || 0), 0);
+  const campUnsub    = emailCamps.reduce((s, c) => s + (byCamp[c.id]?.unsub || 0), 0);
+  const campOpenEvt  = emailCamps.reduce((s, c) => s + (byCamp[c.id]?.openEvents || 0), 0);
+  const campClickers = emailCamps.reduce((s, c) => s + (byCamp[c.id]?.clickers || 0), 0);
 
-  const logSent    = globalLogs.filter(l => l.status !== 'error').length;
-  const logOpened  = globalLogs.filter(l => l.opened || _openCount(l) > 0).length;
-  const logClicks  = globalLogs.reduce((s, l) => s + _clickCount(l), 0);
-  const logErrors  = globalLogs.filter(l => l.status === 'error').length;
-  const logUnsub   = globalLogs.filter(l => l.unsubscribed).length;
-  const logOpenEvt = globalLogs.reduce((s, l) => s + _openCount(l), 0);
-  const logClickers= globalLogs.filter(l => _clickCount(l) > 0).length;
+  const logSent     = globalLogs.filter(l => l.status !== 'error').length;
+  const logOpened   = globalLogs.filter(l => l.opened || getOpenCountSafe(l) > 0).length;
+  const logClicks   = globalLogs.reduce((s, l) => s + getClickCountSafe(l), 0);
+  const logErrors   = globalLogs.filter(l => l.status === 'error').length;
+  const logUnsub    = globalLogs.filter(l => l.unsubscribed).length;
+  const logOpenEvt  = globalLogs.reduce((s, l) => s + getOpenCountSafe(l), 0);
+  const logClickers = globalLogs.filter(l => getClickCountSafe(l) > 0).length;
 
-  const sent       = Math.max(campSent,    logSent);
+  const sent        = Math.max(campSent, logSent);
   const openedUnique= Math.max(campOpened, logOpened);
-  const clicks     = Math.max(campClicks,  logClicks);
-  const errors     = Math.max(campErrors,  logErrors);
-  const unsub      = Math.max(campUnsub,   logUnsub);
-  const openEvents = Math.max(campOpenEvt, logOpenEvt, openedUnique);
-  const clickers   = Math.max(campClickers, logClickers);
-  const noRead     = Math.max(0, sent - openedUnique);
-  const openRate   = sent > 0 ? Math.round((openedUnique / sent) * 100) : 0;
+  const clicks      = Math.max(campClicks, logClicks);
+  const errors      = Math.max(campErrors, logErrors);
+  const unsub       = Math.max(campUnsub, logUnsub);
+  const openEvents  = Math.max(campOpenEvt, logOpenEvt, openedUnique);
+  const clickers    = Math.max(campClickers, logClickers);
+  const noRead      = Math.max(0, sent - openedUnique);
+  const openRate    = sent > 0 ? Math.round((openedUnique / sent) * 100) : 0;
 
-  // SMS
-  const smsList    = _safeArr(S.analytics).filter(x => x.type === 'sms');
-  const campsSMS   = S.camps.filter(c => c.type === 'sms').reduce((s, c) => s + _n(c.sent), 0);
-  const totalSMS   = Math.max(smsList.length, campsSMS);
-  const smsRead    = smsList.filter(x => x.read).length;
+  const smsList  = _safeArr(S.analytics).filter(x => x.type === 'sms');
+  const campsSMS = S.camps.filter(c => c.type === 'sms').reduce((s, c) => s + _n(c.sent), 0);
+  const totalSMS = Math.max(smsList.length, campsSMS);
+  const smsRead  = smsList.filter(x => x.read).length;
 
-  return { sent, openedUnique, openEvents, clicks, clickers, errors, unsub,
-           noRead, openRate, totalSMS, smsRead, globalLogs };
+  return { sent, openedUnique, openEvents, clicks, clickers, errors, unsub, noRead, openRate, totalSMS, smsRead, globalLogs };
 }
 
-// ─── SYNC WORKER : MERGE PROPRE ──────────────────────────────────────────────
+// ─── getAllEmailLogs : enrichit depuis raw events ─────────────────────────────
 
-/**
- * Remplace syncFromWorker() — fusionne sans écraser les compteurs locaux.
- * Règle : local = MAX(local, worker) pour chaque champ numérique.
- */
+function getAllEmailLogs() {
+  const keyIndex = new Map();
+  const merged = [];
+
+  // Seed depuis S.analytics type:email
+  _safeArr(S.analytics).filter(x => x && x.type === 'email' && x.status !== 'pending_send').forEach(x => {
+    const k = _logKey(x);
+    if (!keyIndex.has(k)) { keyIndex.set(k, merged.length); merged.push({ ...x }); return; }
+    const ex = merged[keyIndex.get(k)];
+    if (x.opened || x.openedAt) { ex.opened = true; ex.openedAt = ex.openedAt || x.openedAt; ex.firstOpenedAt = ex.firstOpenedAt || x.firstOpenedAt || x.openedAt; ex.lastOpenedAt = x.lastOpenedAt || ex.lastOpenedAt; }
+    if (getOpenCountSafe(x) > getOpenCountSafe(ex)) { ex.opens = x.opens; ex.openCount = x.openCount; }
+    if (getClickCountSafe(x) > getClickCountSafe(ex)) { ex.clicks = x.clicks; ex.clickCount = x.clickCount; ex.lastClickedAt = x.lastClickedAt; ex.lastClickedUrl = x.lastClickedUrl; ex.lastClickedLabel = x.lastClickedLabel; }
+    if (x.unsubscribed) ex.unsubscribed = true;
+  });
+
+  // Enrichir depuis les événements bruts type:open
+  _safeArr(S.analytics).filter(x => x && x.type === 'open').forEach(ro => {
+    // Trouver la campagne correspondante
+    const camp = S.camps.find(c => String(c.id) === String(ro.campaignId) || c.name === ro.campaign);
+    if (!camp) return;
+    const k = String(ro.email||'').toLowerCase() + '|' + String(camp.id);
+    if (keyIndex.has(k)) {
+      const ex = merged[keyIndex.get(k)];
+      ex.opened = true;
+      ex.openedAt = ex.openedAt || ro.at;
+      ex.firstOpenedAt = ex.firstOpenedAt || ro.at;
+      ex.lastOpenedAt  = ro.at > (ex.lastOpenedAt||'') ? ro.at : ex.lastOpenedAt;
+      if (!ex.opens) ex.opens = [];
+      if (!ex.opens.find(o => o.at === ro.at)) { ex.opens.push({ at: ro.at }); ex.openCount = ex.opens.length; }
+    }
+  });
+
+  // Enrichir depuis les événements bruts type:click
+  _safeArr(S.analytics).filter(x => x && x.type === 'click').forEach(rc => {
+    const camp = S.camps.find(c => String(c.id) === String(rc.campaignId) || c.name === rc.campaign);
+    if (!camp) return;
+    const k = String(rc.email||'').toLowerCase() + '|' + String(camp.id);
+    if (keyIndex.has(k)) {
+      const ex = merged[keyIndex.get(k)];
+      if (!ex.clicks) ex.clicks = [];
+      const key2 = (rc.url||'') + '|' + (rc.at||'');
+      if (!ex.clicks.find(c => (c.url||'')+'|'+(c.at||'') === key2)) {
+        ex.clicks.push({ url: rc.url, label: rc.label || rc.url, at: rc.at });
+        ex.clickCount = ex.clicks.length;
+        ex.lastClickedAt = rc.at || ex.lastClickedAt;
+        ex.lastClickedUrl = rc.url || ex.lastClickedUrl;
+        ex.lastClickedLabel = rc.label || ex.lastClickedLabel;
+      }
+    }
+  });
+
+  // Inject/enrich depuis emailList
+  S.camps.filter(c => c.type !== 'sms').forEach(c => {
+    _safeArr(c.emailList).forEach(e => {
+      if (!['sent','opened','error','unsubscribed'].includes(e.status) && !e.sentAt && !e.opened) return;
+      const k = String(e.email||'').toLowerCase() + '|' + String(c.id);
+      if (keyIndex.has(k)) {
+        const ex = merged[keyIndex.get(k)];
+        if (e.opened || e.openedAt || getOpenCountSafe(e) > 0) {
+          ex.opened = true;
+          ex.openedAt = ex.openedAt || e.openedAt;
+          ex.firstOpenedAt = ex.firstOpenedAt || e.firstOpenedAt || e.openedAt;
+          ex.lastOpenedAt  = e.lastOpenedAt || ex.lastOpenedAt;
+        }
+        if (getOpenCountSafe(e) > getOpenCountSafe(ex)) { ex.opens = e.opens; ex.openCount = e.openCount; }
+        if (getClickCountSafe(e) > getClickCountSafe(ex)) { ex.clicks = e.clicks; ex.clickCount = e.clickCount; ex.lastClickedAt = e.lastClickedAt; ex.lastClickedUrl = e.lastClickedUrl; ex.lastClickedLabel = e.lastClickedLabel; }
+        if (e.unsubscribed) ex.unsubscribed = true;
+        if (e.status === 'error') ex.status = 'error';
+        else if (ex.status !== 'error') { const r = {sent:1,opened:2,unsubscribed:3}; if ((r[e.status]||0) > (r[ex.status]||0)) ex.status = e.status; }
+      } else {
+        keyIndex.set(k, merged.length);
+        merged.push({
+          type:'email', email:e.email, campaign:c.name, campaignId:c.id,
+          date: e.sentAt || c.launchedAt || c.created || new Date().toISOString(),
+          status: e.status === 'error' ? 'error' : (e.opened || getOpenCountSafe(e) > 0 ? 'opened' : 'sent'),
+          sent: e.status !== 'error', opened: e.status === 'opened' || !!e.opened || getOpenCountSafe(e) > 0,
+          openedAt: e.openedAt || null, firstOpenedAt: e.firstOpenedAt || e.openedAt || null,
+          lastOpenedAt: e.lastOpenedAt || e.openedAt || null,
+          opens: e.opens || [], openCount: getOpenCountSafe(e),
+          unsubscribed: !!e.unsubscribed,
+          clicks: e.clicks || [], clickCount: getClickCountSafe(e),
+          lastClickedAt: e.lastClickedAt || null, lastClickedUrl: e.lastClickedUrl || null, lastClickedLabel: e.lastClickedLabel || null,
+        });
+      }
+    });
+  });
+
+  return merged.sort((a, b) => new Date(b.date||0) - new Date(a.date||0));
+}
+
+// ─── inRange : inclut les logs sans date ─────────────────────────────────────
+
+function inRange(dateStr) {
+  if (!dateStr) return true; // pas de date = inclure
+  if (_df.mode === 'all') return true;
+  const d = dateStr.slice(0, 10);
+  if (_df.from && d < _df.from) return false;
+  if (_df.to   && d > _df.to)   return false;
+  return true;
+}
+
+// ─── syncFromWorker : merge complet ──────────────────────────────────────────
+
 async function syncFromWorker() {
   if (!S.wurl || window._pgiSyncing) return;
   window._pgiSyncing = true;
-
   try {
-    // ── 1. /sync/campaigns ──
+    // ── 1. /sync/campaigns
     const campRes = await fetch(S.wurl + '/sync/campaigns');
     if (campRes.ok) {
       const data = await campRes.json();
@@ -1270,64 +1481,82 @@ async function syncFromWorker() {
           const local = S.camps.find(c => String(c.id) === String(wc.id));
           if (!local) return;
 
-          // Compteurs : toujours MAX
-          ['sent','opened','clicks','errors'].forEach(k => {
-            if (_n(wc[k]) > _n(local[k])) { local[k] = wc[k]; updated++; }
-          });
-          if (_n(wc.unsubscribed) > _n(local.unsubscribed)) {
-            local.unsubscribed = wc.unsubscribed; updated++;
-          }
-          if (_n(wc.totalOpenEvents) > _n(local.totalOpenEvents)) {
-            local.totalOpenEvents = wc.totalOpenEvents; updated++;
-          }
-          if (wc.dailySent !== undefined) {
-            local.dailySent = _n(wc.dailySent);
-            local.dailyDate = new Date().toDateString();
-            updated++;
-          }
+          // Compteurs : MAX
+          ['sent','opened','clicks','errors'].forEach(k => { if (_n(wc[k]) > _n(local[k])) { local[k] = wc[k]; updated++; } });
+          if (_n(wc.unsubscribed) > _n(local.unsubscribed)) { local.unsubscribed = wc.unsubscribed; updated++; }
+          if (_n(wc.totalOpenEvents) > _n(local.totalOpenEvents)) { local.totalOpenEvents = wc.totalOpenEvents; updated++; }
+          if (wc.dailySent !== undefined) { local.dailySent = _n(wc.dailySent); local.dailyDate = new Date().toDateString(); updated++; }
           if (wc.lastSentAt) local.lastSentAt = wc.lastSentAt;
 
-          // Statut : ne rétrograder que si le Worker dit completed/paused/oauth_error
+          // Statut
           const prevStatus = local.status;
           if (wc.status && wc.status !== local.status) {
-            const workerTrumps = ['completed','paused','oauth_error','stopped'];
-            if (workerTrumps.includes(wc.status)) {
+            if (['completed','paused','oauth_error','stopped'].includes(wc.status)) {
               local.status = wc.status; updated++;
               if (wc.status === 'oauth_error') toast('⚠ OAuth error — «' + (local.name||'') + '»', 'error');
               if (wc.status === 'completed')   toast('✅ Campagne «' + (local.name||'') + '» terminée !', 'success');
             }
           }
 
-          // Contacts : merge par email (enrichissement, pas écrasement)
+          // Merge trackingOpens dans S.analytics
+          _safeArr(wc.opens).forEach(wo => {
+            if (!wo || !wo.email || !wo.at) return;
+            const k = String(wo.email).toLowerCase() + '|' + String(wc.id);
+            let aRow = S.analytics.find(a => a.type === 'email' && String(a.email||'').toLowerCase() === String(wo.email).toLowerCase() && String(a.campaignId||'') === String(wc.id));
+            if (aRow) {
+              if (!aRow.opens) aRow.opens = [];
+              if (!aRow.opens.find(o => o.at === wo.at)) { aRow.opens.push({ at: wo.at }); aRow.openCount = aRow.opens.length; aRow.opened = true; aRow.openedAt = aRow.openedAt || wo.at; aRow.firstOpenedAt = aRow.firstOpenedAt || wo.at; aRow.lastOpenedAt = wo.at > (aRow.lastOpenedAt||'') ? wo.at : aRow.lastOpenedAt; updated++; }
+            }
+            // Push aussi comme événement brut si pas encore présent
+            if (!S.analytics.find(a => a.type === 'open' && String(a.email||'').toLowerCase() === String(wo.email).toLowerCase() && a.at === wo.at)) {
+              S.analytics.push({ type:'open', email:String(wo.email).toLowerCase(), campaign:local.name, campaignId:local.id, at:wo.at });
+              updated++;
+            }
+          });
+
+          // Merge trackingClicks
+          _safeArr(wc.clicksList).forEach(wk => {
+            if (!wk || !wk.email) return;
+            let aRow = S.analytics.find(a => a.type === 'email' && String(a.email||'').toLowerCase() === String(wk.email).toLowerCase() && String(a.campaignId||'') === String(wc.id));
+            if (aRow && wk.url) {
+              if (!aRow.clicks) aRow.clicks = [];
+              const key2 = wk.url + '|' + (wk.at||'');
+              if (!aRow.clicks.find(c => (c.url||'')+'|'+(c.at||'') === key2)) { aRow.clicks.push({ url:wk.url, label:wk.label||wk.url, at:wk.at }); aRow.clickCount = aRow.clicks.length; aRow.lastClickedAt = wk.at||aRow.lastClickedAt; aRow.lastClickedUrl = wk.url||aRow.lastClickedUrl; aRow.lastClickedLabel = wk.label||aRow.lastClickedLabel; updated++; }
+            }
+          });
+
+          // Merge contacts
           _safeArr(wc.contacts).forEach(wContact => {
             const lContact = _safeArr(local.emailList).find(e => _emailEq(e.email, wContact.email));
             if (!lContact) return;
-
-            // Statut : envoi/ouverture/désabonnement ne reculent jamais
             const rank = { pending:0, sent:1, error:1, opened:2, unsubscribed:3 };
-            const wRank = rank[wContact.status] || 0;
-            const lRank = rank[lContact.status] || 0;
-            if (wRank > lRank) lContact.status = wContact.status;
-
-            // Champs tracking : MAX ou union
+            if ((rank[wContact.status]||0) > (rank[lContact.status]||0)) lContact.status = wContact.status;
             if (wContact.sentAt && !lContact.sentAt) lContact.sentAt = wContact.sentAt;
-            if (wContact.openedAt && !lContact.openedAt) {
-              lContact.openedAt = wContact.openedAt;
-              lContact.opened   = true;
-            }
+            if (wContact.openedAt && !lContact.openedAt) { lContact.openedAt = wContact.openedAt; lContact.opened = true; }
             if (wContact.firstOpenedAt && !lContact.firstOpenedAt) lContact.firstOpenedAt = wContact.firstOpenedAt;
-            if (wContact.lastOpenedAt)  lContact.lastOpenedAt = wContact.lastOpenedAt;
-            if (_n(wContact.openCount) > _n(lContact.openCount)) {
-              lContact.openCount = wContact.openCount;
-              lContact.opens     = _safeArr(wContact.opens).length ? wContact.opens : lContact.opens;
+            if (wContact.lastOpenedAt) lContact.lastOpenedAt = wContact.lastOpenedAt;
+            if (_n(wContact.openCount) > _n(lContact.openCount)) { lContact.openCount = wContact.openCount; lContact.opens = _safeArr(wContact.opens).length ? wContact.opens : lContact.opens; }
+            // Fusionner le tableau opens[]
+            if (_safeArr(wContact.opens).length) {
+              if (!lContact.opens) lContact.opens = [];
+              wContact.opens.forEach(wo => { if (wo && wo.at && !lContact.opens.find(o => o.at === wo.at)) { lContact.opens.push(wo); } });
+              lContact.openCount = Math.max(lContact.opens.length, _n(lContact.openCount));
+              if (!lContact.openedAt && lContact.opens.length) { lContact.openedAt = lContact.opens[0].at; lContact.opened = true; }
+              if (lContact.opens.length) lContact.lastOpenedAt = lContact.opens[lContact.opens.length-1].at;
             }
             if (wContact.unsubscribed) { lContact.unsubscribed = true; lContact.status = 'unsubscribed'; }
-            if (_n(wContact.clickCount) > _n(lContact.clickCount)) {
-              lContact.clicks        = wContact.clicks;
-              lContact.clickCount    = wContact.clickCount;
-              lContact.lastClickedAt = wContact.lastClickedAt;
-              lContact.lastClickedUrl= wContact.lastClickedUrl;
-              lContact.lastClickedLabel= wContact.lastClickedLabel;
+            // Fusionner clicks[]
+            if (_safeArr(wContact.clicks).length) {
+              if (!lContact.clicks) lContact.clicks = [];
+              wContact.clicks.forEach(wk => {
+                if (!wk || !wk.url) return;
+                const key2 = wk.url + '|' + (wk.at||'');
+                if (!lContact.clicks.find(c => (c.url||'')+'|'+(c.at||'') === key2)) lContact.clicks.push(wk);
+              });
+              lContact.clickCount = lContact.clicks.length;
+              if (lContact.clicks.length) { const last = lContact.clicks[lContact.clicks.length-1]; lContact.lastClickedAt = last.at; lContact.lastClickedUrl = last.url; lContact.lastClickedLabel = last.label; }
+            } else {
+              if (_n(wContact.clickCount) > _n(lContact.clickCount)) { lContact.clickCount = wContact.clickCount; lContact.lastClickedAt = wContact.lastClickedAt; lContact.lastClickedUrl = wContact.lastClickedUrl; lContact.lastClickedLabel = wContact.lastClickedLabel; }
             }
             if (wContact.errorMsg && !lContact.errorMsg) lContact.errorMsg = wContact.errorMsg;
             updated++;
@@ -1337,58 +1566,49 @@ async function syncFromWorker() {
       }
     }
 
-    // ── 2. /sync/analytics ──
+    // ── 2. /sync/analytics
     const analRes = await fetch(S.wurl + '/sync/analytics');
     if (analRes.ok) {
       const data2 = await analRes.json();
       if (_safeArr(data2.analytics).length > 0) {
-        // Merge dans S.analytics : déduplique par (email|campaignId)
         const keyIndex = new Map();
         S.analytics.forEach((a, i) => keyIndex.set(_logKey(a), i));
-
         data2.analytics.forEach(wa => {
           if (!wa || !wa.email) return;
           const k = _logKey(wa);
           if (keyIndex.has(k)) {
             const local = S.analytics[keyIndex.get(k)];
-            // Enrichissement uniquement
-            if (wa.opened || wa.openedAt) {
-              local.opened    = true;
-              local.openedAt  = local.openedAt || wa.openedAt;
-              local.firstOpenedAt = local.firstOpenedAt || wa.firstOpenedAt || wa.openedAt;
-              local.lastOpenedAt  = wa.lastOpenedAt || local.lastOpenedAt;
+            if (wa.opened || wa.openedAt) { local.opened = true; local.openedAt = local.openedAt || wa.openedAt; local.firstOpenedAt = local.firstOpenedAt || wa.firstOpenedAt || wa.openedAt; local.lastOpenedAt = wa.lastOpenedAt || local.lastOpenedAt; }
+            if (getOpenCountSafe(wa) > getOpenCountSafe(local)) { local.opens = wa.opens; local.openCount = wa.openCount; }
+            // Fusionner opens[]
+            if (_safeArr(wa.opens).length) {
+              if (!local.opens) local.opens = [];
+              wa.opens.forEach(wo => { if (wo && wo.at && !local.opens.find(o => o.at === wo.at)) { local.opens.push(wo); } });
+              local.openCount = local.opens.length;
+              if (!local.openedAt && local.opens.length) { local.openedAt = local.opens[0].at; local.opened = true; }
             }
-            if (_openCount(wa) > _openCount(local)) {
-              local.opens     = wa.opens;
-              local.openCount = wa.openCount;
-            }
-            if (_clickCount(wa) > _clickCount(local)) {
-              local.clicks        = wa.clicks;
-              local.clickCount    = wa.clickCount;
-              local.lastClickedAt = wa.lastClickedAt;
-              local.lastClickedUrl= wa.lastClickedUrl;
-              local.lastClickedLabel= wa.lastClickedLabel;
+            if (getClickCountSafe(wa) > getClickCountSafe(local)) { local.clicks = wa.clicks; local.clickCount = wa.clickCount; local.lastClickedAt = wa.lastClickedAt; local.lastClickedUrl = wa.lastClickedUrl; local.lastClickedLabel = wa.lastClickedLabel; }
+            // Fusionner clicks[]
+            if (_safeArr(wa.clicks).length) {
+              if (!local.clicks) local.clicks = [];
+              wa.clicks.forEach(wk => { if (!wk || !wk.url) return; const key2=(wk.url||'')+'|'+(wk.at||''); if (!local.clicks.find(c=>(c.url||'')+'|'+(c.at||'')===key2)) local.clicks.push(wk); }); local.clickCount = local.clicks.length;
             }
             if (wa.unsubscribed) { local.unsubscribed = true; local.status = 'unsubscribed'; }
-            const statusRank = { sent:1, error:1, opened:2, unsubscribed:3 };
+            const statusRank = {sent:1,error:1,opened:2,unsubscribed:3};
             if ((statusRank[wa.status]||0) > (statusRank[local.status]||0)) local.status = wa.status;
           } else {
             keyIndex.set(k, S.analytics.length);
             S.analytics.push({ ...wa });
           }
         });
-
-        // Déduplique les doublons (type=open, type=click bruts)
-        S.analytics = S.analytics.filter(a =>
-          a.type === 'email' || a.type === 'sms'
-        );
+        S.analytics = S.analytics.filter(a => a.type === 'email' || a.type === 'sms' || a.type === 'open' || a.type === 'click' || a.type === 'unsubscribe');
         if (S.analytics.length > 50000) S.analytics = S.analytics.slice(-50000);
         try { lsS(SK.analytics, S.analytics); } catch(_) {}
       }
     }
 
-    // ── 3. Injection manuelle depuis emailList → analytics (filet de sécurité)
-    const eKeys = new Set(S.analytics.map(a => _logKey(a)));
+    // ── 3. Injection filet de sécurité depuis emailList
+    const eKeys = new Set(S.analytics.filter(a => a.type === 'email').map(a => String(a.email||'').toLowerCase() + '|' + String(a.campaignId||a.campaign||'')));
     let injected = 0;
     S.camps.filter(c => c.type !== 'sms').forEach(c => {
       _safeArr(c.emailList).forEach(e => {
@@ -1396,31 +1616,11 @@ async function syncFromWorker() {
         const k = String(e.email||'').toLowerCase() + '|' + String(c.id);
         if (eKeys.has(k)) return;
         eKeys.add(k);
-        S.analytics.push({
-          type: 'email', email: e.email, campaign: c.name,
-          campaignId: c.id,
-          date: e.sentAt || c.launchedAt || c.created || new Date().toISOString(),
-          status: e.status === 'error' ? 'error' : 'sent',
-          sent: e.status !== 'error',
-          opened: e.status === 'opened' || !!e.opened || _openCount(e) > 0,
-          openedAt: e.openedAt || null,
-          firstOpenedAt: e.firstOpenedAt || e.openedAt || null,
-          lastOpenedAt: e.lastOpenedAt || e.openedAt || null,
-          opens: e.opens || [],
-          openCount: _openCount(e),
-          unsubscribed: !!e.unsubscribed,
-          clicks: e.clicks || [],
-          clickCount: _clickCount(e),
-          lastClickedAt: e.lastClickedAt || null,
-          lastClickedUrl: e.lastClickedUrl || null,
-          lastClickedLabel: e.lastClickedLabel || null,
-        });
+        S.analytics.push({ type:'email', email:e.email, campaign:c.name, campaignId:c.id, date:e.sentAt||c.launchedAt||c.created||new Date().toISOString(), status:e.status==='error'?'error':'sent', sent:e.status!=='error', opened:e.status==='opened'||!!e.opened||getOpenCountSafe(e)>0, openedAt:e.openedAt||null, firstOpenedAt:e.firstOpenedAt||e.openedAt||null, lastOpenedAt:e.lastOpenedAt||e.openedAt||null, opens:e.opens||[], openCount:getOpenCountSafe(e), unsubscribed:!!e.unsubscribed, clicks:e.clicks||[], clickCount:getClickCountSafe(e), lastClickedAt:e.lastClickedAt||null, lastClickedUrl:e.lastClickedUrl||null, lastClickedLabel:e.lastClickedLabel||null });
         injected++;
       });
     });
-    if (injected > 0) {
-      try { lsS(SK.analytics, S.analytics); } catch(_) {}
-    }
+    if (injected > 0) { try { lsS(SK.analytics, S.analytics); } catch(_) {} }
 
     // ── 4. Rafraîchissement UI
     persistCamps();
@@ -1431,35 +1631,22 @@ async function syncFromWorker() {
     refreshQuotaBanner();
     _refreshOpenCampMetrics();
 
-    // ── Statut chip
+    // ── Chip Worker
     const chip = $('wchip'), wlbl = $('wlbl');
     if (chip) chip.className = 'wchip ok';
     const ts = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
     if (wlbl) wlbl.textContent = 'Worker actif · ' + ts;
-
-    // ── Bandeau sync
     const banner = $('sync-banner'), sl = $('sync-status-lbl'), pl = $('sync-pos-lbl'), ll = $('sync-last-lbl');
     if (banner) banner.style.display = 'flex';
     if (sl) {
       const ac = S.camps.filter(c => c.status === 'running');
       const pc = S.camps.filter(c => c.status === 'paused');
       if (ac.length) {
-        sl.innerHTML = '⚡ <strong style="color:var(--yel);">' + ac.length + ' campagne(s) en cours</strong>' +
-          (pc.length ? ' · ⏸ ' + pc.length + ' en pause' : '') + ' — Worker actif';
+        sl.innerHTML = '⚡ <strong style="color:var(--yel);">' + ac.length + ' campagne(s) en cours</strong>' + (pc.length ? ' · ⏸ ' + pc.length + ' en pause' : '') + ' — Worker actif';
         sl.style.color = 'var(--yel)';
-        if (pl) {
-          pl.textContent = ac.map(c => {
-            const m = getCanonicalMetrics(c.id);
-            const todayStr = new Date().toDateString();
-            const st = c.dailyDate === todayStr ? _n(c.dailySent) : 0;
-            return c.name + ' : ' + _fmt(m.sent) + '/' + _fmt(m.total) + ' · ' + st + '/' + (c.dailyLimit || '∞') + ' auj.';
-          }).join(' | ');
-          pl.style.display = 'block';
-        }
+        if (pl) { pl.textContent = ac.map(c => { const m = getCanonicalMetrics(c.id); const todayStr = new Date().toDateString(); const st = c.dailyDate === todayStr ? _n(c.dailySent) : 0; return c.name + ' : ' + _fmt(m.sent) + '/' + _fmt(m.total) + ' · ' + st + '/' + (c.dailyLimit||'∞') + ' auj.'; }).join(' | '); pl.style.display = 'block'; }
       } else {
-        sl.innerHTML = pc.length
-          ? '⏸ <strong style="color:var(--yel);">' + pc.length + ' en pause</strong>'
-          : '✅ <strong style="color:var(--grn);">Synchronisé</strong>';
+        sl.innerHTML = pc.length ? '⏸ <strong style="color:var(--yel);">' + pc.length + ' en pause</strong>' : '✅ <strong style="color:var(--grn);">Synchronisé</strong>';
         sl.style.color = pc.length ? 'var(--yel)' : 'var(--grn)';
         if (pl) pl.style.display = 'none';
       }
@@ -1474,13 +1661,11 @@ async function syncFromWorker() {
     const sl = $('sync-status-lbl');
     if (sl) { sl.innerHTML = '⚠️ <strong style="color:var(--red)">Worker inaccessible</strong>'; sl.style.color = 'var(--red)'; }
   }
-
   window._pgiSyncing = false;
 }
 
-// ─── WIDGETS UI ──────────────────────────────────────────────────────────────
+// ─── WIDGETS UI ───────────────────────────────────────────────────────────────
 
-/** Mise à jour des cartes métriques dans le formulaire campagne (en-tête) */
 function _refreshOpenCampMetrics() {
   const campId = S.activeCamp || S.activeSMS;
   if (!campId) return;
@@ -1502,13 +1687,10 @@ function _refreshOpenCampMetrics() {
   if (asEl && typeof buildAS === 'function') asEl.innerHTML = buildAS(c);
 }
 
-/** Cartes KPI globales + settings */
 function updateStats() {
   const g = getCanonicalGlobal();
   const todayStr = new Date().toDateString();
-  const sentToday = S.camps.filter(c => c.type !== 'sms')
-    .reduce((s, c) => s + (c.dailyDate === todayStr ? _n(c.dailySent) : 0), 0);
-
+  const sentToday = S.camps.filter(c => c.type !== 'sms').reduce((s, c) => s + (c.dailyDate === todayStr ? _n(c.dailySent) : 0), 0);
   const set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
   set('kv-es',  _fmt(g.sent));
   set('ks-es',  _fmt(sentToday) + " aujourd'hui");
@@ -1520,27 +1702,18 @@ function updateStats() {
   set('ks-op',  _fmt(g.openedUnique) + ' ouverts · ' + _fmt(g.openEvents) + ' ouvertures');
   set('ks-cl',  _fmt(g.clickers) + ' email' + (g.clickers > 1 ? 's' : '') + ' cliqué' + (g.clickers > 1 ? 's' : ''));
   set('ks-sm',  _fmt(g.smsRead) + ' lus');
-  // Settings
-  set('sg-e', _fmt(g.sent));
-  set('sg-o', _fmt(g.openedUnique));
-  set('sg-s', _fmt(g.totalSMS));
-  set('sg-k', S.camps.length);
-  set('sg-c', _fmt(S.contacts.length));
-  set('sg-t', S.tpls.length);
-  // Rafraîchir aussi la vue campagne ouverte
+  set('sg-e', _fmt(g.sent)); set('sg-o', _fmt(g.openedUnique));
+  set('sg-s', _fmt(g.totalSMS)); set('sg-k', S.camps.length);
+  set('sg-c', _fmt(S.contacts.length)); set('sg-t', S.tpls.length);
   try { _refreshOpenCampMetrics(); } catch(_) {}
 }
 
-/** Tableau "campagnes actives" */
 function renderActiveCamps() {
   const tbody = $('active-camps-body'); if (!tbody) return;
   const badge = $('badge-actives');
   const active = S.camps.filter(c => c.status === 'running');
   if (badge) badge.textContent = active.length;
-  if (!active.length) {
-    tbody.innerHTML = '<tr><td colspan="10"><div class="empty" style="padding:20px"><p>Aucune campagne en cours</p></div></td></tr>';
-    return;
-  }
+  if (!active.length) { tbody.innerHTML = '<tr><td colspan="10"><div class="empty" style="padding:20px"><p>Aucune campagne en cours</p></div></td></tr>'; return; }
   tbody.innerHTML = active.map(c => {
     const m = getCanonicalMetrics(c.id);
     const rpm = c.rateEffectivePerMin || 10;
@@ -1551,17 +1724,10 @@ function renderActiveCamps() {
     const pos = Math.min(m.total, m.sent + m.errors + 1);
     return `<tr>
       <td style="font-weight:700;color:var(--text)">${esc(c.name)}</td>
-      <td><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;
-        background:${c.type==='sms'?'rgba(255,45,120,.1)':'rgba(0,232,255,.1)'};
-        color:${c.type==='sms'?'var(--pnk)':'var(--cyan)'};">${c.type.toUpperCase()}</span></td>
+      <td><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:${c.type==='sms'?'rgba(255,45,120,.1)':'rgba(0,232,255,.1)'};color:${c.type==='sms'?'var(--pnk)':'var(--cyan)'};">${c.type.toUpperCase()}</span></td>
       <td class="mono">${_fmt(m.sent)}</td>
       <td class="mono">${_fmt(pos)}/${_fmt(m.total)}</td>
-      <td><div style="display:flex;align-items:center;gap:6px;">
-        <div style="width:80px;height:3px;background:var(--bg4);border-radius:2px;">
-          <div style="height:100%;background:var(--grn);border-radius:2px;width:${m.pct}%;"></div>
-        </div>
-        <span style="font-size:9px;font-family:var(--mono);color:var(--text3)">${m.pct}%</span>
-      </div></td>
+      <td><div style="display:flex;align-items:center;gap:6px;"><div style="width:80px;height:3px;background:var(--bg4);border-radius:2px;"><div style="height:100%;background:var(--grn);border-radius:2px;width:${m.pct}%;"></div></div><span style="font-size:9px;font-family:var(--mono);color:var(--text3)">${m.pct}%</span></div></td>
       <td style="font-family:var(--mono);font-size:10px;color:var(--yel)">${cadence}</td>
       <td class="mono">${_fmt(m.openedUnique)}</td>
       <td class="mono" style="color:${m.errors>0?'var(--red)':'var(--text3)'}">${_fmt(m.errors)}</td>
@@ -1569,49 +1735,71 @@ function renderActiveCamps() {
       <td><button class="btn-sm yel" onclick="pauseCamp(${c.id})">⏸</button></td>
     </tr>`;
   }).join('');
-  // Prochaine action
   const lbl = $('lbl-next');
-  if (lbl && active.length) {
-    const minRpm = Math.min(...active.map(c => c.rateEffectivePerMin || 10));
-    const nextMin = 60 / minRpm;
-    lbl.textContent = nextMin < 2 ? '~' + Math.round(nextMin * 60) + 's/email'
-      : nextMin < 60 ? '~' + Math.round(nextMin) + 'min/email'
-      : '~' + Math.round(nextMin / 60) + 'h/email';
-  }
+  if (lbl && active.length) { const minRpm = Math.min(...active.map(c => c.rateEffectivePerMin || 10)); const nextMin = 60 / minRpm; lbl.textContent = nextMin < 2 ? '~' + Math.round(nextMin * 60) + 's/email' : nextMin < 60 ? '~' + Math.round(nextMin) + 'min/email' : '~' + Math.round(nextMin / 60) + 'h/email'; }
 }
 
-/** Tableau "toutes les campagnes" */
 function renderAllCamps() {
   const tbody = $('all-camps-body'); if (!tbody) return;
-  if (!S.camps.length) {
-    tbody.innerHTML = '<tr><td colspan="10"><div class="empty" style="padding:16px"><p>Aucune campagne</p></div></td></tr>';
-    return;
-  }
+  if (!S.camps.length) { tbody.innerHTML = '<tr><td colspan="10"><div class="empty" style="padding:16px"><p>Aucune campagne</p></div></td></tr>'; return; }
   tbody.innerHTML = S.camps.map(c => {
     const m = getCanonicalMetrics(c.id);
-    // Tooltip openers
-    const openersTip = m.logs.filter(l => l.opened || _openCount(l) > 0).slice(0, 5)
-      .map(l => l.email + (l.openedAt ? ' @ ' + new Date(l.openedAt).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '')).join('\n');
-    const clickersTip = m.logs.filter(l => _clickCount(l) > 0).slice(0, 5)
-      .map(l => l.email + (l.lastClickedAt ? ' @ ' + new Date(l.lastClickedAt).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '')).join('\n');
+
+    // Openers : fusionner emailList + logs + trackingOpens
+    const openersList = [];
+    const openerSeen = new Set();
+    // Depuis emailList
+    _safeArr(c.emailList).filter(e => getOpenCountSafe(e) > 0 || e.status === 'opened').forEach(e => {
+      if (!openerSeen.has(e.email)) {
+        openerSeen.add(e.email);
+        openersList.push({ email: e.email, at: getLastOpenSafe(e), count: getOpenCountSafe(e) });
+      }
+    });
+    // Depuis logs analytics
+    m.logs.filter(l => l.opened || getOpenCountSafe(l) > 0).forEach(l => {
+      if (!openerSeen.has(l.email)) {
+        openerSeen.add(l.email);
+        openersList.push({ email: l.email, at: getLastOpenSafe(l), count: getOpenCountSafe(l) });
+      } else {
+        // Mettre à jour le count si plus grand
+        const ex = openersList.find(o => o.email === l.email);
+        if (ex && getOpenCountSafe(l) > ex.count) { ex.count = getOpenCountSafe(l); ex.at = getLastOpenSafe(l); }
+      }
+    });
+    openersList.sort((a, b) => new Date(b.at||0) - new Date(a.at||0));
+    const openersTip = openersList.length === 0
+      ? 'Aucune ouverture'
+      : openersList.slice(0, 8).map(o => o.email + ' × ' + o.count + (o.at ? ' @ ' + new Date(o.at).toLocaleString('fr-FR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '')).join('\n');
+
+    // Clickers : même approche
+    const clickersList = [];
+    const clickerSeen = new Set();
+    _safeArr(c.emailList).filter(e => getClickCountSafe(e) > 0).forEach(e => {
+      if (!clickerSeen.has(e.email)) { clickerSeen.add(e.email); clickersList.push({ email: e.email, at: e.lastClickedAt, count: getClickCountSafe(e), url: e.lastClickedUrl }); }
+    });
+    m.logs.filter(l => getClickCountSafe(l) > 0).forEach(l => {
+      if (!clickerSeen.has(l.email)) { clickerSeen.add(l.email); clickersList.push({ email: l.email, at: l.lastClickedAt, count: getClickCountSafe(l), url: l.lastClickedUrl }); }
+      else { const ex = clickersList.find(o => o.email === l.email); if (ex && getClickCountSafe(l) > ex.count) { ex.count = getClickCountSafe(l); ex.at = l.lastClickedAt; ex.url = l.lastClickedUrl; } }
+    });
+    clickersList.sort((a, b) => new Date(b.at||0) - new Date(a.at||0));
+    const clickersTip = clickersList.length === 0
+      ? 'Aucun clic'
+      : clickersList.slice(0, 8).map(o => o.email + ' × ' + o.count + (o.at ? ' @ ' + new Date(o.at).toLocaleString('fr-FR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '')).join('\n');
+
     return `<tr onclick="showView('${c.type}');openCamp(${c.id},'${c.type}')" style="cursor:pointer;">
       <td style="font-weight:700;color:var(--text)">${esc(c.name)}</td>
-      <td><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;
-        background:${c.type==='sms'?'rgba(255,45,120,.1)':'rgba(0,232,255,.1)'};
-        color:${c.type==='sms'?'var(--pnk)':'var(--cyan)'};">${c.type.toUpperCase()}</span></td>
+      <td><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:${c.type==='sms'?'rgba(255,45,120,.1)':'rgba(0,232,255,.1)'};color:${c.type==='sms'?'var(--pnk)':'var(--cyan)'};">${c.type.toUpperCase()}</span></td>
       <td><span class="stbadge ${stCls(c.status)}">${stLbl(c.status)}</span></td>
       <td class="mono" title="${_n(m.remaining)} en attente">${_fmt(m.total)}</td>
       <td class="mono" style="color:var(--grn)">${_fmt(m.sent)}</td>
-      <td class="mono" title="${openersTip||'Aucune ouverture'}"
-        style="color:${m.openedUnique>0?'var(--purl)':'var(--text3)'};cursor:${m.openedUnique>0?'help':'default'}">
-        ${_fmt(m.openedUnique)}${m.openedUnique>0?' <span style="font-size:8px">ℹ</span>':''}
+      <td class="mono" title="${esc(openersTip)}" style="color:${m.openedUnique>0?'var(--purl)':'var(--text3)'};cursor:${m.openedUnique>0?'help':'default'}">
+        ${_fmt(m.openedUnique)}${m.openedUnique>0?' <span style="font-size:8px;opacity:.7">ℹ</span>':''}
       </td>
       <td style="font-family:var(--mono);font-size:10px;color:${m.openRate>=20?'var(--grn)':m.openRate>=10?'var(--yel)':'var(--text3)'}">
         ${m.openRate}%
       </td>
-      <td class="mono" title="${clickersTip||'Aucun clic'}"
-        style="color:${m.clicks>0?'var(--cyan)':'var(--text3)'};cursor:${m.clicks>0?'help':'default'}">
-        ${_fmt(m.clicks)}${m.clicks>0?' <span style="font-size:8px">ℹ</span>':''}
+      <td class="mono" title="${esc(clickersTip)}" style="color:${m.clicks>0?'var(--cyan)':'var(--text3)'};cursor:${m.clicks>0?'help':'default'}">
+        ${_fmt(m.clicks)}${m.clicks>0?' <span style="font-size:8px;opacity:.7">ℹ</span>':''}
       </td>
       <td class="mono" style="color:${m.errors>0?'var(--red)':'var(--text3)'}">${_fmt(m.errors)}</td>
       <td style="font-size:10px;color:var(--text3)">${fDt(c.created)}</td>
@@ -1619,27 +1807,22 @@ function renderAllCamps() {
   }).join('');
 }
 
-/** Statistiques de période */
 function renderPeriodStats() {
-  // On filtre les logs globaux par période sélectionnée
   const g = getCanonicalGlobal();
-  const logs = g.globalLogs.filter(x => typeof inRange === 'function' ? inRange(x.date) : true);
-  const smsLogs = _safeArr(S.analytics).filter(x => x.type === 'sms' && (typeof inRange !== 'function' || inRange(x.date)));
-
+  const logs = g.globalLogs.filter(x => inRange(x.date));
+  const smsLogs = _safeArr(S.analytics).filter(x => x.type === 'sms' && inRange(x.date));
   const sent       = logs.filter(x => x.status !== 'error').length;
-  const opened     = logs.filter(x => x.opened || _openCount(x) > 0).length;
-  const openEvents = Math.max(logs.reduce((s, x) => s + _openCount(x), 0), opened);
-  const clicks     = logs.reduce((s, x) => s + _clickCount(x), 0);
+  const opened     = logs.filter(x => x.opened || getOpenCountSafe(x) > 0).length;
+  const openEvents = Math.max(logs.reduce((s, x) => s + getOpenCountSafe(x), 0), opened);
+  const clicks     = logs.reduce((s, x) => s + getClickCountSafe(x), 0);
   const unsub      = logs.filter(x => x.unsubscribed).length;
   const noRead     = Math.max(0, sent - opened);
-
   const set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
   set('ps-sent',  _fmt(sent));
   set('ps-open',  sent ? Math.round(opened / sent * 100) + '%' : '0%');
   set('ps-clicks',_fmt(clicks));
   set('ps-sms',   _fmt(smsLogs.length));
   set('ps-unsub', _fmt(unsub));
-
   const eb = $('email-stats-bar');
   if (eb) {
     eb.innerHTML =
@@ -1650,7 +1833,6 @@ function renderPeriodStats() {
   }
 }
 
-/** Bannière quota campagnes actives */
 function refreshQuotaBanner() {
   const banner = $('quota-global-banner'); if (!banner) return;
   const running = S.camps.filter(c => c.type !== 'sms' && c.status === 'running');
@@ -1658,137 +1840,63 @@ function refreshQuotaBanner() {
   if (!running.length && !paused.length) { banner.classList.remove('show'); return; }
   banner.classList.add('show');
   let lines = [];
-  running.forEach(c => {
-    const m = getCanonicalMetrics(c.id);
-    lines.push(`⚡ <strong style="color:var(--yel)">${esc(c.name)}</strong> — ` +
-      `<strong style="color:var(--grn)">${_fmt(m.remaining)} restants</strong> sur ${_fmt(m.total)} · ` +
-      `${_fmt(m.sent)} envoyés · ${_fmt(m.openedUnique)} ouverts · ${_fmt(m.errors)} err`);
-  });
-  paused.forEach(c => {
-    const m = getCanonicalMetrics(c.id);
-    lines.push(`⏸ <strong style="color:var(--text2)">${esc(c.name)}</strong> — En pause · ` +
-      `<strong style="color:var(--text2)">${_fmt(m.remaining)} restants</strong> sur ${_fmt(m.total)} · ${_fmt(m.sent)} envoyés`);
-  });
+  running.forEach(c => { const m = getCanonicalMetrics(c.id); lines.push(`⚡ <strong style="color:var(--yel)">${esc(c.name)}</strong> — <strong style="color:var(--grn)">${_fmt(m.remaining)} restants</strong> sur ${_fmt(m.total)} · ${_fmt(m.sent)} envoyés · ${_fmt(m.openedUnique)} ouverts · ${_fmt(m.errors)} err`); });
+  paused.forEach(c => { const m = getCanonicalMetrics(c.id); lines.push(`⏸ <strong style="color:var(--text2)">${esc(c.name)}</strong> — En pause · <strong style="color:var(--text2)">${_fmt(m.remaining)} restants</strong> sur ${_fmt(m.total)} · ${_fmt(m.sent)} envoyés`); });
   banner.className = 'quota-banner show warn';
   banner.style.cssText = 'background:rgba(255,230,0,.07);border:1px solid rgba(255,230,0,.25);color:var(--yel);flex-direction:column;gap:4px;align-items:flex-start;';
   banner.innerHTML = lines.join('<br>');
 }
 
-// ─── HISTORIQUE EMAILS : source canonique ─────────────────────────────────────
-
-/**
- * Remplace getAllEmailLogs() — retourne les logs dédupliqués
- * enrichis depuis emailList pour chaque campagne.
- */
-function getAllEmailLogs() {
-  const keyIndex = new Map();
-  const merged = [];
-
-  // Seed depuis S.analytics
-  _safeArr(S.analytics).filter(x => x && x.type === 'email' && x.status !== 'pending_send')
-    .forEach(x => {
-      const k = _logKey(x);
-      if (!keyIndex.has(k)) {
-        keyIndex.set(k, merged.length);
-        merged.push({ ...x });
-      } else {
-        const ex = merged[keyIndex.get(k)];
-        if (x.opened || x.openedAt) { ex.opened = true; ex.openedAt = ex.openedAt || x.openedAt; }
-        if (_openCount(x) > _openCount(ex)) { ex.opens = x.opens; ex.openCount = x.openCount; }
-        if (_clickCount(x) > _clickCount(ex)) { ex.clicks = x.clicks; ex.clickCount = x.clickCount; }
-        if (x.unsubscribed) ex.unsubscribed = true;
-      }
-    });
-
-  // Enrich/inject depuis emailList
-  S.camps.filter(c => c.type !== 'sms').forEach(c => {
-    _safeArr(c.emailList).forEach(e => {
-      if (!['sent','opened','error','unsubscribed'].includes(e.status) && !e.sentAt) return;
-      const k = String(e.email || '').toLowerCase() + '|' + String(c.id);
-      if (keyIndex.has(k)) {
-        const ex = merged[keyIndex.get(k)];
-        if (e.opened || e.openedAt || _openCount(e) > 0) {
-          ex.opened = true;
-          ex.openedAt = ex.openedAt || e.openedAt;
-          ex.firstOpenedAt = ex.firstOpenedAt || e.firstOpenedAt || e.openedAt;
-          ex.lastOpenedAt  = e.lastOpenedAt || ex.lastOpenedAt;
-        }
-        if (_openCount(e) > _openCount(ex)) { ex.opens = e.opens; ex.openCount = e.openCount; }
-        if (_clickCount(e) > _clickCount(ex)) {
-          ex.clicks = e.clicks; ex.clickCount = e.clickCount;
-          ex.lastClickedAt = e.lastClickedAt; ex.lastClickedUrl = e.lastClickedUrl;
-          ex.lastClickedLabel = e.lastClickedLabel;
-        }
-        if (e.unsubscribed) ex.unsubscribed = true;
-        if (e.status === 'error') ex.status = 'error';
-        else if (ex.status !== 'error') {
-          const r = {sent:1,opened:2,unsubscribed:3};
-          if ((r[e.status]||0) > (r[ex.status]||0)) ex.status = e.status;
-        }
-      } else {
-        keyIndex.set(k, merged.length);
-        merged.push({
-          type: 'email', email: e.email, campaign: c.name, campaignId: c.id,
-          date: e.sentAt || c.launchedAt || c.created || new Date().toISOString(),
-          status: e.status === 'error' ? 'error' : (e.opened || _openCount(e) > 0 ? 'opened' : 'sent'),
-          sent: e.status !== 'error', opened: e.status === 'opened' || !!e.opened || _openCount(e) > 0,
-          openedAt: e.openedAt || null, firstOpenedAt: e.firstOpenedAt || e.openedAt || null,
-          lastOpenedAt: e.lastOpenedAt || e.openedAt || null,
-          opens: e.opens || [], openCount: _openCount(e),
-          unsubscribed: !!e.unsubscribed,
-          clicks: e.clicks || [], clickCount: _clickCount(e),
-          lastClickedAt: e.lastClickedAt || null, lastClickedUrl: e.lastClickedUrl || null,
-          lastClickedLabel: e.lastClickedLabel || null,
-        });
-      }
-    });
-  });
-
-  return merged.sort((a, b) => new Date(b.date) - new Date(a.date));
-}
-
 // ─── EXPOSITION GLOBALE ───────────────────────────────────────────────────────
 
-// On surcharge toutes les fonctions globales utilisées dans le HTML existant
-window.getCanonicalMetrics   = getCanonicalMetrics;
-window.getCanonicalGlobal    = getCanonicalGlobal;
-window.getAllEmailLogs        = getAllEmailLogs;
-window.syncFromWorker        = syncFromWorker;
-window.updateStats           = updateStats;
-window.renderActiveCamps     = renderActiveCamps;
-window.renderAllCamps        = renderAllCamps;
-window.renderPeriodStats     = renderPeriodStats;
-window.refreshQuotaBanner    = refreshQuotaBanner;
-window._refreshOpenCampMetrics = _refreshOpenCampMetrics;
+window.getCanonicalMetrics       = getCanonicalMetrics;
+window.getCanonicalGlobal        = getCanonicalGlobal;
+window.getAllEmailLogs            = getAllEmailLogs;
+window.getOpenListSafe           = getOpenListSafe;
+window.getOpenCountSafe          = getOpenCountSafe;
+window.getFirstOpenSafe          = getFirstOpenSafe;
+window.getLastOpenSafe           = getLastOpenSafe;
+window.getClickListSafe          = getClickListSafe;
+window.getClickCountSafe         = getClickCountSafe;
+window.pgiClickLabel             = pgiClickLabel;
+window.openDetailCellSafe        = openDetailCellSafe;
+window.clickDetailCellSafe       = clickDetailCellSafe;
+window.syncFromWorker            = syncFromWorker;
+window.updateStats               = updateStats;
+window.renderActiveCamps         = renderActiveCamps;
+window.renderAllCamps            = renderAllCamps;
+window.renderPeriodStats         = renderPeriodStats;
+window.refreshQuotaBanner        = refreshQuotaBanner;
+window._refreshOpenCampMetrics   = _refreshOpenCampMetrics;
+window.inRange                   = inRange;
 
-// buildAS enrichi pour utiliser getCanonicalMetrics
-const _origBuildAS = window.buildAS;
+// buildAS enrichi
+const _origBuildAS_v2 = window.buildAS;
 window.buildAS = function(c) {
-  if (!c || c.type === 'sms' || typeof _origBuildAS !== 'function') return _origBuildAS ? _origBuildAS(c) : '';
+  if (!c || c.type === 'sms' || typeof _origBuildAS_v2 !== 'function') return _origBuildAS_v2 ? _origBuildAS_v2(c) : '';
   const m = getCanonicalMetrics(c.id);
-  let html = _origBuildAS(c);
-  // Remplace les compteurs dans le résumé
+  let html = _origBuildAS_v2(c);
   try {
     const emailList = _safeArr(c.emailList);
-    const lSentCount = emailList.filter(e => e.status === 'sent' || e.status === 'opened').length;
-    const lPendCount = emailList.filter(e => e.status === 'pending').length;
-    const lErrCount  = emailList.filter(e => e.status === 'error').length;
-    html = html.replace('✓' + lSentCount, '✓' + _fmt(m.sent));
-    html = html.replace('⏳' + lPendCount, '⏳' + _fmt(m.remaining));
-    if (lErrCount && m.errors !== lErrCount) html = html.replace('✕' + lErrCount, '✕' + _fmt(m.errors));
+    const lS = emailList.filter(e => e.status === 'sent' || e.status === 'opened').length;
+    const lP = emailList.filter(e => e.status === 'pending').length;
+    const lE = emailList.filter(e => e.status === 'error').length;
+    html = html.replace('✓' + lS, '✓' + _fmt(m.sent));
+    html = html.replace('⏳' + lP, '⏳' + _fmt(m.remaining));
+    if (lE && m.errors !== lE) html = html.replace('✕' + lE, '✕' + _fmt(m.errors));
   } catch(_) {}
   return html;
 };
 
-// openCamp : force refresh après ouverture
-const _origOpenCamp = window.openCamp;
+// openCamp : refresh après ouverture
+const _origOpenCamp_v2 = window.openCamp;
 window.openCamp = function() {
-  const r = _origOpenCamp && _origOpenCamp.apply(this, arguments);
-  setTimeout(() => { try { _refreshOpenCampMetrics(); } catch(_) {} }, 50);
+  const r = _origOpenCamp_v2 && _origOpenCamp_v2.apply(this, arguments);
+  setTimeout(() => { try { _refreshOpenCampMetrics(); } catch(_) {} }, 80);
   return r;
 };
 
-console.log('[PGI Metrics] Patch v1.0 chargé — source unique getCanonicalMetrics()');
+console.log('[PGI Metrics v2.0] Chargé — ouvertures multiples, clics multiples, tooltips complets');
 
 
 document.addEventListener('DOMContentLoaded', init);
