@@ -638,6 +638,8 @@ html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;ov
     <div class="sc" id="sc-smtp-debug"><div class="sc-t" style="color:var(--cyan)">🔬 Test SMTP en direct</div>
       <div class="fc" style="margin-bottom:10px"><label class="fl">Email de test (destinataire)</label><input type="email" class="fi" id="smtp-test-to" placeholder="votre@email.com"></div>
       <button class="btn-p" style="background:linear-gradient(135deg,var(--cyan),#0099cc);margin-bottom:10px" onclick="runSmtpDebugTest()">🚀 Lancer le test SMTP réel</button>
+      <button onclick="runSmtpProbe()" style="background:linear-gradient(135deg,#8a30cc,var(--purl));color:#fff;font-weight:800;border:none;border-radius:10px;padding:12px;font-size:12px;cursor:pointer;width:100%;margin-top:6px;">🔍 Diagnostiquer tous les hosts SMTP LWS</button>
+      <div id="smtp-probe-result" style="display:none;background:var(--bg3);border:1px solid var(--b2);border-radius:8px;padding:12px;margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--text2);white-space:pre-wrap;line-height:1.6;max-height:400px;overflow-y:auto"></div>
       <div id="smtp-debug-result" style="display:none;background:var(--bg4);border:1px solid var(--b2);border-radius:8px;padding:12px;font-family:var(--mono);font-size:10px;line-height:1.8;max-height:400px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;color:var(--text2);"></div>
     </div>
   </div>
@@ -1152,6 +1154,53 @@ _isSyncing=false;}
 function startAutoSync(){if(!S.wurl){const b=$('sync-banner');if(b)b.style.display='none';return;}setTimeout(syncFromWorker,2000);if(_syncInterval)clearInterval(_syncInterval);_syncInterval=setInterval(syncFromWorker,60000);}
 async function forceSyncNow(){if(!S.wurl){toast('Worker non configuré','warn');return;}toast('Synchronisation...','info');await syncFromWorker();toast('✓ Synchronisé','success');}
 // ── SMTP DEBUG TEST ──
+function runSmtpProbe(){
+  const res=$('smtp-probe-result');
+  if(!res)return;
+  if(!S.wurl){toast('Worker URL manquante','warn');return;}
+  res.style.display='block';
+  res.textContent='🔍 Test des 4 combinaisons SMTP en cours...\nCela peut prendre jusqu\'à 45 secondes.\n';
+  toast('Diagnostic SMTP en cours...','info');
+  fetch(S.wurl+'/debug/smtp-probe',{method:'GET'})
+  .then(r=>r.json())
+  .then(data=>{
+    let txt='';
+    txt+='══ DIAGNOSTIC SMTP ══\n\n';
+    txt+=data.summary+'\n\n';
+    txt+='── Résultats par combinaison ──\n';
+    (data.probes||[]).forEach(p=>{
+      txt+=`\n[${p.ok?'✅':'❌'}] ${p.host}:${p.port} — ${p.label}\n`;
+      txt+=`    TCP: ${p.tcp_ok?'✅ OK':'❌ FAIL'}`;
+      if(p.delai_ms) txt+=` | Délai: ${p.delai_ms}ms`;
+      txt+='\n';
+      if(p.banner_ok) txt+=`    Bannière: ${p.banner||''}\n`;
+      if(!p.ok) txt+=`    Échec à: ${p.etape_echec||'?'} — ${p.erreur||''}\n`;
+    });
+    if(data.recommendation){
+      const r=data.recommendation;
+      txt+='\n══ RECOMMANDATION ══\n';
+      txt+=`  Host SMTP    : ${r.host_smtp}\n`;
+      txt+=`  Port         : ${r.port_smtp}\n`;
+      txt+=`  Chiffrement  : ${r.chiffrement}\n`;
+      txt+=`  Expéditeur   : ${r.adresse_expediteur}\n`;
+      txt+=`  Délai réponse: ${r.delai_ms}ms\n`;
+    }
+    if(data.auto_fix?.applied){
+      txt+=`\n✅ AUTO-FIX APPLIQUÉ : config mise à jour vers ${data.auto_fix.newHost}:${data.auto_fix.newPort}\n`;
+      txt+='   Rechargez la page des réglages pour voir la nouvelle valeur.\n';
+      toast('✅ Host SMTP auto-corrigé vers '+data.auto_fix.newHost,'success');
+    }
+    if(data.note) txt+='\n💡 '+data.note+'\n';
+    res.textContent=txt;
+    if(!data.ok) toast('❌ Aucun host SMTP disponible — voir diagnostic','error');
+    else toast('✅ Diagnostic terminé','success');
+  })
+  .catch(err=>{
+    if(res) res.textContent='❌ Erreur: '+err.message;
+    toast('Erreur diagnostic: '+err.message,'error');
+  });
+}
+
 function runSmtpDebugTest(){const to=$('smtp-test-to')?.value.trim();if(!to){toast('Entrez un email destinataire','warn');return;}if(!S.wurl){toast('Worker URL manquante — configurez le Worker d\'abord','error');return;}const resultEl=$('smtp-debug-result');if(resultEl){resultEl.style.display='block';resultEl.textContent='⏳ Test en cours...\nConnexion au Worker: '+S.wurl+'\nDestinataire: '+to+'\n';}toast('Test SMTP lancé...','info');fetch(S.wurl+'/debug/send-test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to,subject:'Test PGI Send Station — '+new Date().toLocaleString('fr-FR'),html:'<h2>✓ Test SMTP PGI Send Station</h2><p>Si vous recevez cet email, le SMTP fonctionne correctement.</p><p>Heure: '+new Date().toISOString()+'</p>'})}).then(r=>r.json()).then(data=>{console.log('[PGI SMTP TEST]',JSON.stringify(data,null,2));const safe=(v,fallback)=>(v!==undefined&&v!==null&&v!==''&&v!=='undefined')?String(v):(fallback||'—');let txt='';txt+='══ RÉSULTAT TEST SMTP ══\n';txt+=(data.ok?'✅ SUCCÈS — Email envoyé !':'❌ ÉCHEC — Email non envoyé')+'\n\n';txt+='Provider: '+safe(data.provider)+'\nHost: '+safe(data.host)+'\nPort: '+safe(data.port||data.port_tried)+'\nFrom: '+safe(data.from)+'\nTo: '+safe(data.to)+'\nÉtape: '+safe(data.step,'inconnue')+'\n';if(!data.ok){const errMsg=data.error||data.diagnosis||'Aucun détail';txt+='\n❌ Erreur: '+safe(errMsg,'Erreur inconnue')+'\n';if(data.diagnosis&&data.diagnosis!==data.error)txt+='\n💡 Diagnostic: '+data.diagnosis+'\n';}if(data.missing&&Object.values(data.missing).some(Boolean)){txt+='\n⚠️ Secrets Worker manquants:\n';Object.entries(data.missing).forEach(([k,v])=>{if(v)txt+='  — '+k+'\n';});}if(data.log&&data.log.length){txt+='\n══ LOG SMTP ══\n';data.log.forEach(entry=>{txt+='\n['+safe(entry.step,'?')+']\n';if(entry.sent&&entry.sent!=='[user base64]'&&entry.sent!=='[pass base64]')txt+='  → '+entry.sent+'\n';if(entry.response)txt+='  ← '+entry.response+'\n';});}if(resultEl)resultEl.textContent=txt;if(data.ok)toast('✅ Email envoyé avec succès !','success');else toast('❌ '+(data.error||data.diagnosis||'Échec SMTP').slice(0,60),'error');}).catch(err=>{if(resultEl)resultEl.textContent='❌ Erreur réseau: '+err.message+'\nVérifiez que le Worker est actif.';toast('Erreur: '+err.message,'error');});}
 // ── INIT ──
 function init(){
