@@ -635,7 +635,12 @@ html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;ov
       <div class="srow"><span class="srl">Templates</span><span id="sg-t" class="srv">0</span></div>
       <div style="display:flex;gap:8px;margin-top:12px"><button class="btn-s" style="flex:1" onclick="exportData()">Export JSON</button><button class="btn-s" style="flex:1;color:var(--red)" onclick="resetData()">Reset tout</button></div>
     </div>
-    <div class="sc" id="sc-smtp-debug"><div class="sc-t" style="color:var(--cyan)">🔬 Test SMTP en direct</div>
+    <div style="background:rgba(0,255,136,.05);border:1px solid rgba(0,255,136,.3);border-radius:10px;padding:14px;margin-bottom:14px;">
+<div style="font-size:12px;font-weight:800;color:var(--grn);margin-bottom:8px;">💡 SMTP LWS bloqué ? → Passez sur Resend (gratuit, recommandé)</div>
+<div style="font-size:10px;color:var(--text2);line-height:1.7;margin-bottom:10px;">3 000 emails/mois gratuits · API HTTPS · jamais bloqué par Cloudflare<br>1. Compte sur <strong style="color:var(--grn)">resend.com</strong> · 2. Vérifier domaine clairvoyancemedium.com · 3. Créer clé API</div>
+<div class="fc" style="margin-bottom:8px"><label class="fl">Clé API Resend (re_xxxx)</label><input type="text" class="fi" id="quick-resend-key" placeholder="re_xxxxxxxxxxxxxxxxxxxx"></div>
+<button onclick="quickSetupResend()" style="background:linear-gradient(135deg,var(--grn),#00cc88);color:#000;font-weight:800;border:none;border-radius:8px;padding:10px 16px;font-size:11px;cursor:pointer;width:100%">⚡ Activer Resend maintenant</button>
+</div><div class="sc" id="sc-smtp-debug"><div class="sc-t" style="color:var(--cyan)">🔬 Test SMTP en direct</div>
       <div class="fc" style="margin-bottom:10px"><label class="fl">Email de test (destinataire)</label><input type="email" class="fi" id="smtp-test-to" placeholder="votre@email.com"></div>
       <button class="btn-p" style="background:linear-gradient(135deg,var(--cyan),#0099cc);margin-bottom:10px" onclick="runSmtpDebugTest()">🚀 Lancer le test SMTP réel</button>
       <button onclick="runSmtpProbe()" style="background:linear-gradient(135deg,#8a30cc,var(--purl));color:#fff;font-weight:800;border:none;border-radius:10px;padding:12px;font-size:12px;cursor:pointer;width:100%;margin-top:6px;">🔍 Diagnostiquer tous les hosts SMTP LWS</button>
@@ -1154,6 +1159,24 @@ _isSyncing=false;}
 function startAutoSync(){if(!S.wurl){const b=$('sync-banner');if(b)b.style.display='none';return;}setTimeout(syncFromWorker,2000);if(_syncInterval)clearInterval(_syncInterval);_syncInterval=setInterval(syncFromWorker,60000);}
 async function forceSyncNow(){if(!S.wurl){toast('Worker non configuré','warn');return;}toast('Synchronisation...','info');await syncFromWorker();toast('✓ Synchronisé','success');}
 // ── SMTP DEBUG TEST ──
+function quickSetupResend(){
+  const key=$('quick-resend-key')?.value.trim();
+  if(!key||!key.startsWith('re_')){toast('Entrez une clé Resend valide (commence par re_)','error');return;}
+  // Sauvegarder localement
+  const cfg={provider:'resend',type:'api',apiKey:key,fromEmail:S.ce||'',fromName:S.cn||''};
+  S.smtpConfig=cfg;lsS(SK.smtpConfig,cfg);
+  // Synchroniser avec le worker
+  if(S.wurl){
+    Promise.all([
+      fetch(S.wurl+'/config/smtp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'resend',fromEmail:S.ce||'',fromName:S.cn||''})}),
+    ]).then(()=>{
+      toast('✅ Resend configuré ! Ajoutez EMAIL_PROVIDER=resend et RESEND_API_KEY='+key.slice(0,8)+'... dans vos secrets Cloudflare puis redéployez le worker','success');
+      const st=$('sw-email-st');if(st){st.textContent='✅ Resend configuré — ajoutez les secrets CF';st.style.color='var(--grn)';}
+    }).catch(()=>toast('Config Resend sauvegardée localement','info'));
+  } else {
+    toast('✅ Clé Resend sauvegardée — configurez aussi les secrets Cloudflare','success');
+  }
+}
 function runSmtpProbe(){
   const res=$('smtp-probe-result');
   if(!res)return;
@@ -1201,7 +1224,7 @@ function runSmtpProbe(){
   });
 }
 
-function runSmtpDebugTest(){const to=$('smtp-test-to')?.value.trim();if(!to){toast('Entrez un email destinataire','warn');return;}if(!S.wurl){toast('Worker URL manquante — configurez le Worker d\'abord','error');return;}const resultEl=$('smtp-debug-result');if(resultEl){resultEl.style.display='block';resultEl.textContent='⏳ Test en cours...\nConnexion au Worker: '+S.wurl+'\nDestinataire: '+to+'\n';}toast('Test SMTP lancé...','info');fetch(S.wurl+'/debug/send-test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to,subject:'Test PGI Send Station — '+new Date().toLocaleString('fr-FR'),html:'<h2>✓ Test SMTP PGI Send Station</h2><p>Si vous recevez cet email, le SMTP fonctionne correctement.</p><p>Heure: '+new Date().toISOString()+'</p>'})}).then(r=>r.json()).then(data=>{console.log('[PGI SMTP TEST]',JSON.stringify(data,null,2));const safe=(v,fallback)=>(v!==undefined&&v!==null&&v!==''&&v!=='undefined')?String(v):(fallback||'—');let txt='';txt+='══ RÉSULTAT TEST SMTP ══\n';txt+=(data.ok?'✅ SUCCÈS — Email envoyé !':'❌ ÉCHEC — Email non envoyé')+'\n\n';txt+='Provider: '+safe(data.provider)+'\nHost: '+safe(data.host)+'\nPort: '+safe(data.port||data.port_tried)+'\nFrom: '+safe(data.from)+'\nTo: '+safe(data.to)+'\nÉtape: '+safe(data.step,'inconnue')+'\n';if(!data.ok){const errMsg=data.error||data.diagnosis||'Aucun détail';txt+='\n❌ Erreur: '+safe(errMsg,'Erreur inconnue')+'\n';if(data.diagnosis&&data.diagnosis!==data.error)txt+='\n💡 Diagnostic: '+data.diagnosis+'\n';}if(data.missing&&Object.values(data.missing).some(Boolean)){txt+='\n⚠️ Secrets Worker manquants:\n';Object.entries(data.missing).forEach(([k,v])=>{if(v)txt+='  — '+k+'\n';});}if(data.log&&data.log.length){txt+='\n══ LOG SMTP ══\n';data.log.forEach(entry=>{txt+='\n['+safe(entry.step,'?')+']\n';if(entry.sent&&entry.sent!=='[user base64]'&&entry.sent!=='[pass base64]')txt+='  → '+entry.sent+'\n';if(entry.response)txt+='  ← '+entry.response+'\n';});}if(resultEl)resultEl.textContent=txt;if(data.ok)toast('✅ Email envoyé avec succès !','success');else toast('❌ '+(data.error||data.diagnosis||'Échec SMTP').slice(0,60),'error');}).catch(err=>{if(resultEl)resultEl.textContent='❌ Erreur réseau: '+err.message+'\nVérifiez que le Worker est actif.';toast('Erreur: '+err.message,'error');});}
+function runSmtpDebugTest(){const to=$('smtp-test-to')?.value.trim();if(!to){toast('Entrez un email destinataire','warn');return;}if(!S.wurl){toast('Worker URL manquante — configurez le Worker d\'abord','error');return;}const resultEl=$('smtp-debug-result');if(resultEl){resultEl.style.display='block';resultEl.textContent='⏳ Test en cours...\nConnexion au Worker: '+S.wurl+'\nDestinataire: '+to+'\n';}toast('Test SMTP lancé...','info');fetch(S.wurl+'/debug/send-test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to,subject:'Test PGI Send Station — '+new Date().toLocaleString('fr-FR'),html:'<h2>✓ Test SMTP PGI Send Station</h2><p>Si vous recevez cet email, le SMTP fonctionne correctement.</p><p>Heure: '+new Date().toISOString()+'</p>'})}).then(r=>r.json()).then(data=>{console.log('[PGI SMTP TEST]',JSON.stringify(data,null,2));const safe=(v,fallback)=>(v!==undefined&&v!==null&&v!==''&&v!=='undefined')?String(v):(fallback||'—');let txt='';txt+='══ RÉSULTAT TEST SMTP ══\n';txt+=(data.ok?'✅ SUCCÈS — Email envoyé !':'❌ ÉCHEC — Email non envoyé')+'\n\n';txt+='Provider: '+safe(data.provider)+'\nHost: '+safe(data.host)+'\nPort: '+safe(data.port||data.port_tried)+'\nFrom: '+safe(data.from)+'\nTo: '+safe(data.to)+'\nÉtape: '+safe(data.step,'inconnue')+'\n';if(!data.ok){const errMsg=data.error||data.diagnosis||'Aucun détail';txt+='\n❌ Erreur: '+safe(errMsg,'Erreur inconnue')+'\n';if(data.diagnosis&&data.diagnosis!==data.error)txt+='\n💡 Diagnostic: '+data.diagnosis+'\n';}if(data.missing&&Object.values(data.missing).some(Boolean)){txt+='\n⚠️ Secrets Worker manquants:\n';Object.entries(data.missing).forEach(([k,v])=>{if(v)txt+='  — '+k+'\n';});}if(data.log&&data.log.length){txt+='\n══ LOG SMTP ══\n';data.log.forEach(entry=>{txt+='\n['+safe(entry.step,'?')+']\n';if(entry.sent&&entry.sent!=='[user base64]'&&entry.sent!=='[pass base64]')txt+='  → '+entry.sent+'\n';if(entry.response)txt+='  ← '+entry.response+'\n';});}if(resultEl)resultEl.textContent=txt;if(data.ok)toast('✅ Email envoyé avec succès !','success');else{toast('❌ '+(data.error||data.diagnosis||'Échec SMTP').slice(0,60),'error');if(data.solution){if(resultEl){resultEl.textContent+='\n\n══ SOLUTION RECOMMANDÉE ══\n'+data.solution;resultEl.style.borderColor='rgba(255,45,120,.5)';}toast('💡 Voir solution','warn');}}}).catch(err=>{if(resultEl)resultEl.textContent='❌ Erreur réseau: '+err.message+'\nVérifiez que le Worker est actif.';toast('Erreur: '+err.message,'error');});}
 // ── INIT ──
 function init(){
   setDateFilter('today',document.querySelector('#date-quick-btns .date-qbtn'));
