@@ -13,7 +13,7 @@
 <style>
 :root{--bg:#1a1c22;--bg2:#22252e;--bg3:#292c36;--bg4:#2f3340;--b1:#35394a;--b2:#3d4256;--pur:#c060ff;--purl:#d890ff;--purd:#8a30cc;--pur-b:rgba(192,96,255,.3);--pur-bg:rgba(192,96,255,.08);--cyan:#00e8ff;--grn:#00ff88;--yel:#ffe600;--ora:#ff7a00;--pnk:#ff2d78;--red:#ff2244;--text:#dde2f0;--text2:#6b7899;--text3:#3a4260;--mono:'Space Mono',monospace;--sans:'Montserrat',sans-serif;--sb:env(safe-area-inset-bottom,0px);--neon:#00cfff;--neon3:#7de8ff;}
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html,body{height:100%;overflow:hidden;overflow-x:hidden;overscroll-behavior:none;max-width:100vw;}
+html,body{height:100%;overflow:hidden;overflow-x:hidden;overscroll-behavior:none;max-width:100vw;background:var(--bg);}
 body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;}
 ::-webkit-scrollbar{width:3px;height:3px;}::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px;}
 .logo{font-family:'Exo 2',sans-serif;font-weight:800;font-size:15px;letter-spacing:3px;text-transform:uppercase;color:var(--neon3);text-shadow:0 0 3px #fff,0 0 8px var(--neon),0 0 18px var(--neon),0 0 35px rgba(0,207,255,.7);white-space:nowrap;cursor:default;user-select:none;animation:neon-flicker 6s infinite;}
@@ -801,6 +801,14 @@ h+=`</div></div>`;
 h+=`<div class="ab sc-y open"><div class="ab-hd" onclick="togAB(this)"><div class="ab-ttl"><span class="ab-n">3</span>Automatisation &amp; Planification</div><div class="ab-cv">▾</div></div><div class="ab-body">`;
 const rSec=c.rateSec||1,rMin=c.rateMin||(c.rateEffectivePerMin||10),rH=c.rateH||Math.ceil((c.rateEffectivePerMin||10)*60),rDay=c.rateDay||(c.dailyLimit||300);
 const mkRR=(lbl,field,enFld,val,en,unit,hint)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;"><input type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:var(--yel);flex-shrink:0" ${en?'checked':''} onchange="updC(${c.id},'${enFld}',this.checked);recalcRate(${c.id})"><label style="font-size:10px;color:var(--text2);min-width:70px;flex-shrink:0">${lbl}</label><input type="number" min="1" max="999999" value="${val}" style="width:80px;background:var(--bg3);border:1px solid var(--b2);border-radius:6px;color:var(--yel);font-family:var(--mono);font-size:13px;font-weight:700;padding:3px 8px;outline:none;text-align:right" onchange="updC(${c.id},'${field}',+this.value);recalcRate(${c.id})"><span style="font-size:10px;color:var(--text3)">${unit}</span><span style="font-size:9px;color:var(--text3);flex:1">${hint}</span></div>`;
+// Bouton modification cadence si campagne en cours
+if(c.status==='running'||c.status==='paused'){
+h+=`<div style="background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.3);border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+<div><div style="font-size:11px;font-weight:800;color:var(--grn);">⚡ Modifier la cadence en cours</div>
+<div style="font-size:9px;color:var(--text2);margin-top:3px">Sans arrêter ni réinitialiser la campagne</div></div>
+<button onclick="updateCampRate(${c.id})" style="background:linear-gradient(135deg,var(--grn),#00cc88);color:#000;font-weight:800;border:none;border-radius:8px;padding:8px 14px;font-size:11px;cursor:pointer">Appliquer la nouvelle cadence</button>
+</div>`;
+}
 h+=`<div style="background:var(--bg3);border:1px solid var(--b2);border-radius:10px;padding:14px;margin-bottom:14px;"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:var(--yel);margin-bottom:8px">⚡ Cadence d'envoi</div>`;
 h+=mkRR('Par seconde','rateSec','rateSecEnabled',rSec,c.rateSecEnabled||false,'/s','⚠ Max ~1/s plan gratuit');
 h+=mkRR('Par minute','rateMin','rateMinEnabled',rMin,c.rateMinEnabled===true,'/min','');
@@ -904,6 +912,35 @@ async function resumeCamp(id){
 }
 async function delCamp(id,type){if(!await pgiConfirm('Supprimer cette campagne ?','🗑'))return;S.camps=S.camps.filter(x=>x.id!==id);saveCamps();renderCampList(type);const det=$(type==='sms'?'detail-sms':'detail-email');if(det)det.innerHTML='<div class="empty"><p>Aucune campagne sélectionnée</p></div>';if(type==='sms')S.activeSMS=null;else S.activeCamp=null;}
 function resetCampStats(id){const c=S.camps.find(x=>x.id===id);if(!c)return;c.sent=0;c.opened=0;c.errors=0;c.clicks=0;c.unsubscribed=0;c.dailySent=0;saveCamps();openCamp(id,c.type);toast('Stats réinitialisées','info');}
+// Modifier la cadence d'une campagne en cours sans casser l'envoi
+async function updateCampRate(id){
+  const c=S.camps.find(x=>x.id===id);if(!c)return;
+  saveCampBodyAndAll(id);
+  // Recalculer le rate depuis les champs actuels
+  recalcRate(id);
+  const rpm=c.rateEffectivePerMin||10;
+  saveCamps();
+  // Synchroniser avec le worker pour que le cron utilise la nouvelle cadence immédiatement
+  if(S.wurl){
+    try{
+      const r=await fetch(S.wurl+'/campaign/update-rate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,rateEffectivePerMin:rpm,dailyLimit:c.dailyLimit||9999})});
+      const data=await r.json();
+      if(data.ok){
+        let cadence;
+        if(rpm>=60)cadence=Math.round(rpm/60)+'/h';
+        else if(rpm>=1)cadence=Math.round(rpm)+'/min';
+        else cadence=Math.round(60/rpm)+'min/envoi';
+        toast('✅ Cadence mise à jour : '+cadence+' — campagne continue sans interruption','success');
+      }else toast('⚠ Worker: '+(data.error||'Erreur'),'warn');
+    }catch(e){toast('Cadence sauvegardée localement (worker inaccessible)','warn');}
+  }else{
+    let cadence;
+    if(rpm>=60)cadence=Math.round(rpm/60)+'/h';
+    else if(rpm>=1)cadence=Math.round(rpm)+'/min';
+    else cadence=Math.round(60/rpm)+'min/envoi';
+    toast('✅ Cadence mise à jour : '+cadence,'success');
+  }
+}
 function saveCampBodyAndAll(id){const c=S.camps.find(x=>x.id===id);if(!c)return;const subj=$('camp-subj2-'+id);if(subj)c.subject=subj.value;const smsEl=$('camp-sms-'+id);if(smsEl)c.smsText=smsEl.value;const mmsEl=$('mms-url-'+id);if(mmsEl)c.mmsUrl=mmsEl.value;const nameEl=$('cn-'+id);if(nameEl)c.name=nameEl.value;}
 function selectCampTpl(id,tplId){const c=S.camps.find(x=>x.id===id);if(!c)return;c.templateId=tplId?parseInt(tplId)||tplId:null;const tpl=tplId?S.tpls.find(t=>t.id==tplId):null;if(tpl&&tpl.subject&&!c.subject){c.subject=tpl.subject;const el=$('camp-subj2-'+id);if(el)el.value=tpl.subject;}const status=$('camp-tpl-status-'+id);if(status){if(tpl)status.innerHTML=`<div style="background:rgba(0,255,136,.05);border:1px solid rgba(0,255,136,.2);border-radius:7px;padding:10px;margin-bottom:10px;"><div style="color:var(--grn);font-weight:700;margin-bottom:3px;">✓ ${esc(tpl.name)}</div><div style="color:var(--text2);font-size:10px;">Objet : ${esc(tpl.subject||'(aucun)')}</div></div>`;else status.innerHTML=`<div style="background:rgba(255,230,0,.05);border:1px solid rgba(255,230,0,.2);border-radius:7px;padding:10px;margin-bottom:10px;font-size:11px;color:var(--yel);">⚠️ Aucun template sélectionné.</div>`;}const prevBtn=$('camp-prev-btn-'+id);if(prevBtn){prevBtn.disabled=!tpl;prevBtn.style.opacity=tpl?'1':'0.4';}saveCamps();}
 function prevCampTpl(id){const c=S.camps.find(x=>x.id===id);if(!c||!c.templateId)return;const tpl=S.tpls.find(t=>t.id==c.templateId);if(!tpl)return;const subj=$('prev-subj'),body=$('prev-body');if(subj)subj.textContent=applyVars(c.subject||tpl.subject||'(aucun objet)',EX);if(body)body.innerHTML=applyVars(tpl.html||tpl.body||'',EX);showModal('modal-prev');}
