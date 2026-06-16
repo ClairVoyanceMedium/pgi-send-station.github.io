@@ -910,7 +910,20 @@ async function resumeCamp(id){
   }});
   toast('▶ Campagne reprise','success');
 }
-async function delCamp(id,type){if(!await pgiConfirm('Supprimer cette campagne ?','🗑'))return;S.camps=S.camps.filter(x=>x.id!==id);saveCamps();renderCampList(type);const det=$(type==='sms'?'detail-sms':'detail-email');if(det)det.innerHTML='<div class="empty"><p>Aucune campagne sélectionnée</p></div>';if(type==='sms')S.activeSMS=null;else S.activeCamp=null;}
+async function delCamp(id,type){
+  const c=S.camps.find(x=>x.id===id);
+  const isActive=c&&(c.status==='running'||c.status==='paused');
+  const msg=isActive?'Supprimer cette campagne ?\nElle sera aussi arrêtée définitivement sur le serveur (plus aucun envoi).':'Supprimer cette campagne ?';
+  if(!await pgiConfirm(msg,'🗑'))return;
+  // Arrêter réellement côté Worker pour éviter qu'elle continue à tourner invisible
+  if(S.wurl){
+    try{await fetch(S.wurl+'/campaign/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});}
+    catch(e){if(isActive)toast('⚠ Worker inaccessible — elle pourrait continuer à tourner côté serveur','warn');}
+  }
+  S.camps=S.camps.filter(x=>x.id!==id);saveCamps();renderCampList(type);
+  const det=$(type==='sms'?'detail-sms':'detail-email');if(det)det.innerHTML='<div class="empty"><p>Aucune campagne sélectionnée</p></div>';
+  if(type==='sms')S.activeSMS=null;else S.activeCamp=null;
+}
 function resetCampStats(id){const c=S.camps.find(x=>x.id===id);if(!c)return;c.sent=0;c.opened=0;c.errors=0;c.clicks=0;c.unsubscribed=0;c.dailySent=0;saveCamps();openCamp(id,c.type);toast('Stats réinitialisées','info');}
 // Modifier la cadence d'une campagne en cours sans casser l'envoi
 async function updateCampRate(id){
@@ -1179,6 +1192,45 @@ function initSettingsUI(){const sel=$('smtp-provider-sel');if(sel&&S.prov){sel.v
 // ── WORKER SYNC ──
 var _syncInterval=null,_isSyncing=false;
 function _refreshOpenCampMetrics(){const campId=S.activeCamp||S.activeSMS;if(!campId)return;const c=S.camps.find(x=>x.id===campId);if(!c)return;const total=c.emailList?c.emailList.length:(c.workerTotal||0);const _isLive=c.status==='running'||c.status==='paused'||c.status==='oauth_error';const sent=_isLive?(c.sent||0):0;const opened=_isLive?(c.opened||0):0;const err=_isLive?(c.errors||0):0;const pct=(_isLive&&total)?Math.round((sent/total)*100):0;const clics=c.clicks||0;const cliques=Math.min(clics,sent||clics);const els={'prc-sent-':sent.toLocaleString(),'prc-open-':opened.toLocaleString(),'prc-pct-':pct+'%','prc-contacts-':total.toLocaleString()};Object.keys(els).forEach(prefix=>{const el=document.getElementById(prefix+campId);if(el)el.textContent=els[prefix];});const errEl=document.getElementById('prc-err-'+campId);if(errEl)errEl.textContent=err>0?err+' err':'';const pbarEl=document.getElementById('pbar-'+campId);if(pbarEl)pbarEl.style.width=pct+'%';const ce=document.getElementById('prc-clics-'+campId);if(ce)ce.textContent=clics;const cs=document.getElementById('prc-clics-sub-'+campId);if(cs)cs.textContent=cliques+' email'+(cliques>1?'s':'')+' cliqué'+(cliques>1?'s':'');const asEl=document.getElementById('as-'+campId);if(asEl&&typeof buildAS==='function')asEl.innerHTML=buildAS(c);}
+// Détecte les campagnes qui tournent côté Worker mais sont absentes localement
+// (ex: supprimées par erreur de l'app, ou ancien appareil) et les fait réapparaître
+// automatiquement, en se basant sur l'objet complet stocké en KV.
+async function reconcileOrphanCampaigns(){
+  if(!S.wurl)return;
+  try{
+    const r=await fetch(S.wurl+'/sync/all-campaigns');
+    if(!r.ok)return;
+    const data=await r.json();
+    if(!data.ok||!Array.isArray(data.campaigns))return;
+    const localIds=new Set(S.camps.map(c=>String(c.id)));
+    const missing=data.campaigns.filter(wc=>!localIds.has(String(wc.id))&&wc.status!=='draft');
+    if(!missing.length)return;
+    const recovered=[];
+    for(const wc of missing){
+      try{
+        const fr=await fetch(S.wurl+'/campaign/full?id='+encodeURIComponent(wc.id));
+        if(!fr.ok)continue;
+        const fd=await fr.json();
+        if(!fd.ok||!fd.campaign)continue;
+        const camp=fd.campaign;
+        // S'assurer que les champs essentiels existent pour l'affichage (buildCampForm)
+        if(!camp.emailList)camp.emailList=[];
+        if(!camp.attachments)camp.attachments=[];
+        if(camp.durationInfinite===undefined)camp.durationInfinite=true;
+        if(!camp.sendOrder)camp.sendOrder='inorder';
+        if(!camp.endOfList)camp.endOfList='loop';
+        if(!camp.days)camp.days=[1,2,3,4,5,6,7];
+        S.camps.push(camp);
+        recovered.push(camp.name||('Campagne #'+camp.id));
+      }catch(_){}
+    }
+    if(recovered.length){
+      persistCamps();
+      renderCampList('email');renderCampList('sms');renderDashboard();updateStats();refreshQuotaBanner();
+      toast('🔄 '+recovered.length+' campagne(s) récupérée(s) automatiquement : '+recovered.join(', '),'warn');
+    }
+  }catch(_){}
+}
 async function syncFromWorker(){if(!S.wurl||_isSyncing)return;_isSyncing=true;
 try{
 const campRes=await fetch(S.wurl+'/sync/campaigns');
@@ -1190,6 +1242,7 @@ const analRes=await fetch(S.wurl+'/sync/analytics');
 if(analRes.ok){const data2=await analRes.json();if(data2.analytics&&Array.isArray(data2.analytics)&&data2.analytics.length>0){var changed=false;if(data2.compact){data2.analytics.forEach(wc=>{var local=S.camps.find(c=>c.id==wc.id);if(!local&&wc.campaign)local=S.camps.find(c=>c.name===wc.campaign);if(!local||local.status==='draft')return;if(wc.sent>(local.sent||0)){local.sent=wc.sent;changed=true;}if(wc.opened>(local.opened||0)){local.opened=wc.opened;changed=true;}if(wc.clicks>(local.clicks||0)){local.clicks=wc.clicks;changed=true;}local.unsubscribed=wc.unsubscribed||0;});}else{S.analytics=data2.analytics;lsS(SK.analytics,S.analytics);changed=true;}if(changed){persistCamps();renderDashboard();updateStats();}}}
 var injected=0;var eKeys=new Set(S.analytics.map(a=>(a.email||'')+'|'+(a.campaign||'')));S.camps.filter(c=>c.type!=='sms').forEach(c=>{(c.recentlyChanged||[]).forEach(rc=>{if(rc.status!=='sent'&&rc.status!=='opened')return;const key=(rc.email||'')+'|'+(c.name||'');if(eKeys.has(key))return;eKeys.add(key);S.analytics.push({type:'email',email:rc.email,campaign:c.name,date:rc.sentAt||rc.openedAt||new Date().toISOString(),status:'sent',opened:rc.status==='opened'||!!rc.opened,openedAt:rc.openedAt||null,unsubscribed:false,clicks:[]});injected++;});(c.emailList||[]).forEach(e=>{if(e.status!=='sent'&&e.status!=='opened')return;const key=(e.email||'')+'|'+(c.name||'');if(eKeys.has(key))return;eKeys.add(key);S.analytics.push({type:'email',email:e.email,campaign:c.name,date:e.sentAt||c.launchedAt||c.created||new Date().toISOString(),status:'sent',opened:e.status==='opened'||!!e.opened,openedAt:e.openedAt||null,unsubscribed:!!e.unsubscribed,clicks:e.clicks||[]});injected++;});});
 if(injected>0){if(S.analytics.length>50000)S.analytics=S.analytics.slice(S.analytics.length-50000);try{lsS(SK.analytics,S.analytics);}catch(_){}renderDashboard();updateStats();}
+await reconcileOrphanCampaigns();
 const chip=$('wchip');if(chip)chip.className='wchip ok';const now=new Date(),ts=now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');const wlbl=$('wlbl');if(wlbl)wlbl.textContent='Worker actif · '+ts;const banner=$('sync-banner'),sl=$('sync-status-lbl'),pl=$('sync-pos-lbl'),ll=$('sync-last-lbl');if(banner)banner.style.display='flex';if(sl){const ac=S.camps.filter(c=>c.status==='running'),pc=S.camps.filter(c=>c.status==='paused');if(ac.length){sl.innerHTML='⚡ <strong style="color:var(--yel);">'+ac.length+' campagne(s) en cours</strong>'+(pc.length?' · ⏸ '+pc.length+' en pause':'')+' — Worker actif';sl.style.color='var(--yel)';if(pl){const lines=ac.map(c=>{const fp=c.emailList.findIndex(e=>e.status==='pending');const pos=fp===-1?c.emailList.length:fp+1;const st=(c.dailyDate===new Date().toDateString())?(c.dailySent||0):0;return c.name+' : '+pos+'/'+c.emailList.length+' · '+st+'/'+(c.dailyLimit||'∞')+' aujourd\'hui';});pl.textContent=lines.join(' | ');pl.style.display='block';}}else{const provLbl=(QUOTAS[S.prov]||QUOTAS.custom).lbl;sl.innerHTML=pc.length?'⏸ <strong style="color:var(--yel);">'+pc.length+' en pause</strong>':'✅ <strong style="color:var(--grn);">Synchronisé</strong> — <strong style="color:var(--cyan);">'+provLbl+'</strong>';sl.style.color=pc.length?'var(--yel)':'var(--grn)';if(pl)pl.style.display='none';}}if(ll)ll.textContent='Dernière sync : '+ts;
 }catch(e){console.warn('syncFromWorker:',e.message);const chip2=$('wchip');if(chip2)chip2.className='wchip err';const wlbl2=$('wlbl');if(wlbl2)wlbl2.textContent='Worker inactif';const sl2=$('sync-status-lbl');if(sl2){sl2.innerHTML='⚠️ <strong style="color:var(--red)">Worker inaccessible</strong>';sl2.style.color='var(--red)';}}
 _isSyncing=false;}
