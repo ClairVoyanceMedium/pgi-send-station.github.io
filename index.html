@@ -6,6 +6,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#1a1c22">
+<meta name="color-scheme" content="dark">
+<style>html{background:#1a1c22!important;}</style>
 <title>PGI Send Station v39.9</title>
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,6 +16,10 @@
 :root{--bg:#1a1c22;--bg2:#22252e;--bg3:#292c36;--bg4:#2f3340;--b1:#35394a;--b2:#3d4256;--pur:#c060ff;--purl:#d890ff;--purd:#8a30cc;--pur-b:rgba(192,96,255,.3);--pur-bg:rgba(192,96,255,.08);--cyan:#00e8ff;--grn:#00ff88;--yel:#ffe600;--ora:#ff7a00;--pnk:#ff2d78;--red:#ff2244;--text:#dde2f0;--text2:#6b7899;--text3:#3a4260;--mono:'Space Mono',monospace;--sans:'Montserrat',sans-serif;--sb:env(safe-area-inset-bottom,0px);--neon:#00cfff;--neon3:#7de8ff;}
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;overflow:hidden;overflow-x:hidden;overscroll-behavior:none;max-width:100vw;background:var(--bg);}
+/* FIX anti-flash blanc : couche fixe surdimensionnée derrière tout le contenu.
+   Empêche le navigateur (Samsung Browser notamment) de révéler son fond
+   système (blanc) lors d'un effet rebond ("rubber-band") en haut/bas de page. */
+html::before{content:'';position:fixed;top:-100px;left:-100px;right:-100px;bottom:-100px;background:var(--bg);z-index:-99999;pointer-events:none;}
 body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;}
 ::-webkit-scrollbar{width:3px;height:3px;}::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px;}
 .logo{font-family:'Exo 2',sans-serif;font-weight:800;font-size:15px;letter-spacing:3px;text-transform:uppercase;color:var(--neon3);text-shadow:0 0 3px #fff,0 0 8px var(--neon),0 0 18px var(--neon),0 0 35px rgba(0,207,255,.7);white-space:nowrap;cursor:default;user-select:none;animation:neon-flicker 6s infinite;}
@@ -294,6 +300,11 @@ td.em{font-family:var(--mono);font-size:10px;color:var(--purl);}
 @media(min-width:700px){#bnav{display:none;}.top-nav{display:flex;}#toast{bottom:18px;}.kpi-row{grid-template-columns:repeat(5,1fr);}.sg{grid-template-columns:1fr 1fr;}#contacts-view .side-panel,#templates-view .side-panel{display:flex!important;}}
 @media(max-width:699px){.side-panel{display:none;}html,body,#app,.view,.detail-area,.split-layout{overflow-x:hidden!important;max-width:100vw!important;}.kpi-row{grid-template-columns:1fr 1fr;}.sg{grid-template-columns:1fr;}.fg.c2{grid-template-columns:1fr;}.fg.c3{grid-template-columns:1fr 1fr;}.prog-row{grid-template-columns:1fr 1fr;}.prc:nth-child(2){border-right:none;}.prc:nth-child(3),.prc:nth-child(4),.prc:nth-child(5){border-top:1px solid var(--b1);}.prc:nth-child(4),.prc:nth-child(5){border-right:none;}.mcards{grid-template-columns:1fr 1fr 1fr;}#period-stats{grid-template-columns:1fr 1fr!important;}#view-settings{overflow-y:auto!important;}}
 html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;overflow-x:hidden!important;max-width:100vw!important;}
+/* FIX anti-flash blanc (suite) : tous les sous-conteneurs qui défilent
+   individuellement (listes, panneaux, scroll interne) doivent contenir
+   leur propre rebond sans le transmettre au body/html, et garder un
+   fond sombre même pendant l'effet élastique. */
+.sc,.ab-body,.el-sc,.tpl-scroll,.lists-scroll,#tpl-scroll,#lists-scroll,.cr-list,#ctbody,#analytics-body,#sms-analytics-body,#all-camps-body,#active-camps-body{overscroll-behavior:contain!important;background:var(--bg)!important;}
 [contenteditable] a{color:#c060ff!important;text-decoration:underline!important;cursor:pointer!important;}
 </style>
 </head>
@@ -308,7 +319,7 @@ html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;ov
     <button class="tnav" id="dn-templates" onclick="showView('templates')">Templates</button>
     <button class="tnav" id="dn-contacts" onclick="showView('contacts')">Contacts</button>
     <button class="tnav" id="dn-settings" onclick="showView('settings')">Réglages</button>
-    <button class="tnav" id="dn-notice" onclick="showView('notice')">📋 Notice</button>
+    <button class="tnav" id="dn-notice" onclick="showView('notice')">🔗 Liens</button>
   </nav>
   <div class="top-right">
     <div id="wchip" class="wchip warn" onclick="showView('settings')">
@@ -651,26 +662,10 @@ html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;ov
 </div>
 <div class="view" id="view-notice" style="overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0;">
   <div style="padding:16px;max-width:860px;margin:0 auto">
-    <div class="notice-section"><div class="notice-title">SMTP OVH, LWS, Infomaniak</div>
-      <p>Dans <strong>Réglages &gt; Provider d'envoi</strong>, choisissez votre hébergeur.</p>
-      <ul><li><strong>OVH :</strong> ssl0.ovh.net port 465</li><li><strong>LWS :</strong> mail.lws.fr port 465</li><li><strong>Infomaniak :</strong> mail.infomaniak.com port 587</li><li><strong>IONOS :</strong> smtp.ionos.fr port 587</li><li><strong>MailChannels :</strong> gratuit CF Workers — SPF include:relay.mailchannels.net</li></ul>
-      <div class="notice-tip">La limite "480" = votre dailyLimit dans la campagne (Automatisation &gt; Par jour).</div>
+    <div style="font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:14px;padding:10px 12px;background:var(--bg3);border-left:3px solid var(--pur);border-radius:0 6px 6px 0;">
+      💡 Touchez le <strong style="color:var(--purl)">nom</strong> pour le renommer, touchez la <strong style="color:var(--cyan)">carte</strong> pour ouvrir ou configurer le lien.
     </div>
-    <div class="notice-section"><div class="notice-title">Cloudflare Worker</div>
-      <ul><li>Workers &gt; Créer &gt; coller worker.js</li><li>KV Binding : PGI_KV</li><li>Cron : */5 * * * *</li><li>Secrets : SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM</li></ul>
-    </div>
-    <div class="notice-section"><div class="notice-title">Quotas</div>
-      <ul><li>Gmail : 500/j — Workspace : 2000/j</li><li>Outlook : 300/j — M365 : 10000/j</li><li>OVH : ~200/j — LWS : ~500/j</li><li>SendGrid / Mailgun : 100000/j</li><li>MailChannels : illimité</li></ul>
-    </div>
-    <div class="notice-section"><div class="notice-title">v39.9 — Corrections appliquées</div>
-      <ul>
-        <li>🐛 Fix CRITIQUE : payload /campaign/launch encapsulé dans {campaign:{...}}</li>
-        <li>🐛 Fix CRITIQUE : S.tpls transmis au Worker — le cron génère maintenant le HTML</li>
-        <li>🐛 Fix : Math.ceil() dans maxNow — garantit au moins 1 envoi/cron même à 3/h</li>
-        <li>🐛 Fix : resumeCamp même correction payload</li>
-        <li>🐛 Fix : endOfList "resume" traité correctement dans le cron</li>
-      </ul>
-    </div>
+    <div id="links-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
   </div>
 </div>
 </div>
@@ -682,7 +677,7 @@ html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;ov
   <button class="bn" id="bn-templates" onclick="showView('templates')"><div class="bni">&#9999;&#65039;</div><div class="bnl">Templates</div></button>
   <button class="bn" id="bn-contacts" onclick="showView('contacts')"><div class="bni">&#128101;</div><div class="bnl">Contacts</div></button>
   <button class="bn" id="bn-settings" onclick="showView('settings')"><div class="bni">&#9881;&#65039;</div><div class="bnl">Réglages</div></button>
-  <button class="bn" id="bn-notice" onclick="showView('notice')"><div class="bni">&#128203;</div><div class="bnl">Notice</div></button>
+  <button class="bn" id="bn-notice" onclick="showView('notice')"><div class="bni">&#128279;</div><div class="bnl">Liens</div></button>
 </nav>
 <div class="overlay" id="modal-csv" onclick="closeOvr(event,'modal-csv')"><div class="modal"><div class="mh"></div><div class="mt">Importer des contacts</div><div class="ms">Colonnes : prénom, nom, email, téléphone</div><div class="czn" id="czn" onclick="document.getElementById('csv-file').click()" ondragover="event.preventDefault();this.classList.add('ov')" ondragleave="this.classList.remove('ov')" ondrop="onCsvDrop(event)"><div style="font-size:24px;margin-bottom:5px">Fichier CSV</div><div style="font-size:11px;color:var(--text3)">Glissez ou cliquez</div></div><input type="file" id="csv-file" accept=".csv" style="display:none" onchange="onCsvFile(this.files[0])"><div class="cprev" id="csv-prev"></div><div class="fc" style="margin-bottom:8px"><label class="fl">Ajouter à la liste</label><select class="fsel" id="csv-list-sel"><option value="">Aucune liste</option></select></div><div class="mbtns"><button class="btn-s" style="flex:1" onclick="closeModal('modal-csv')">Annuler</button><button class="btn-p" id="csv-ok" style="flex:2;opacity:.4;cursor:not-allowed" onclick="importCsv()" disabled>Importer</button></div></div></div>
 <div class="overlay" id="modal-contact" onclick="closeOvr(event,'modal-contact')"><div class="modal"><div class="mh"></div><div class="mt" style="color:var(--purl)">Ajouter un contact</div><div class="fg"><div class="fc"><label class="fl">Email *</label><input type="email" class="fi" id="ac-em" placeholder="jean@email.com"></div></div><div class="fg c2"><div class="fc"><label class="fl">Prénom</label><input class="fi" id="ac-pn" placeholder="Jean"></div><div class="fc"><label class="fl">Nom</label><input class="fi" id="ac-nn" placeholder="Dupont"></div></div><div class="fg"><div class="fc"><label class="fl">Téléphone</label><input class="fi" id="ac-tel" placeholder="+33 6 00 00 00 00"></div></div><div class="fg"><div class="fc"><label class="fl">Liste</label><select class="fsel" id="ac-list"><option value="">Aucune liste</option></select></div></div><div class="mbtns"><button class="btn-s" style="flex:1" onclick="closeModal('modal-contact')">Annuler</button><button class="btn-p" style="flex:2" onclick="addContact()">Ajouter</button></div></div></div>
@@ -698,7 +693,7 @@ html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;ov
 'use strict';
 // PGI SEND STATION v39.9 — Fix launch payload + templates + maxNow
 function $$(id){return document.getElementById(id);}
-const SK={prov:'p7_prov',cid:'p7_cid',tok:'p7_tok',email:'p7_email',wurl:'p7_wurl',ce:'p7_ce',cn:'p7_cn',smsProv:'p7_smp',smsKey:'p7_smk',smsSecret:'p7_sms',smsFrom:'p7_smf',smsWebhook:'p7_smswh',smsWebhookBody:'p7_smswhb',contacts:'p7_contacts',tpls:'p7_tpls',camps:'p7_camps',lists:'p7_lists',imgLib:'p7_imgs',analytics:'p7_analytics',stats:'p7_stats',smtpConfig:'p7_smtp'};
+const SK={prov:'p7_prov',cid:'p7_cid',tok:'p7_tok',email:'p7_email',wurl:'p7_wurl',ce:'p7_ce',cn:'p7_cn',smsProv:'p7_smp',smsKey:'p7_smk',smsSecret:'p7_sms',smsFrom:'p7_smf',smsWebhook:'p7_smswh',smsWebhookBody:'p7_smswhb',contacts:'p7_contacts',tpls:'p7_tpls',camps:'p7_camps',lists:'p7_lists',imgLib:'p7_imgs',analytics:'p7_analytics',stats:'p7_stats',smtpConfig:'p7_smtp',links:'p7_links'};
 const SMTP_PROVIDERS={gmail:{lbl:'Gmail (OAuth)',type:'oauth',day:500,safe:400,info:'Connexion OAuth Google.'},outlook:{lbl:'Outlook/Hotmail',type:'oauth',day:300,safe:240,info:'Connexion OAuth Microsoft.'},ovh:{lbl:'OVH',type:'smtp',day:200,safe:150,host:'ssl0.ovh.net',port:465,tls:'ssl',info:'Host: ssl0.ovh.net — Port: 465 (SSL)'},lws:{lbl:'LWS',type:'smtp',day:500,safe:400,host:'mail.lws.fr',port:465,tls:'ssl',info:'Host: mail.lws.fr — Port: 465 (SSL)'},ionos:{lbl:'IONOS / 1&1',type:'smtp',day:500,safe:400,host:'smtp.ionos.fr',port:587,tls:'tls',info:'Host: smtp.ionos.fr — Port: 587 (TLS)'},infomaniak:{lbl:'Infomaniak',type:'smtp',day:1000,safe:800,host:'mail.infomaniak.com',port:587,tls:'tls',info:'Host: mail.infomaniak.com — Port: 587 (STARTTLS)'},resend:{lbl:'Resend',type:'api',day:3000,safe:2800,info:'Clé API re_xxxx — 3000/mois gratuits. Domaine vérifié requis.'},sendgrid:{lbl:'SendGrid',type:'api',day:100000,safe:80000,info:'Clé API SG.xxxx.'},mailgun:{lbl:'Mailgun',type:'api',day:100000,safe:80000,info:'Clé key-xxxx.'},brevo:{lbl:'Brevo',type:'api',day:300,safe:250,info:'Clé xkeysib-xxxx.'},amazon:{lbl:'Amazon SES',type:'api',day:50000,safe:40000,info:'Région eu-west-1.'},mailchannels:{lbl:'MailChannels (CF)',type:'mailchannels',day:999999,safe:999999,info:'Gratuit CF Workers.'},custom:{lbl:'SMTP personnalisé',type:'smtp',day:999999,safe:999999,host:'',port:587,tls:'tls',info:'Entrez vos paramètres SMTP.'}};
 const QUOTAS={gmail:{lbl:'Gmail (perso)',day:500,safe:400},gmail_ws:{lbl:'Gmail Workspace',day:2000,safe:1600},outlook:{lbl:'Outlook',day:300,safe:240},o365:{lbl:'Microsoft 365',day:10000,safe:8000},ovh:{lbl:'OVH',day:200,safe:150},lws:{lbl:'LWS',day:500,safe:400},ionos:{lbl:'IONOS',day:500,safe:400},infomaniak:{lbl:'Infomaniak',day:1000,safe:800},resend:{lbl:'Resend',day:3000,safe:2800},sendgrid:{lbl:'SendGrid',day:100000,safe:80000},mailgun:{lbl:'Mailgun',day:100000,safe:80000},brevo:{lbl:'Brevo',day:300,safe:250},amazon:{lbl:'Amazon SES',day:50000,safe:40000},mailchannels:{lbl:'MailChannels',day:999999,safe:999999},custom:{lbl:'SMTP perso',day:999999,safe:999999}};
 const DUR_OPTS=[{v:1,l:'1h'},{v:2,l:'2h'},{v:6,l:'6h'},{v:12,l:'12h'},{v:24,l:'24h'},{v:48,l:'2j'},{v:72,l:'3j'},{v:168,l:'7j'},{v:720,l:'30j'},{v:-1,l:'Infini'}];
@@ -719,7 +714,7 @@ function getGlobalQuota(){const q=QUOTAS[S.prov]||QUOTAS.custom;const ac=S.camps
 const committed=ac.reduce((sum,c)=>sum+Math.min(c.emailList.length||0,c.dailyLimit||9999),0);
 const realLimit=Math.max(q.day,committed);
 return{used,committed,available:Math.max(0,realLimit-committed),percent:Math.round((committed/realLimit)*100),limit:realLimit,safe:q.safe};}
-function showView(name){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.querySelectorAll('.tnav,.bn').forEach(b=>b.classList.remove('active'));const view=$('view-'+name);if(!view)return;view.classList.add('active');const db=$('dn-'+name);if(db)db.classList.add('active');const bb=$('bn-'+name);if(bb)bb.classList.add('active');S.currentView=name;checkMobFABs();if(name==='quick'){updateQSTplSelect();updateQSEmailCnt();updateQSSMSToCnt();}if(name==='email'||name==='sms'){refreshQuotaBanner();var cl=S.camps.filter(c=>c.type===name);if(cl.length){var aid=name==='sms'?S.activeSMS:S.activeCamp;if(!aid)setTimeout(()=>openCamp(cl[cl.length-1].id,name),50);}}if(name==='templates'){setTimeout(()=>{renderTplList();if(!S.activeTpl&&S.tpls.length)loadTpl(S.tpls[0].id);},50);}if(name==='contacts'){renderContacts();renderLists();renderListSelects();}if(name==='settings')initSettingsUI();}
+function showView(name){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.querySelectorAll('.tnav,.bn').forEach(b=>b.classList.remove('active'));const view=$('view-'+name);if(!view)return;view.classList.add('active');const db=$('dn-'+name);if(db)db.classList.add('active');const bb=$('bn-'+name);if(bb)bb.classList.add('active');S.currentView=name;checkMobFABs();if(name==='quick'){updateQSTplSelect();updateQSEmailCnt();updateQSSMSToCnt();}if(name==='email'||name==='sms'){refreshQuotaBanner();var cl=S.camps.filter(c=>c.type===name);if(cl.length){var aid=name==='sms'?S.activeSMS:S.activeCamp;if(!aid)setTimeout(()=>openCamp(cl[cl.length-1].id,name),50);}}if(name==='templates'){setTimeout(()=>{renderTplList();if(!S.activeTpl&&S.tpls.length)loadTpl(S.tpls[0].id);},50);}if(name==='contacts'){renderContacts();renderLists();renderListSelects();}if(name==='settings')initSettingsUI();if(name==='notice')renderLinksGrid();}
 function checkMobFABs(){const isMob=window.innerWidth<700;[{fab:'fab-email',view:'email'},{fab:'fab-sms',view:'sms'},{fab:'fab-templates',view:'templates'},{fab:'fab-lists',view:'contacts'}].forEach(({fab,view})=>{const el=$(fab);if(!el)return;const show=isMob&&S.currentView===view;el.style.display=show?'flex':'none';if(show&&!el.dataset.dragged){el.style.left='50%';el.style.bottom='calc(70px + 0px)';el.style.transform='translateX(-50%)';}});}
 function toggleMob(pid,fid){const p=$(pid),f=$(fid);if(!p)return;const labels={'fab-sms':'Campagnes SMS','fab-email':'Campagnes','fab-templates':'Mes templates','fab-lists':'Mes listes'};if(p.classList.contains('mob-open')){p.classList.remove('mob-open');if(f)f.textContent=labels[fid]||'Menu';}else{p.classList.add('mob-open');if(f)f.textContent='Fermer';if(pid==='panel-templates'){const cb=$('close-tpl-panel');if(cb)cb.style.display='flex';}}}
 function closeMob(pid,fid){const p=$(pid),f=$(fid);if(p)p.classList.remove('mob-open');const labels={'fab-sms':'Campagnes SMS','fab-email':'Campagnes','fab-templates':'Mes templates','fab-lists':'Mes listes'};if(f)f.textContent=labels[fid]||'Menu';const cb=$('close-tpl-panel');if(cb)cb.style.display='none';}
@@ -730,6 +725,56 @@ function closeOvr(e,id){if(e.target===$(id))closeModal(id);}
 function toast(msg,type='info'){const t=$('toast');t.textContent=msg;t.className='show '+type;clearTimeout(t._t);t._t=setTimeout(()=>{t.className=type;},4000);}
 function pgiConfirm(msg,icon){return new Promise(resolve=>{var d=$('pgi-dialog'),ic=$('pgi-dialog-icon'),m=$('pgi-dialog-msg'),inp=$('pgi-dialog-inp'),ok=$('pgi-dialog-ok'),ca=$('pgi-dialog-cancel');if(!d){resolve(window.confirm(msg));return;}if(ic)ic.textContent=icon||'!';if(m)m.textContent=msg;if(inp)inp.style.display='none';d.style.display='flex';function cleanup(r){d.style.display='none';ok.removeEventListener('click',onOk);ca.removeEventListener('click',onCancel);resolve(r);}function onOk(){cleanup(true);}function onCancel(){cleanup(false);}ok.addEventListener('click',onOk);ca.addEventListener('click',onCancel);});}
 function pgiPrompt(msg,def,icon){return new Promise(resolve=>{var d=$('pgi-dialog'),ic=$('pgi-dialog-icon'),m=$('pgi-dialog-msg'),inp=$('pgi-dialog-inp'),ok=$('pgi-dialog-ok'),ca=$('pgi-dialog-cancel');if(!d){resolve(window.prompt(msg,def||''));return;}if(ic)ic.textContent=icon||'?';if(m)m.textContent=msg;if(inp){inp.style.display='block';inp.value=def||'';setTimeout(()=>inp.focus(),100);}d.style.display='flex';function cleanup(r){d.style.display='none';ok.removeEventListener('click',onOk);ca.removeEventListener('click',onCancel);if(inp)inp.removeEventListener('keydown',onKey);resolve(r);}function onOk(){cleanup(inp?inp.value:'');}function onCancel(){cleanup(null);}function onKey(e){if(e.key==='Enter')onOk();if(e.key==='Escape')onCancel();}ok.addEventListener('click',onOk);ca.addEventListener('click',onCancel);if(inp)inp.addEventListener('keydown',onKey);});}
+
+// ── Onglet Liens : 10 raccourcis personnalisables (nom + URL), persistés localement ──
+function getLinks(){
+  let l=null;try{const raw=localStorage.getItem(SK.links);if(raw)l=JSON.parse(raw);}catch(_){}
+  if(!Array.isArray(l)||!l.length){
+    l=[];for(let i=1;i<=10;i++)l.push({id:i,name:'Lien '+i,url:''});
+    try{localStorage.setItem(SK.links,JSON.stringify(l));}catch(_){}
+  }
+  return l;
+}
+function saveLinks(l){try{localStorage.setItem(SK.links,JSON.stringify(l));}catch(_){}}
+function renderLinksGrid(){
+  const grid=$('links-grid');if(!grid)return;
+  const links=getLinks();
+  grid.innerHTML=links.map(lk=>{
+    const hasUrl=!!(lk.url&&lk.url.trim());
+    let host='';
+    if(hasUrl){try{host=new URL(lk.url).hostname.replace('www.','');}catch(_){host=lk.url.slice(0,28);}}
+    return `<div style="background:var(--bg2);border:1px solid ${hasUrl?'var(--b2)':'var(--b1)'};border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;min-height:96px;">
+      <div onclick="renameLink(${lk.id})" style="font-size:12px;font-weight:800;color:var(--purl);cursor:pointer;display:flex;align-items:center;gap:5px;word-break:break-word;">
+        <span style="opacity:.6;font-size:10px">✎</span>${esc(lk.name)}
+      </div>
+      <div onclick="activateLink(${lk.id})" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer;border-radius:8px;padding:6px;background:${hasUrl?'rgba(0,232,255,.06)':'transparent'};">
+        ${hasUrl
+          ? `<div style="font-size:18px;margin-bottom:3px">🔗</div><div style="font-size:9px;color:var(--cyan);word-break:break-all;">${esc(host)}</div>`
+          : `<div style="font-size:18px;margin-bottom:3px;opacity:.4">➕</div><div style="font-size:9px;color:var(--text3)">Configurer le lien</div>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+async function renameLink(id){
+  const links=getLinks();const lk=links.find(x=>x.id===id);if(!lk)return;
+  const newName=await pgiPrompt('Nom du raccourci',lk.name,'✎');
+  if(newName===null)return;
+  const trimmed=newName.trim();if(!trimmed)return;
+  lk.name=trimmed.slice(0,30);saveLinks(links);renderLinksGrid();
+}
+async function activateLink(id){
+  const links=getLinks();const lk=links.find(x=>x.id===id);if(!lk)return;
+  if(lk.url&&lk.url.trim()){
+    window.open(lk.url,'_blank');
+    return;
+  }
+  const url=await pgiPrompt("Coller l'URL pour " + lk.name, 'https://', '🔗');
+  if(url===null)return;
+  const trimmed=url.trim();if(!trimmed||trimmed==='https://')return;
+  const finalUrl=/^https?:\/\//i.test(trimmed)?trimmed:'https://'+trimmed;
+  lk.url=finalUrl;saveLinks(links);renderLinksGrid();
+  toast("✓ Lien configuré — touchez à nouveau pour l'ouvrir",'success');
+}
 function setProv(p){S.prov=p;lsS(SK.prov,p);}
 function setSMSP(p){S.smsProv=p;lsS(SK.smsProv,p);['twilio','vonage','webhook'].forEach(x=>{const el=$('po-'+x);if(el)el.classList.toggle('sel',p===x);const chk=$('pchk-'+x);if(chk){if(p===x){chk.style.background='var(--grn)';chk.style.borderColor='var(--grn)';}else{chk.style.background='';chk.style.borderColor='var(--b2)';}}});const wf=$('sms-webhook-form');if(wf)wf.style.display=p==='webhook'?'block':'none';}
 function saveSMSConfig(){S.smsKey=$('sms-key-inp')?.value.trim()||'';S.smsSecret=$('sms-secret-inp')?.value.trim()||'';S.smsFrom=$('sms-from-inp')?.value.trim()||'';S.smsWebhook=$('sms-webhook-url')?.value.trim()||'';S.smsWebhookBody=$('sms-webhook-body')?.value.trim()||'';lsS(SK.smsKey,S.smsKey);lsS(SK.smsSecret,S.smsSecret);lsS(SK.smsFrom,S.smsFrom);lsS(SK.smsWebhook,S.smsWebhook);lsS(SK.smsWebhookBody,S.smsWebhookBody);toast('✓ Config SMS enregistrée','success');}
