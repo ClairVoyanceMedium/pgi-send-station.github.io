@@ -749,7 +749,7 @@ function renderLinksGrid(){
       </div>
       <div onclick="activateLink(${lk.id})" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer;border-radius:8px;padding:6px;background:${hasUrl?'rgba(0,232,255,.06)':'transparent'};">
         ${hasUrl
-          ? `<div style="font-size:18px;margin-bottom:3px">🔗</div><div style="font-size:9px;color:var(--cyan);word-break:break-all;">${esc(host)}</div>`
+          ? `<div style="font-size:18px;margin-bottom:3px">🔗</div><div style="font-size:9px;color:var(--cyan);word-break:break-all;">${esc(host)}</div><div onclick="event.stopPropagation();editLinkUrl(${lk.id})" style="font-size:9px;color:var(--text2);margin-top:6px;text-decoration:underline;cursor:pointer;">✎ Modifier le lien</div>`
           : `<div style="font-size:18px;margin-bottom:3px;opacity:.4">➕</div><div style="font-size:9px;color:var(--text3)">Configurer le lien</div>`}
       </div>
     </div>`;
@@ -761,6 +761,20 @@ async function renameLink(id){
   if(newName===null)return;
   const trimmed=newName.trim();if(!trimmed)return;
   lk.name=trimmed.slice(0,30);saveLinks(links);renderLinksGrid();
+}
+async function editLinkUrl(id){
+  const links=getLinks();const lk=links.find(x=>x.id===id);if(!lk)return;
+  const url=await pgiPrompt("Modifier l'URL pour " + lk.name, lk.url||'https://', '✎');
+  if(url===null)return;
+  const trimmed=url.trim();
+  if(!trimmed||trimmed==='https://'){
+    lk.url='';saveLinks(links);renderLinksGrid();
+    toast('Lien effacé','info');
+    return;
+  }
+  const finalUrl=/^https?:\/\//i.test(trimmed)?trimmed:'https://'+trimmed;
+  lk.url=finalUrl;saveLinks(links);renderLinksGrid();
+  toast('✓ Lien mis à jour','success');
 }
 async function activateLink(id){
   const links=getLinks();const lk=links.find(x=>x.id===id);if(!lk)return;
