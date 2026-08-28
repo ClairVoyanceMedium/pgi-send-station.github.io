@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#1a1c22">
 <meta name="color-scheme" content="dark">
 <style>html{background:#1a1c22!important;}</style>
-<title>PGI Send Station v40.1</title>
+<title>PGI Send Station v40.2</title>
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&family=Exo+2:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
@@ -697,7 +697,7 @@ html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;ov
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script>
 'use strict';
-// PGI SEND STATION v39.9 — Fix launch payload + templates + maxNow
+// PGI SEND STATION v40.2 — Verified launch + Cron health
 function $$(id){return document.getElementById(id);}
 const SK={prov:'p7_prov',cid:'p7_cid',tok:'p7_tok',email:'p7_email',wurl:'p7_wurl',ce:'p7_ce',cn:'p7_cn',smsProv:'p7_smp',smsKey:'p7_smk',smsSecret:'p7_sms',smsFrom:'p7_smf',smsWebhook:'p7_smswh',smsWebhookBody:'p7_smswhb',contacts:'p7_contacts',tpls:'p7_tpls',camps:'p7_camps',lists:'p7_lists',imgLib:'p7_imgs',analytics:'p7_analytics',stats:'p7_stats',smtpConfig:'p7_smtp',links:'p7_links'};
 const SMTP_PROVIDERS={gmail:{lbl:'Gmail (OAuth)',type:'oauth',day:500,safe:400,info:'Connexion OAuth Google.'},outlook:{lbl:'Outlook/Hotmail',type:'oauth',day:300,safe:240,info:'Connexion OAuth Microsoft.'},ovh:{lbl:'OVH',type:'smtp',day:200,safe:150,host:'ssl0.ovh.net',port:465,tls:'ssl',info:'Host: ssl0.ovh.net — Port: 465 (SSL)'},lws:{lbl:'LWS',type:'smtp',day:500,safe:400,host:'mail.lws.fr',port:465,tls:'ssl',info:'Host: mail.lws.fr — Port: 465 (SSL)'},ionos:{lbl:'IONOS / 1&1',type:'smtp',day:500,safe:400,host:'smtp.ionos.fr',port:587,tls:'tls',info:'Host: smtp.ionos.fr — Port: 587 (TLS)'},infomaniak:{lbl:'Infomaniak',type:'smtp',day:1000,safe:800,host:'mail.infomaniak.com',port:587,tls:'tls',info:'Host: mail.infomaniak.com — Port: 587 (STARTTLS)'},resend:{lbl:'Resend',type:'api',day:3000,safe:2800,info:'Clé API re_xxxx — 3000/mois gratuits. Domaine vérifié requis.'},sendgrid:{lbl:'SendGrid',type:'api',day:100000,safe:80000,info:'Clé API SG.xxxx.'},mailgun:{lbl:'Mailgun',type:'api',day:100000,safe:80000,info:'Clé key-xxxx.'},brevo:{lbl:'Brevo',type:'api',day:300,safe:250,info:'Clé xkeysib-xxxx.'},amazon:{lbl:'Amazon SES',type:'api',day:50000,safe:40000,info:'Région eu-west-1.'},mailchannels:{lbl:'MailChannels (CF)',type:'mailchannels',day:999999,safe:999999,info:'Gratuit CF Workers.'},custom:{lbl:'SMTP personnalisé',type:'smtp',day:999999,safe:999999,host:'',port:587,tls:'tls',info:'Entrez vos paramètres SMTP.'}};
@@ -811,7 +811,7 @@ function initGIS(){if(!window.google||!S.cid)return;S.tokenClient=google.account
 async function fetchGUser(){try{const r=await fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json',{headers:{Authorization:'Bearer '+S.tok}});const d=await r.json();S.email=d.email||'';lsS(SK.email,S.email);toast('Connecté: '+S.email,'success');}catch{toast('Connecté à Gmail','success');}}
 function saveWorker(){const url=$('worker-url-inp')?.value.trim();if(!url?.startsWith('https://')){toast('URL invalide','error');return;}S.wurl=url;lsS(SK.wurl,url);updateWorkerUI();testWorker();}
 function updateWorkerUI(){const chip=$('wchip'),lbl=$('wlbl'),dot=$('wdot'),st=$('sw-st');if(S.wurl){chip.className='wchip ok';if(dot)dot.classList.remove('p');if(lbl)lbl.textContent='Worker configuré';if(st){st.textContent='Configuré';st.style.color='var(--grn)';}}else{chip.className='wchip warn';if(dot)dot.classList.add('p');if(lbl)lbl.textContent='Worker non configuré';if(st){st.textContent='Non configuré';st.style.color='var(--yel)';}}}
-async function testWorker(){if(!S.wurl){toast('URL Worker manquante','warn');return;}toast('Test en cours...','info');try{const r=await fetch(S.wurl+'/ping');const d=await r.json();if(d.ok){$('wchip').className='wchip ok';if($('wdot'))$('wdot').classList.remove('p');if($('wlbl'))$('wlbl').textContent='Worker actif';toast('Worker opérationnel','success');if(d.lastRun&&$('sw-last'))$('sw-last').textContent=fDt(d.lastRun);}else{$('wchip').className='wchip warn';toast('Worker — réponse incorrecte','warn');}}catch{$('wchip').className='wchip err';if($('wdot'))$('wdot').classList.add('p');if($('wlbl'))$('wlbl').textContent='Worker inactif';toast('Worker inaccessible','error');}}
+async function testWorker(){if(!S.wurl){toast('URL Worker manquante','warn');return;}toast('Test en cours...','info');try{const r=await fetch(S.wurl+'/ping');const d=await r.json();if(d.ok){const cronOk=d.cron&&d.cron.healthy===true;if(cronOk){$('wchip').className='wchip ok';if($('wdot'))$('wdot').classList.remove('p');if($('wlbl'))$('wlbl').textContent='Worker + Cron actifs';toast('Worker et Cron opérationnels','success');}else{$('wchip').className='wchip warn';if($('wdot'))$('wdot').classList.add('p');if($('wlbl'))$('wlbl').textContent='Worker actif · CRON ARRÊTÉ';const age=d.cron&&d.cron.ageMinutes!=null?' · dernier passage il y a '+d.cron.ageMinutes+' min':'';toast('⚠ Worker accessible mais Cron Trigger inactif'+age,'warn');}if(d.lastRun&&$('sw-last'))$('sw-last').textContent=fDt(d.lastRun);}else{$('wchip').className='wchip warn';toast('Worker — réponse incorrecte','warn');}}catch{$('wchip').className='wchip err';if($('wdot'))$('wdot').classList.add('p');if($('wlbl'))$('wlbl').textContent='Worker inactif';toast('Worker inaccessible','error');}}
 async function syncW(ep,data){if(!S.wurl)return;try{await fetch(S.wurl+ep,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});}catch(e){console.warn('Worker sync:',e.message);}}
 // ── CAMPAIGNS ──
 function newCamp(type){const c={id:Date.now(),type,name:type==='sms'?'Nouvelle campagne SMS':'Nouvelle campagne email',status:'draft',templateId:null,subject:'',smsText:'',emailList:[],rateEffectivePerMin:10,rateSecEnabled:false,rateSec:1,rateMinEnabled:false,rateMin:10,rateHEnabled:false,rateH:600,rateDEnabled:false,rateDay:300,dailyLimit:9999,durationH:-1,durationInfinite:true,startDate:'',endDate:'',sendOrder:'inorder',endOfList:'loop',pausePosition:0,schedEnabled:false,days:[1,2,3,4,5,6,7],daySchedules:{day1:{from:'09:00',to:'18:00'},day2:{from:'09:00',to:'18:00'},day3:{from:'09:00',to:'18:00'},day4:{from:'09:00',to:'18:00'},day5:{from:'09:00',to:'18:00'},day6:{from:'10:00',to:'16:00'},day7:{from:'10:00',to:'16:00'}},sent:0,opened:0,errors:0,unsubscribed:0,clicks:0,campProvider:'',campFromEmail:'',attachments:[],created:new Date().toISOString()};S.camps.push(c);saveCamps();renderCampList(type);openCamp(c.id,type);}
@@ -929,15 +929,17 @@ async function launchCamp(id){
   const c=S.camps.find(x=>x.id===id);if(!c)return;
   if(!c.emailList.length){toast('Ajoutez des destinataires','warn');return;}
   if(c.type!=='sms'&&!c.templateId&&!c.subject){if(!await pgiConfirm('Aucun template sélectionné. Lancer quand même ?','⚠️'))return;}
+  if(!S.wurl){toast('Worker non configuré : lancement impossible','error');return;}
   saveCampBodyAndAll(id);
-  c.status='running';c.sent=0;c.opened=0;c.errors=0;c.clicks=0;c.unsubscribed=0;
-  c.launchedAt=new Date().toISOString();c.pausePosition=0;
-  c.emailList.forEach(e=>e.status='pending');
-  saveCamps();renderCampList(c.type);openCamp(id,c.type);
+  recalcRate(id);
+
+  // Préparer une copie "propre" pour le serveur, sans modifier l'état local
+  // tant que le Worker n'a pas confirmé la persistance KV.
+  const launchList=(c.emailList||[]).map(e=>({...e,status:'pending',sentAt:null,errorMsg:null}));
   const smtpCfg=S.smtpConfig&&Object.keys(S.smtpConfig).length?S.smtpConfig:null;
-  await syncW('/campaign/launch',{campaign:{
+  const payload={campaign:{
     id,name:c.name,type:c.type,
-    emailList:c.emailList,
+    emailList:launchList,
     templateId:c.templateId,
     subject:c.subject,
     html:c.html||'',body:c.body||'',
@@ -954,8 +956,32 @@ async function launchCamp(id){
     smtpConfig:smtpCfg,
     attachments:(c.attachments||[]).filter(a=>!a.data),
     tpls:S.tpls.map(t=>({id:t.id,name:t.name,subject:t.subject||'',html:t.html||t.body||'',body:t.body||''})),
-  }});
-  toast('✅ Campagne «'+c.name+'» lancée !','success');
+  }};
+
+  try{
+    const r=await fetch(S.wurl+'/campaign/launch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const data=await r.json().catch(()=>({ok:false,error:'Réponse Worker illisible'}));
+    if(!r.ok||!data.ok||data.persisted===false)throw new Error(data.error||('HTTP '+r.status));
+
+    // Seulement après confirmation serveur : basculer la campagne locale en cours.
+    c.status='running';c.sent=0;c.opened=0;c.errors=0;c.clicks=0;c.unsubscribed=0;
+    c.launchedAt=new Date().toISOString();c.pausePosition=0;c.emailList=launchList;
+    saveCamps();renderCampList(c.type);openCamp(id,c.type);
+
+    if(data.cron&&data.cron.healthy===false){
+      const age=data.cron.ageMinutes!=null?' Dernier passage : '+data.cron.ageMinutes+' min.':'';
+      toast('⚠ Campagne enregistrée, mais CRON CLOUDFLARE ARRÊTÉ.'+age,'warn');
+      const chip=$('wchip');if(chip)chip.className='wchip warn';
+      if($('wdot'))$('wdot').classList.add('p');
+      if($('wlbl'))$('wlbl').textContent='Worker actif · CRON ARRÊTÉ';
+    }else{
+      toast('✅ Campagne «'+c.name+'» lancée et confirmée côté Worker','success');
+    }
+  }catch(e){
+    toast('❌ Campagne NON lancée côté Worker : '+(e.message||e),'error');
+    // Ne rien modifier localement : pas de faux statut "EN COURS".
+    renderCampList(c.type);openCamp(id,c.type);
+  }
 }
 async function pauseCamp(id){const c=S.camps.find(x=>x.id===id);if(!c||c.status!=='running')return;c.status='paused';c.pausePosition=c.emailList.findIndex(e=>e.status==='pending');saveCamps();renderCampList(c.type);openCamp(id,c.type);await syncW('/campaign/pause',{id});toast('⏸ Campagne mise en pause','info');}
 // ── FIX v39.9 : resumeCamp — payload {campaign:{...}} + tpls ──
