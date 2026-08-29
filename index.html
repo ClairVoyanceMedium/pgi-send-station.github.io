@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#1a1c22">
 <meta name="color-scheme" content="dark">
 <style>html{background:#1a1c22!important;}</style>
-<title>PGI Send Station v40.3</title>
+<title>PGI Send Station v39.9</title>
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&family=Exo+2:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
@@ -183,11 +183,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .te-foot{padding:9px 14px;border-top:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;background:var(--bg2);flex-shrink:0;}
 .save-dot{font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.25);color:var(--grn);opacity:0;transition:opacity .3s;}
 .save-dot.show{opacity:1;}
-.img-bar{padding:7px 14px;border-bottom:1px solid var(--b1);display:none;align-items:center;gap:6px;background:var(--bg2);flex-shrink:0;flex-wrap:wrap;}
+.img-bar{padding:5px 14px;border-bottom:1px solid var(--b1);display:none;align-items:center;gap:6px;background:var(--bg2);flex-shrink:0;flex-wrap:wrap;max-height:44px;}
 .img-bar.show{display:flex;}
-.img-bar .img-link-inp{flex:1;min-width:180px;}
-#pane-rich img.pgi-img-selected{outline:2px solid var(--cyan);outline-offset:2px;border-radius:3px;}
-.img-upload-status{font-family:var(--mono);font-size:9px;color:var(--text2);min-width:90px;}
 .ip-inp{flex:1;min-width:130px;background:var(--bg3);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:10px;padding:6px 9px;outline:none;}
 .ip-btn{padding:6px 11px;border:1px solid var(--pur-b);border-radius:5px;background:var(--pur-bg);color:var(--purl);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;white-space:nowrap;}
 .img-gal{padding:4px 14px;border-bottom:1px solid var(--b1);display:none;gap:4px;flex-wrap:wrap;background:var(--bg2);max-height:60px;overflow-y:auto;flex-shrink:0;}
@@ -533,16 +530,13 @@ html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;ov
     </div>
     <div id="te-toolbar"></div>
     <div class="img-bar" id="te-img-bar">
-      <input type="url" class="ip-inp" id="img-url-inp" placeholder="URL d’une image déjà hébergée (optionnel)">
-      <input type="url" class="ip-inp img-link-inp" id="img-link-inp" placeholder="Lien au clic sur l’image (optionnel) https://...">
+      <input type="text" class="ip-inp" id="img-url-inp" placeholder="https://url-image.jpg">
       <button class="ip-btn" onclick="insertImgURL()">Insérer URL</button>
-      <label class="ip-btn" style="cursor:pointer">📁 Télécharger une image<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none" onchange="insertImgFile(this)"></label>
-      <button class="ip-btn" onclick="setSelectedImageLink()" title="Ajouter ou modifier le lien de l’image sélectionnée">🔗 Lien image</button>
-      <span class="img-upload-status" id="img-upload-status"></span>
+      <label class="ip-btn" style="cursor:pointer">📁 Upload<input type="file" accept="image/*" style="display:none" onchange="insertImgFile(this)"></label>
       <button class="btn-ico" style="padding:5px 8px" onclick="hideImgBar()">✕</button>
     </div>
     <div class="img-gal" id="img-gal"></div>
-    <div id="pane-rich" contenteditable="true" data-placeholder="Rédigez votre email... {{prénom}}, {{nom}}..." onclick="handleEditorRichClick(event)" onkeyup="rememberEditorRange()" onmouseup="rememberEditorRange()" oninput="rememberEditorRange();saveTpl();updTEChar()"></div>
+    <div id="pane-rich" contenteditable="true" data-placeholder="Rédigez votre email... {{prénom}}, {{nom}}..."></div>
     <div class="html-pane" id="html-pane">
       <textarea id="pane-code" placeholder="<!-- HTML ici -->" oninput="syncPrev()" spellcheck="false" autocomplete="off"></textarea>
       <div class="prev-toggle" onclick="togglePrev()"><span class="ptl" id="prev-arrow-lbl">▶ Aperçu en direct</span><span style="font-size:9px;color:var(--text3)">Cliquer pour afficher</span></div>
@@ -697,7 +691,7 @@ html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;ov
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script>
 'use strict';
-// PGI SEND STATION v40.3 — Reliable launch + Cloudflare low-cost mode
+// PGI SEND STATION v39.9 — Fix launch payload + templates + maxNow
 function $$(id){return document.getElementById(id);}
 const SK={prov:'p7_prov',cid:'p7_cid',tok:'p7_tok',email:'p7_email',wurl:'p7_wurl',ce:'p7_ce',cn:'p7_cn',smsProv:'p7_smp',smsKey:'p7_smk',smsSecret:'p7_sms',smsFrom:'p7_smf',smsWebhook:'p7_smswh',smsWebhookBody:'p7_smswhb',contacts:'p7_contacts',tpls:'p7_tpls',camps:'p7_camps',lists:'p7_lists',imgLib:'p7_imgs',analytics:'p7_analytics',stats:'p7_stats',smtpConfig:'p7_smtp',links:'p7_links'};
 const SMTP_PROVIDERS={gmail:{lbl:'Gmail (OAuth)',type:'oauth',day:500,safe:400,info:'Connexion OAuth Google.'},outlook:{lbl:'Outlook/Hotmail',type:'oauth',day:300,safe:240,info:'Connexion OAuth Microsoft.'},ovh:{lbl:'OVH',type:'smtp',day:200,safe:150,host:'ssl0.ovh.net',port:465,tls:'ssl',info:'Host: ssl0.ovh.net — Port: 465 (SSL)'},lws:{lbl:'LWS',type:'smtp',day:500,safe:400,host:'mail.lws.fr',port:465,tls:'ssl',info:'Host: mail.lws.fr — Port: 465 (SSL)'},ionos:{lbl:'IONOS / 1&1',type:'smtp',day:500,safe:400,host:'smtp.ionos.fr',port:587,tls:'tls',info:'Host: smtp.ionos.fr — Port: 587 (TLS)'},infomaniak:{lbl:'Infomaniak',type:'smtp',day:1000,safe:800,host:'mail.infomaniak.com',port:587,tls:'tls',info:'Host: mail.infomaniak.com — Port: 587 (STARTTLS)'},resend:{lbl:'Resend',type:'api',day:3000,safe:2800,info:'Clé API re_xxxx — 3000/mois gratuits. Domaine vérifié requis.'},sendgrid:{lbl:'SendGrid',type:'api',day:100000,safe:80000,info:'Clé API SG.xxxx.'},mailgun:{lbl:'Mailgun',type:'api',day:100000,safe:80000,info:'Clé key-xxxx.'},brevo:{lbl:'Brevo',type:'api',day:300,safe:250,info:'Clé xkeysib-xxxx.'},amazon:{lbl:'Amazon SES',type:'api',day:50000,safe:40000,info:'Région eu-west-1.'},mailchannels:{lbl:'MailChannels (CF)',type:'mailchannels',day:999999,safe:999999,info:'Gratuit CF Workers.'},custom:{lbl:'SMTP personnalisé',type:'smtp',day:999999,safe:999999,host:'',port:587,tls:'tls',info:'Entrez vos paramètres SMTP.'}};
@@ -748,60 +742,38 @@ function renderLinksGrid(){
   grid.innerHTML=links.map(lk=>{
     const hasUrl=!!(lk.url&&lk.url.trim());
     let host='';
-    if(hasUrl){try{host=new URL(lk.url).hostname.replace('www.','');}catch(_){host=lk.url.slice(0,36);}}
-    return `<div style="background:var(--bg2);border:1px solid ${hasUrl?'var(--b2)':'var(--b1)'};border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;min-height:126px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
-        <div onclick="renameLink(${lk.id})" title="Modifier le nom" style="font-size:12px;font-weight:800;color:var(--purl);cursor:pointer;display:flex;align-items:center;gap:5px;word-break:break-word;min-width:0;">
-          <span style="opacity:.6;font-size:10px">✎</span>${esc(lk.name)}
-        </div>
-        <button class="btn-ico" onclick="renameLink(${lk.id})" style="padding:3px 7px;font-size:9px;flex-shrink:0">Nom</button>
+    if(hasUrl){try{host=new URL(lk.url).hostname.replace('www.','');}catch(_){host=lk.url.slice(0,28);}}
+    return `<div style="background:var(--bg2);border:1px solid ${hasUrl?'var(--b2)':'var(--b1)'};border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;min-height:96px;">
+      <div onclick="renameLink(${lk.id})" style="font-size:12px;font-weight:800;color:var(--purl);cursor:pointer;display:flex;align-items:center;gap:5px;word-break:break-word;">
+        <span style="opacity:.6;font-size:10px">✎</span>${esc(lk.name)}
       </div>
-      <div onclick="${hasUrl?`openLink(${lk.id})`:`editLinkURL(${lk.id})`}" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer;border-radius:8px;padding:7px;background:${hasUrl?'rgba(0,232,255,.06)':'transparent'};border:1px solid ${hasUrl?'rgba(0,232,255,.15)':'var(--b1)'};">
+      <div onclick="activateLink(${lk.id})" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer;border-radius:8px;padding:6px;background:${hasUrl?'rgba(0,232,255,.06)':'transparent'};">
         ${hasUrl
           ? `<div style="font-size:18px;margin-bottom:3px">🔗</div><div style="font-size:9px;color:var(--cyan);word-break:break-all;">${esc(host)}</div>`
           : `<div style="font-size:18px;margin-bottom:3px;opacity:.4">➕</div><div style="font-size:9px;color:var(--text3)">Configurer le lien</div>`}
-      </div>
-      <div style="display:flex;gap:5px;flex-wrap:wrap;">
-        <button class="btn-sm" style="flex:1;min-width:70px" onclick="editLinkURL(${lk.id})">✎ URL</button>
-        ${hasUrl?`<button class="btn-sm grn" style="flex:1;min-width:70px" onclick="openLink(${lk.id})">Ouvrir</button><button class="btn-sm red" style="padding-left:9px;padding-right:9px" onclick="clearLinkURL(${lk.id})" title="Supprimer l’URL">✕</button>`:''}
       </div>
     </div>`;
   }).join('');
 }
 async function renameLink(id){
   const links=getLinks();const lk=links.find(x=>x.id===id);if(!lk)return;
-  const newName=await pgiPrompt('Modifier le nom du raccourci',lk.name,'✎');
+  const newName=await pgiPrompt('Nom du raccourci',lk.name,'✎');
   if(newName===null)return;
-  const trimmed=newName.trim();if(!trimmed){toast('Le nom ne peut pas être vide','warn');return;}
-  lk.name=trimmed.slice(0,40);saveLinks(links);renderLinksGrid();
-  toast('✓ Nom du lien modifié','success');
-}
-async function editLinkURL(id){
-  const links=getLinks();const lk=links.find(x=>x.id===id);if(!lk)return;
-  const current=(lk.url&&lk.url.trim())?lk.url:'https://';
-  const url=await pgiPrompt("Modifier l'URL pour " + lk.name,current,'🔗');
-  if(url===null)return;
-  const trimmed=url.trim();
-  if(!trimmed||trimmed==='https://'){
-    lk.url='';saveLinks(links);renderLinksGrid();toast('URL supprimée','info');return;
-  }
-  const finalUrl=/^https?:\/\//i.test(trimmed)?trimmed:'https://'+trimmed;
-  try{new URL(finalUrl);}catch(_){toast('URL invalide','error');return;}
-  lk.url=finalUrl;saveLinks(links);renderLinksGrid();
-  toast('✓ URL modifiée','success');
-}
-function openLink(id){
-  const lk=getLinks().find(x=>x.id===id);if(!lk||!lk.url)return;
-  window.open(lk.url,'_blank','noopener,noreferrer');
-}
-async function clearLinkURL(id){
-  const links=getLinks();const lk=links.find(x=>x.id===id);if(!lk||!lk.url)return;
-  if(!await pgiConfirm("Supprimer l'URL de “"+lk.name+"” ?",'🗑'))return;
-  lk.url='';saveLinks(links);renderLinksGrid();toast('URL supprimée','info');
+  const trimmed=newName.trim();if(!trimmed)return;
+  lk.name=trimmed.slice(0,30);saveLinks(links);renderLinksGrid();
 }
 async function activateLink(id){
-  const lk=getLinks().find(x=>x.id===id);if(!lk)return;
-  if(lk.url&&lk.url.trim())openLink(id);else await editLinkURL(id);
+  const links=getLinks();const lk=links.find(x=>x.id===id);if(!lk)return;
+  if(lk.url&&lk.url.trim()){
+    window.open(lk.url,'_blank');
+    return;
+  }
+  const url=await pgiPrompt("Coller l'URL pour " + lk.name, 'https://', '🔗');
+  if(url===null)return;
+  const trimmed=url.trim();if(!trimmed||trimmed==='https://')return;
+  const finalUrl=/^https?:\/\//i.test(trimmed)?trimmed:'https://'+trimmed;
+  lk.url=finalUrl;saveLinks(links);renderLinksGrid();
+  toast("✓ Lien configuré — touchez à nouveau pour l'ouvrir",'success');
 }
 function setProv(p){S.prov=p;lsS(SK.prov,p);}
 function setSMSP(p){S.smsProv=p;lsS(SK.smsProv,p);['twilio','vonage','webhook'].forEach(x=>{const el=$('po-'+x);if(el)el.classList.toggle('sel',p===x);const chk=$('pchk-'+x);if(chk){if(p===x){chk.style.background='var(--grn)';chk.style.borderColor='var(--grn)';}else{chk.style.background='';chk.style.borderColor='var(--b2)';}}});const wf=$('sms-webhook-form');if(wf)wf.style.display=p==='webhook'?'block':'none';}
@@ -811,7 +783,7 @@ function initGIS(){if(!window.google||!S.cid)return;S.tokenClient=google.account
 async function fetchGUser(){try{const r=await fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json',{headers:{Authorization:'Bearer '+S.tok}});const d=await r.json();S.email=d.email||'';lsS(SK.email,S.email);toast('Connecté: '+S.email,'success');}catch{toast('Connecté à Gmail','success');}}
 function saveWorker(){const url=$('worker-url-inp')?.value.trim();if(!url?.startsWith('https://')){toast('URL invalide','error');return;}S.wurl=url;lsS(SK.wurl,url);updateWorkerUI();testWorker();}
 function updateWorkerUI(){const chip=$('wchip'),lbl=$('wlbl'),dot=$('wdot'),st=$('sw-st');if(S.wurl){chip.className='wchip ok';if(dot)dot.classList.remove('p');if(lbl)lbl.textContent='Worker configuré';if(st){st.textContent='Configuré';st.style.color='var(--grn)';}}else{chip.className='wchip warn';if(dot)dot.classList.add('p');if(lbl)lbl.textContent='Worker non configuré';if(st){st.textContent='Non configuré';st.style.color='var(--yel)';}}}
-async function testWorker(){if(!S.wurl){toast('URL Worker manquante','warn');return;}toast('Test en cours...','info');try{const r=await fetch(S.wurl+'/ping');const d=await r.json();if(d.ok){const cronOk=d.cron&&d.cron.healthy===true;if(cronOk){$('wchip').className='wchip ok';if($('wdot'))$('wdot').classList.remove('p');if($('wlbl'))$('wlbl').textContent='Worker + Cron actifs';toast('Worker et Cron opérationnels','success');}else{$('wchip').className='wchip warn';if($('wdot'))$('wdot').classList.add('p');if($('wlbl'))$('wlbl').textContent='Worker actif · CRON ARRÊTÉ';const age=d.cron&&d.cron.ageMinutes!=null?' · dernier passage il y a '+d.cron.ageMinutes+' min':'';toast('⚠ Worker accessible mais Cron Trigger inactif'+age,'warn');}if(d.lastRun&&$('sw-last'))$('sw-last').textContent=fDt(d.lastRun);}else{$('wchip').className='wchip warn';toast('Worker — réponse incorrecte','warn');}}catch{$('wchip').className='wchip err';if($('wdot'))$('wdot').classList.add('p');if($('wlbl'))$('wlbl').textContent='Worker inactif';toast('Worker inaccessible','error');}}
+async function testWorker(){if(!S.wurl){toast('URL Worker manquante','warn');return;}toast('Test en cours...','info');try{const r=await fetch(S.wurl+'/ping');const d=await r.json();if(d.ok){$('wchip').className='wchip ok';if($('wdot'))$('wdot').classList.remove('p');if($('wlbl'))$('wlbl').textContent='Worker actif';toast('Worker opérationnel','success');if(d.lastRun&&$('sw-last'))$('sw-last').textContent=fDt(d.lastRun);}else{$('wchip').className='wchip warn';toast('Worker — réponse incorrecte','warn');}}catch{$('wchip').className='wchip err';if($('wdot'))$('wdot').classList.add('p');if($('wlbl'))$('wlbl').textContent='Worker inactif';toast('Worker inaccessible','error');}}
 async function syncW(ep,data){if(!S.wurl)return;try{await fetch(S.wurl+ep,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});}catch(e){console.warn('Worker sync:',e.message);}}
 // ── CAMPAIGNS ──
 function newCamp(type){const c={id:Date.now(),type,name:type==='sms'?'Nouvelle campagne SMS':'Nouvelle campagne email',status:'draft',templateId:null,subject:'',smsText:'',emailList:[],rateEffectivePerMin:10,rateSecEnabled:false,rateSec:1,rateMinEnabled:false,rateMin:10,rateHEnabled:false,rateH:600,rateDEnabled:false,rateDay:300,dailyLimit:9999,durationH:-1,durationInfinite:true,startDate:'',endDate:'',sendOrder:'inorder',endOfList:'loop',pausePosition:0,schedEnabled:false,days:[1,2,3,4,5,6,7],daySchedules:{day1:{from:'09:00',to:'18:00'},day2:{from:'09:00',to:'18:00'},day3:{from:'09:00',to:'18:00'},day4:{from:'09:00',to:'18:00'},day5:{from:'09:00',to:'18:00'},day6:{from:'10:00',to:'16:00'},day7:{from:'10:00',to:'16:00'}},sent:0,opened:0,errors:0,unsubscribed:0,clicks:0,campProvider:'',campFromEmail:'',attachments:[],created:new Date().toISOString()};S.camps.push(c);saveCamps();renderCampList(type);openCamp(c.id,type);}
@@ -929,17 +901,15 @@ async function launchCamp(id){
   const c=S.camps.find(x=>x.id===id);if(!c)return;
   if(!c.emailList.length){toast('Ajoutez des destinataires','warn');return;}
   if(c.type!=='sms'&&!c.templateId&&!c.subject){if(!await pgiConfirm('Aucun template sélectionné. Lancer quand même ?','⚠️'))return;}
-  if(!S.wurl){toast('Worker non configuré : lancement impossible','error');return;}
   saveCampBodyAndAll(id);
-  recalcRate(id);
-
-  // Préparer une copie "propre" pour le serveur, sans modifier l'état local
-  // tant que le Worker n'a pas confirmé la persistance KV.
-  const launchList=(c.emailList||[]).map(e=>({...e,status:'pending',sentAt:null,errorMsg:null}));
+  c.status='running';c.sent=0;c.opened=0;c.errors=0;c.clicks=0;c.unsubscribed=0;
+  c.launchedAt=new Date().toISOString();c.pausePosition=0;
+  c.emailList.forEach(e=>e.status='pending');
+  saveCamps();renderCampList(c.type);openCamp(id,c.type);
   const smtpCfg=S.smtpConfig&&Object.keys(S.smtpConfig).length?S.smtpConfig:null;
-  const payload={campaign:{
+  await syncW('/campaign/launch',{campaign:{
     id,name:c.name,type:c.type,
-    emailList:launchList,
+    emailList:c.emailList,
     templateId:c.templateId,
     subject:c.subject,
     html:c.html||'',body:c.body||'',
@@ -956,48 +926,10 @@ async function launchCamp(id){
     smtpConfig:smtpCfg,
     attachments:(c.attachments||[]).filter(a=>!a.data),
     tpls:S.tpls.map(t=>({id:t.id,name:t.name,subject:t.subject||'',html:t.html||t.body||'',body:t.body||''})),
-  }};
-
-  try{
-    const r=await fetch(S.wurl+'/campaign/launch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const data=await r.json().catch(()=>({ok:false,error:'Réponse Worker illisible'}));
-    if(!r.ok||!data.ok||data.persisted===false)throw new Error(data.error||('HTTP '+r.status));
-
-    // Seulement après confirmation serveur : basculer la campagne locale en cours.
-    c.status='running';c.sent=0;c.opened=0;c.errors=0;c.clicks=0;c.unsubscribed=0;
-    c.launchedAt=new Date().toISOString();c.pausePosition=0;c.emailList=launchList;
-
-    // v40.3 : le Worker tente immédiatement 1 envoi au lancement.
-    // On applique sa réponse directement, sans requête de sync supplémentaire.
-    if(data.kick){
-      (data.kick.sentEmails||[]).forEach(se=>{const e=c.emailList.find(x=>x.email===se.email);if(e){e.status='sent';e.sentAt=se.sentAt;} });
-      (data.kick.failedEmails||[]).forEach(fe=>{const e=c.emailList.find(x=>x.email===fe.email);if(e){e.status='error';e.errorMsg=fe.error;} });
-      c.sent=data.kick.sent||0;c.errors=data.kick.failed||0;
-      if((data.kick.sentEmails||[]).length)c.lastSentAt=data.kick.sentEmails[data.kick.sentEmails.length-1].sentAt;
-    }
-    saveCamps();renderCampList(c.type);openCamp(id,c.type);
-    scheduleNextSync();
-
-    if(data.kick&&data.kick.failed>0){
-      toast('❌ Premier envoi échoué : '+(data.kick.failedEmails?.[0]?.error||'erreur provider'),'error');
-    }else if(data.kick&&data.kick.sent>0){
-      toast('✅ Campagne lancée · premier email envoyé immédiatement','success');
-    }else if(data.cron&&data.cron.healthy===false){
-      const age=data.cron.ageMinutes!=null?' Dernier passage : '+data.cron.ageMinutes+' min.':'';
-      toast('⚠ Campagne enregistrée, mais CRON CLOUDFLARE ARRÊTÉ.'+age,'warn');
-      const chip=$('wchip');if(chip)chip.className='wchip warn';
-      if($('wdot'))$('wdot').classList.add('p');
-      if($('wlbl'))$('wlbl').textContent='Worker actif · CRON ARRÊTÉ';
-    }else if(!(data.kick&&data.kick.sent>0)){
-      toast('✅ Campagne «'+c.name+'» lancée et confirmée côté Worker','success');
-    }
-  }catch(e){
-    toast('❌ Campagne NON lancée côté Worker : '+(e.message||e),'error');
-    // Ne rien modifier localement : pas de faux statut "EN COURS".
-    renderCampList(c.type);openCamp(id,c.type);
-  }
+  }});
+  toast('✅ Campagne «'+c.name+'» lancée !','success');
 }
-async function pauseCamp(id){const c=S.camps.find(x=>x.id===id);if(!c||c.status!=='running')return;c.status='paused';c.pausePosition=c.emailList.findIndex(e=>e.status==='pending');saveCamps();renderCampList(c.type);openCamp(id,c.type);await syncW('/campaign/pause',{id});scheduleNextSync();toast('⏸ Campagne mise en pause','info');}
+async function pauseCamp(id){const c=S.camps.find(x=>x.id===id);if(!c||c.status!=='running')return;c.status='paused';c.pausePosition=c.emailList.findIndex(e=>e.status==='pending');saveCamps();renderCampList(c.type);openCamp(id,c.type);await syncW('/campaign/pause',{id});toast('⏸ Campagne mise en pause','info');}
 // ── FIX v39.9 : resumeCamp — payload {campaign:{...}} + tpls ──
 async function resumeCamp(id){
   const c=S.camps.find(x=>x.id===id);if(!c||c.status!=='paused')return;
@@ -1103,8 +1035,6 @@ var _efMode='all',_sfMode='all';
 var _analyticsSort={f:'date',asc:false};
 var _analyticsPage=0,_smsPage=0;
 const PAGE_SZ=100;
-// v40.3 low-cost Cloudflare
-var _lastAnalyticsSync=0,_lastOrphanSync=0,_syncTimer=null;
 function setDateFilter(mode,btn){document.querySelectorAll('#date-quick-btns .date-qbtn').forEach(b=>b.classList.remove('sel'));if(btn)btn.classList.add('sel');const now=new Date(),today=now.toISOString().slice(0,10);_df.mode=mode;if(mode==='today'){_df.from=today;_df.to=today;}else if(mode==='yesterday'){const y=new Date(now-86400000).toISOString().slice(0,10);_df.from=y;_df.to=y;}else if(mode==='7d'){_df.from=new Date(now-6*86400000).toISOString().slice(0,10);_df.to=today;}else if(mode==='30d'){_df.from=new Date(now-29*86400000).toISOString().slice(0,10);_df.to=today;}else{_df.from=null;_df.to=null;}const fi=$('date-from'),ti=$('date-to');if(fi)fi.value=_df.from||'';if(ti)ti.value=_df.to||'';_analyticsPage=0;_smsPage=0;renderDashboard();}
 function applyCustomDate(){_df.mode='custom';_df.from=$('date-from')?.value||null;_df.to=$('date-to')?.value||null;document.querySelectorAll('#date-quick-btns .date-qbtn').forEach(b=>b.classList.remove('sel'));_analyticsPage=0;_smsPage=0;renderDashboard();}
 function inRange(dateStr){if(!dateStr)return false;const d=dateStr.slice(0,10);if(_df.from&&d<_df.from)return false;if(_df.to&&d>_df.to)return false;return true;}
@@ -1213,27 +1143,19 @@ function saveTpl(showDot=false){if(!S.activeTpl)return;const t=S.tpls.find(x=>x.
 async function delTpl(){if(!S.activeTpl)return;if(!await pgiConfirm('Supprimer ce template ?','🗑'))return;S.tpls=S.tpls.filter(x=>x.id!==S.activeTpl);lsS(SK.tpls,S.tpls);S.activeTpl=null;renderTplList();const pr=$('pane-rich');if(pr)pr.innerHTML='';}
 function prevTpl(){saveTpl();const t=S.activeTpl?S.tpls.find(x=>x.id===S.activeTpl):null;if(!t)return;const subj=$('prev-subj'),body=$('prev-body');if(subj)subj.textContent=applyVars(t.subject||'(aucun objet)',EX);if(body)body.innerHTML=applyVars(t.html||t.body||'',EX);showModal('modal-prev');}
 function setTTab(tab){S.tplMode=tab;['rich','html','plain'].forEach(t=>{const btn=$('etab-'+t);if(btn)btn.classList.toggle('active',t===tab);});const pr=$('pane-rich'),hp=$('html-pane'),pp=$('pane-plain'),tb=$('te-toolbar'),ib=$('te-img-bar'),ig=$('img-gal');if(pr)pr.style.display=tab==='rich'?'block':'none';if(hp)hp.classList.toggle('show',tab==='html');if(pp)pp.style.display=tab==='plain'?'block':'none';if(tb)tb.innerHTML=tab==='rich'?buildRichToolbar():'';if(ib){ib.className='img-bar';ib.style.display=tab==='rich'?'flex':'none';}if(ig){ig.className=tab==='rich'&&S.imgLib.length?'img-gal show':'img-gal';ig.style.display=tab==='rich'&&S.imgLib.length?'flex':'none';}if(tab==='html'){const t=S.activeTpl?S.tpls.find(x=>x.id===S.activeTpl):null;if(t){const pc=$('pane-code');if(pc)pc.value=t.html||t.body||'';}}if(tab==='plain'){const t=S.activeTpl?S.tpls.find(x=>x.id===S.activeTpl):null;if(t){const pp2=$('pane-plain');if(pp2)pp2.value=t.plain||'';}}syncPrev();}
-function buildRichToolbar(){return`<select class="tfont" onchange="execT('fontName',this.value)" style="max-width:95px"><option value="">Police</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Montserrat">Montserrat</option><option value="Verdana">Verdana</option><option value="Times New Roman">Times</option><option value="Courier New">Courier</option></select><select class="tsel" style="width:44px" onchange="execT('fontSize',this.value)"><option value="3">T</option><option value="1">10</option><option value="2">12</option><option value="3">14</option><option value="4">16</option><option value="5">20</option><option value="6">24</option><option value="7">32</option></select><select class="tsel" onchange="execT('formatBlock',this.value);this.value='p'"><option value="p">P</option><option value="h1">H1</option><option value="h2">H2</option><option value="h3">H3</option></select><div class="tbs"></div><button class="tb" onclick="execT('bold')"><b>B</b></button><button class="tb" onclick="execT('italic')"><i>I</i></button><button class="tb" onclick="execT('underline')"><u>U</u></button><button class="tb" onclick="execT('strikeThrough')"><s>S</s></button><div class="tbs"></div><button class="tb" onclick="execT('justifyLeft')">⬛</button><button class="tb" onclick="execT('justifyCenter')">⬜</button><button class="tb" onclick="execT('justifyRight')">⬛</button><div class="tbs"></div><button class="tb" onclick="execT('insertUnorderedList')">•</button><button class="tb" onclick="execT('insertOrderedList')">1.</button><div class="tbs"></div><label class="tb" style="cursor:pointer">A<input type="color" style="display:none;width:0;height:0" oninput="execT('foreColor',this.value)"></label><label class="tb" style="cursor:pointer">◼<input type="color" style="display:none;width:0;height:0" oninput="execT('hiliteColor',this.value)"></label><div class="tbs"></div><button class="tb" onclick="showImgBar()" title="Insérer/télécharger une image">🖼</button><button class="tb" onclick="insertLink()" title="Créer un lien sur le texte sélectionné">🔗</button><button class="tb" onclick="insertEmoji()">😊</button><div class="tbs"></div><button class="tb" onclick="insertTable()">⊞</button><button class="tb" onclick="execT('insertHorizontalRule')">—</button><button class="tb" onclick="execT('removeFormat')" style="font-size:8px">✕fmt</button>`;}
+function buildRichToolbar(){return`<select class="tfont" onchange="execT('fontName',this.value)" style="max-width:95px"><option value="">Police</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Montserrat">Montserrat</option><option value="Verdana">Verdana</option><option value="Times New Roman">Times</option><option value="Courier New">Courier</option></select><select class="tsel" style="width:44px" onchange="execT('fontSize',this.value)"><option value="3">T</option><option value="1">10</option><option value="2">12</option><option value="3">14</option><option value="4">16</option><option value="5">20</option><option value="6">24</option><option value="7">32</option></select><select class="tsel" onchange="execT('formatBlock',this.value);this.value='p'"><option value="p">P</option><option value="h1">H1</option><option value="h2">H2</option><option value="h3">H3</option></select><div class="tbs"></div><button class="tb" onclick="execT('bold')"><b>B</b></button><button class="tb" onclick="execT('italic')"><i>I</i></button><button class="tb" onclick="execT('underline')"><u>U</u></button><button class="tb" onclick="execT('strikeThrough')"><s>S</s></button><div class="tbs"></div><button class="tb" onclick="execT('justifyLeft')">⬛</button><button class="tb" onclick="execT('justifyCenter')">⬜</button><button class="tb" onclick="execT('justifyRight')">⬛</button><div class="tbs"></div><button class="tb" onclick="execT('insertUnorderedList')">•</button><button class="tb" onclick="execT('insertOrderedList')">1.</button><div class="tbs"></div><label class="tb" style="cursor:pointer">A<input type="color" style="display:none;width:0;height:0" oninput="execT('foreColor',this.value)"></label><label class="tb" style="cursor:pointer">◼<input type="color" style="display:none;width:0;height:0" oninput="execT('hiliteColor',this.value)"></label><div class="tbs"></div><button class="tb" onclick="showImgBar()">🖼</button><button class="tb" onclick="insertLink()">🔗</button><button class="tb" onclick="insertEmoji()">😊</button><div class="tbs"></div><button class="tb" onclick="insertTable()">⊞</button><button class="tb" onclick="execT('insertHorizontalRule')">—</button><button class="tb" onclick="execT('removeFormat')" style="font-size:8px">✕fmt</button>`;}
 function execT(cmd,val){const pr=$('pane-rich');if(!pr)return;pr.focus();document.execCommand(cmd,false,val||null);saveTpl();updTEChar();}
 function iVar(v){const pr=$('pane-rich');if(!pr)return;pr.focus();document.execCommand('insertText',false,v);saveTpl();}
 function applyEditorColor(color){const pr=$('pane-rich');if(!pr)return;pr.focus();document.execCommand('foreColor',false,color);saveTpl();}
 function insertLink(){const url=window.prompt('URL du lien :','https://');if(url)document.execCommand('createLink',false,url);}
 function insertEmoji(){const e=window.prompt('Emoji :','😊');if(e){const pr=$('pane-rich');if(pr){pr.focus();document.execCommand('insertText',false,e);}}}
 function insertTable(){const cols=3,rows=3;let html='<table border="1" cellpadding="8" style="border-collapse:collapse;width:100%;"><thead><tr>'+Array(cols).fill('<th style="background:#f5f5f5;padding:8px;border:1px solid #ddd">En-tête</th>').join('')+'</tr></thead><tbody>'+Array(rows).fill('<tr>'+Array(cols).fill('<td style="padding:8px;border:1px solid #ddd">Cellule</td>').join('')+'</tr>').join('')+'</tbody></table><br>';const pr=$('pane-rich');if(pr){pr.focus();document.execCommand('insertHTML',false,html);saveTpl();}}
-let _selectedEditorImg=null,_editorRange=null;
-function rememberEditorRange(){const pr=$('pane-rich'),sel=window.getSelection();if(!pr||!sel||!sel.rangeCount)return;const r=sel.getRangeAt(0);if(pr.contains(r.commonAncestorContainer))_editorRange=r.cloneRange();}
-function restoreEditorRange(){const pr=$('pane-rich'),sel=window.getSelection();if(!pr||!sel)return;pr.focus();if(_editorRange){try{sel.removeAllRanges();sel.addRange(_editorRange);}catch(_){}}}
-function showImgBar(){const ib=$('te-img-bar');if(ib){ib.classList.add('show');ib.style.display='flex';}}
-function hideImgBar(){const ib=$('te-img-bar');if(ib){ib.classList.remove('show');}}
-function normalizeHttpUrl(v){const s=(v||'').trim();if(!s)return'';try{const u=new URL(s);return (u.protocol==='http:'||u.protocol==='https:')?u.href:'';}catch(_){return'';}}
-function buildNewsletterImageHtml(src,linkUrl=''){const safeSrc=esc(src);const img=`<img src="${safeSrc}" alt="" style="max-width:100%;height:auto;display:block;margin:8px auto;border:0;">`;const link=normalizeHttpUrl(linkUrl);return link?`<a href="${esc(link)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;border:0;display:block;">${img}</a>`:img;}
-function insertNewsletterImage(src,linkUrl=''){const pr=$('pane-rich');if(!pr)return;restoreEditorRange();document.execCommand('insertHTML',false,buildNewsletterImageHtml(src,linkUrl));rememberEditorRange();saveImgLib(src);saveTpl();updTEChar();}
-function insertImgURL(){const raw=$('img-url-inp')?.value.trim();const url=normalizeHttpUrl(raw);if(!url){toast('Entrez une URL image http(s) valide','warn');return;}const link=$('img-link-inp')?.value.trim()||'';if(link&&!normalizeHttpUrl(link)){toast('Le lien cliquable doit commencer par http:// ou https://','warn');return;}insertNewsletterImage(url,link);if($('img-url-inp'))$('img-url-inp').value='';toast('Image insérée','success');}
-async function insertImgFile(input){const file=input.files?.[0];if(!file)return;input.value='';const st=$('img-upload-status');const allowed=new Set(['image/jpeg','image/png','image/webp','image/gif']);if(!allowed.has(file.type)){toast('Format image non pris en charge. Utilisez JPG, PNG, WEBP ou GIF.','error');return;}if(file.size>8*1024*1024){toast('Image trop lourde : 8 Mo maximum.','error');return;}if(!S.wurl){toast('Worker non configuré : impossible d’héberger l’image.','error');return;}const link=$('img-link-inp')?.value.trim()||'';if(link&&!normalizeHttpUrl(link)){toast('Le lien cliquable doit commencer par http:// ou https://','warn');return;}if(st)st.textContent='Téléversement…';try{const fd=new FormData();fd.append('file',file,file.name);const r=await fetch(S.wurl.replace(/\/$/,'')+'/media/upload',{method:'POST',body:fd});const data=await r.json().catch(()=>({}));if(!r.ok||!data.ok||!data.url)throw new Error(data.error||'Upload refusé par le Worker');insertNewsletterImage(data.url,link);if(st)st.textContent='✓ Hébergée';toast('✓ Image hébergée et insérée dans la newsletter','success');setTimeout(()=>{if(st)st.textContent='';},2500);}catch(e){if(st)st.textContent='Échec';toast('Image non envoyée : '+(e.message||e),'error');}}
-function handleEditorRichClick(ev){const pr=$('pane-rich');if(!pr)return;pr.querySelectorAll('img.pgi-img-selected').forEach(i=>i.classList.remove('pgi-img-selected'));const img=ev.target?.closest?.('img');if(img&&pr.contains(img)){_selectedEditorImg=img;img.classList.add('pgi-img-selected');showImgBar();const a=img.closest('a[href]');const li=$('img-link-inp');if(li)li.value=a?.href||'';}else{_selectedEditorImg=null;}}
-async function setSelectedImageLink(){if(!_selectedEditorImg||!document.body.contains(_selectedEditorImg)){toast('Cliquez d’abord sur une image dans l’éditeur.','warn');return;}const current=_selectedEditorImg.closest('a[href]')?.href||'';const raw=await pgiPrompt('Lien de l’image (laisser vide pour retirer le lien)',current||'https://','🔗');if(raw===null)return;const val=raw.trim();if(val&&!normalizeHttpUrl(val)){toast('URL invalide : utilisez http:// ou https://','error');return;}const img=_selectedEditorImg;const parent=img.parentElement;if(parent&&parent.tagName==='A'&&parent.contains(img)){if(val){parent.href=normalizeHttpUrl(val);parent.target='_blank';parent.rel='noopener noreferrer';}else{parent.replaceWith(img);}}else if(val){const a=document.createElement('a');a.href=normalizeHttpUrl(val);a.target='_blank';a.rel='noopener noreferrer';a.style.cssText='text-decoration:none;border:0;display:block;';parent?.insertBefore(a,img);a.appendChild(img);}saveTpl();toast(val?'Lien ajouté à l’image':'Lien retiré de l’image','success');}
-function saveImgLib(src){if(!src||src.startsWith('data:'))return;if(!S.imgLib.includes(src))S.imgLib.unshift(src);if(S.imgLib.length>20)S.imgLib.length=20;lsS(SK.imgLib,S.imgLib);renderImgGal();}
-function renderImgGal(){const ig=$('img-gal');if(!ig)return;const clean=(S.imgLib||[]).filter(src=>src&&!src.startsWith('data:'));if(clean.length!==(S.imgLib||[]).length){S.imgLib=clean;lsS(SK.imgLib,S.imgLib);}if(!S.imgLib.length){ig.classList.remove('show');ig.style.display='none';return;}ig.classList.add('show');ig.style.display='flex';ig.innerHTML=S.imgLib.map((src,i)=>`<div class="igi"><img src="${esc(src)}" onerror="this.style.opacity=.2" loading="lazy"><button class="igdel" onclick="event.stopPropagation();delImgLib(${i})">✕</button></div>`).join('');ig.querySelectorAll('.igi').forEach((el,i)=>el.querySelector('img').addEventListener('click',()=>{const link=$('img-link-inp')?.value.trim()||'';if(link&&!normalizeHttpUrl(link)){toast('Lien cliquable invalide','warn');return;}insertNewsletterImage(S.imgLib[i],link);}));}
+function showImgBar(){const ib=$('te-img-bar');if(ib)ib.classList.add('show');}
+function hideImgBar(){const ib=$('te-img-bar');if(ib)ib.classList.remove('show');}
+function insertImgURL(){const url=$('img-url-inp')?.value.trim();if(!url){toast('Entrez une URL image','warn');return;}document.execCommand('insertHTML',false,`<img src="${esc(url)}" style="max-width:100%;height:auto;display:block;margin:8px auto;">`);saveImgLib(url);saveTpl();hideImgBar();}
+function insertImgFile(input){const file=input.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{document.execCommand('insertHTML',false,`<img src="${e.target.result}" style="max-width:100%;height:auto;display:block;margin:8px auto;">`);saveImgLib(e.target.result);saveTpl();};reader.readAsDataURL(file);}
+function saveImgLib(src){if(!S.imgLib.includes(src))S.imgLib.unshift(src);if(S.imgLib.length>20)S.imgLib.length=20;lsS(SK.imgLib,S.imgLib);renderImgGal();}
+function renderImgGal(){const ig=$('img-gal');if(!ig)return;if(!S.imgLib.length){ig.classList.remove('show');return;}ig.classList.add('show');ig.innerHTML=S.imgLib.map((src,i)=>`<div class="igi"><img src="${src}" onerror="this.style.opacity=.2" loading="lazy"><button class="igdel" onclick="delImgLib(${i})">✕</button></div>`).join('');ig.querySelectorAll('.igi').forEach((el,i)=>el.querySelector('img').addEventListener('click',()=>{document.execCommand('insertHTML',false,`<img src="${S.imgLib[i]}" style="max-width:100%;height:auto;display:block;margin:8px auto;">`);saveTpl();}));}
 function delImgLib(i){S.imgLib.splice(i,1);lsS(SK.imgLib,S.imgLib);renderImgGal();}
 function syncPrev(){const pc=$('pane-code'),pb=$('prev-box');if(!pc||!pb)return;pb.innerHTML=`<iframe srcdoc="${pc.value.replace(/"/g,'&quot;')}" style="width:100%;height:100%;border:none;"></iframe>`;}
 function togglePrev(){const pb=$('prev-box');if(pb){pb.classList.toggle('open');const lbl=$('prev-arrow-lbl');if(lbl)lbl.textContent=pb.classList.contains('open')?'▼ Masquer aperçu':'▶ Aperçu en direct';}}
@@ -1361,33 +1283,16 @@ if(campRes.ok){const data=await campRes.json();if(data.campaigns&&Array.isArray(
 // Synchroniser S.analytics pour que getAllEmailLogs soit cohérent
 if(lC){const aEntry=S.analytics.find(a=>a.type==='email'&&a.email===lC.email&&a.campaign===local.name);if(aEntry){if((wContact.status==='opened'||lC.status==='opened')&&!aEntry.opened){aEntry.opened=true;aEntry.openedAt=wContact.openedAt||lC.openedAt||new Date().toISOString();contactsChanged=true;}if(wContact.unsubscribed&&!aEntry.unsubscribed){aEntry.unsubscribed=true;contactsChanged=true;}if(wContact.clicks&&wContact.clicks.length){aEntry.clicks=wContact.clicks;contactsChanged=true;}}}
 });if(contactsChanged){updated++;lsS(SK.analytics,S.analytics);}}const prevStatus=local.status;if(wc.status&&wc.status!==local.status){local.status=wc.status;updated++;if(wc.status==='oauth_error')toast('⚠ OAuth error — campagne «'+(local.name||'')+'»','error');if(wc.status==='completed')toast('✅ Campagne «'+(local.name||'')+'» terminée !','success');}if(local.status!==prevStatus){if(S.activeCamp===local.id)setTimeout(()=>openCamp(local.id,local.type),50);}});if(updated>0){persistCamps();renderCampList('email');renderCampList('sms');renderDashboard();updateStats();refreshQuotaBanner();_refreshOpenCampMetrics();}}}
-// ÉCONOMIE : analytics complet au maximum toutes les 30 min, au lieu de chaque minute.
-const _nowSyncMs=Date.now();
-if(!_lastAnalyticsSync||(_nowSyncMs-_lastAnalyticsSync)>=30*60*1000){
 const analRes=await fetch(S.wurl+'/sync/analytics');
-if(analRes.ok){_lastAnalyticsSync=_nowSyncMs;const data2=await analRes.json();if(data2.analytics&&Array.isArray(data2.analytics)&&data2.analytics.length>0){var changed=false;if(data2.compact){data2.analytics.forEach(wc=>{var local=S.camps.find(c=>c.id==wc.id);if(!local&&wc.campaign)local=S.camps.find(c=>c.name===wc.campaign);if(!local||local.status==='draft')return;if(wc.sent>(local.sent||0)){local.sent=wc.sent;changed=true;}if(wc.opened>(local.opened||0)){local.opened=wc.opened;changed=true;}if(wc.clicks>(local.clicks||0)){local.clicks=wc.clicks;changed=true;}local.unsubscribed=wc.unsubscribed||0;});}else{S.analytics=data2.analytics;lsS(SK.analytics,S.analytics);changed=true;}if(changed){persistCamps();renderDashboard();updateStats();}}}
-}
+if(analRes.ok){const data2=await analRes.json();if(data2.analytics&&Array.isArray(data2.analytics)&&data2.analytics.length>0){var changed=false;if(data2.compact){data2.analytics.forEach(wc=>{var local=S.camps.find(c=>c.id==wc.id);if(!local&&wc.campaign)local=S.camps.find(c=>c.name===wc.campaign);if(!local||local.status==='draft')return;if(wc.sent>(local.sent||0)){local.sent=wc.sent;changed=true;}if(wc.opened>(local.opened||0)){local.opened=wc.opened;changed=true;}if(wc.clicks>(local.clicks||0)){local.clicks=wc.clicks;changed=true;}local.unsubscribed=wc.unsubscribed||0;});}else{S.analytics=data2.analytics;lsS(SK.analytics,S.analytics);changed=true;}if(changed){persistCamps();renderDashboard();updateStats();}}}
 var injected=0;var eKeys=new Set(S.analytics.map(a=>(a.email||'')+'|'+(a.campaign||'')));S.camps.filter(c=>c.type!=='sms').forEach(c=>{(c.recentlyChanged||[]).forEach(rc=>{if(rc.status!=='sent'&&rc.status!=='opened')return;const key=(rc.email||'')+'|'+(c.name||'');if(eKeys.has(key))return;eKeys.add(key);S.analytics.push({type:'email',email:rc.email,campaign:c.name,date:rc.sentAt||rc.openedAt||new Date().toISOString(),status:'sent',opened:rc.status==='opened'||!!rc.opened,openedAt:rc.openedAt||null,unsubscribed:false,clicks:[]});injected++;});(c.emailList||[]).forEach(e=>{if(e.status!=='sent'&&e.status!=='opened')return;const key=(e.email||'')+'|'+(c.name||'');if(eKeys.has(key))return;eKeys.add(key);S.analytics.push({type:'email',email:e.email,campaign:c.name,date:e.sentAt||c.launchedAt||c.created||new Date().toISOString(),status:'sent',opened:e.status==='opened'||!!e.opened,openedAt:e.openedAt||null,unsubscribed:!!e.unsubscribed,clicks:e.clicks||[]});injected++;});});
 if(injected>0){if(S.analytics.length>50000)S.analytics=S.analytics.slice(S.analytics.length-50000);try{lsS(SK.analytics,S.analytics);}catch(_){}renderDashboard();updateStats();}
-if(!_lastOrphanSync||(Date.now()-_lastOrphanSync)>=60*60*1000){await reconcileOrphanCampaigns();_lastOrphanSync=Date.now();}
+await reconcileOrphanCampaigns();
 const chip=$('wchip');if(chip)chip.className='wchip ok';const now=new Date(),ts=now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');const wlbl=$('wlbl');if(wlbl)wlbl.textContent='Worker actif · '+ts;const banner=$('sync-banner'),sl=$('sync-status-lbl'),pl=$('sync-pos-lbl'),ll=$('sync-last-lbl');if(banner)banner.style.display='flex';if(sl){const ac=S.camps.filter(c=>c.status==='running'),pc=S.camps.filter(c=>c.status==='paused');if(ac.length){sl.innerHTML='⚡ <strong style="color:var(--yel);">'+ac.length+' campagne(s) en cours</strong>'+(pc.length?' · ⏸ '+pc.length+' en pause':'')+' — Worker actif';sl.style.color='var(--yel)';if(pl){const lines=ac.map(c=>{const fp=c.emailList.findIndex(e=>e.status==='pending');const pos=fp===-1?c.emailList.length:fp+1;const st=(c.dailyDate===new Date().toDateString())?(c.dailySent||0):0;return c.name+' : '+pos+'/'+c.emailList.length+' · '+st+'/'+(c.dailyLimit||'∞')+' aujourd\'hui';});pl.textContent=lines.join(' | ');pl.style.display='block';}}else{const provLbl=(QUOTAS[S.prov]||QUOTAS.custom).lbl;sl.innerHTML=pc.length?'⏸ <strong style="color:var(--yel);">'+pc.length+' en pause</strong>':'✅ <strong style="color:var(--grn);">Synchronisé</strong> — <strong style="color:var(--cyan);">'+provLbl+'</strong>';sl.style.color=pc.length?'var(--yel)':'var(--grn)';if(pl)pl.style.display='none';}}if(ll)ll.textContent='Dernière sync : '+ts;
 }catch(e){console.warn('syncFromWorker:',e.message);const chip2=$('wchip');if(chip2)chip2.className='wchip err';const wlbl2=$('wlbl');if(wlbl2)wlbl2.textContent='Worker inactif';const sl2=$('sync-status-lbl');if(sl2){sl2.innerHTML='⚠️ <strong style="color:var(--red)">Worker inaccessible</strong>';sl2.style.color='var(--red)';}}
 _isSyncing=false;}
-function scheduleNextSync(){
-  if(_syncTimer){clearTimeout(_syncTimer);_syncTimer=null;}
-  if(!S.wurl)return;
-  const running=S.camps.some(c=>c.status==='running');
-  const paused=S.camps.some(c=>c.status==='paused');
-  // ÉCONOMIE MAX : 10 min si envoi actif, 30 min si seulement en pause, zéro polling si rien ne tourne.
-  const delay=running?10*60*1000:paused?30*60*1000:0;
-  if(!delay)return;
-  _syncTimer=setTimeout(async()=>{await syncFromWorker();scheduleNextSync();},delay);
-}
-function startAutoSync(){
-  if(!S.wurl){const b=$('sync-banner');if(b)b.style.display='none';return;}
-  setTimeout(async()=>{await syncFromWorker();scheduleNextSync();},2000);
-}
-async function forceSyncNow(){if(!S.wurl){toast('Worker non configuré','warn');return;}toast('Synchronisation...','info');await syncFromWorker();scheduleNextSync();toast('✓ Synchronisé','success');}
+function startAutoSync(){if(!S.wurl){const b=$('sync-banner');if(b)b.style.display='none';return;}setTimeout(syncFromWorker,2000);if(_syncInterval)clearInterval(_syncInterval);_syncInterval=setInterval(syncFromWorker,60000);}
+async function forceSyncNow(){if(!S.wurl){toast('Worker non configuré','warn');return;}toast('Synchronisation...','info');await syncFromWorker();toast('✓ Synchronisé','success');}
 // ── SMTP DEBUG TEST ──
 function quickSetupResend(){
   const key=$('quick-resend-key')?.value.trim();
@@ -1489,16 +1394,8 @@ function init(){
     fab.addEventListener('mousedown',start);fab.addEventListener('touchstart',start,{passive:true});
   });
 })();
-// Rafraîchir au retour dans l'onglet, sans polling permanent quand tout est inactif.
-var _lastFocusSync=0;
-function lowCostFocusSync(){
-  if(!S.wurl||document.visibilityState==='hidden')return;
-  const now=Date.now();if(now-_lastFocusSync<5*60*1000)return;_lastFocusSync=now;
-  syncFromWorker().then(scheduleNextSync).catch(()=>{});
-}
-document.addEventListener('visibilitychange',lowCostFocusSync);
-window.addEventListener('focus',lowCostFocusSync);
 document.addEventListener('DOMContentLoaded',init);
 </script>
 </body>
 </html>
+
