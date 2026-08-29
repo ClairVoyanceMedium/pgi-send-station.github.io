@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#1a1c22">
 <meta name="color-scheme" content="dark">
 <style>html{background:#1a1c22!important;}</style>
-<title>PGI Send Station v40.5</title>
+<title>PGI Send Station v40.6</title>
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&family=Exo+2:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
@@ -398,7 +398,7 @@ html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;ov
       <button class="date-qbtn" id="ef-unsub" onclick="setEmailFilter('unsub',this)">Désabonnés</button>
       <span id="email-count-lbl" style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text2)"></span>
     </div>
-    <div style="overflow-x:auto"><table class="atbl"><thead><tr><th onclick="sortAnalytics('email')">Email</th><th>Campagne</th><th onclick="sortAnalytics('date')">Date</th><th>Statut</th><th>Lu</th><th>Clics</th><th>Désabonné</th></tr></thead><tbody id="analytics-body"><tr><td colspan="7"><div class="empty" style="padding:16px"><p>Aucun envoi</p></div></td></tr></tbody></table></div>
+    <div style="overflow-x:auto"><table class="atbl"><thead><tr><th onclick="sortAnalytics('email')">Email</th><th>Campagne</th><th onclick="sortAnalytics('date')">Date</th><th>Statut</th><th>Lectures détectées</th><th>Clics</th><th>Désabonné</th><th>Détail</th></tr></thead><tbody id="analytics-body"><tr><td colspan="8"><div class="empty" style="padding:16px"><p>Aucun envoi</p></div></td></tr></tbody></table></div>
     <div id="analytics-more" style="text-align:center;padding:8px;display:none"><button class="date-qbtn" onclick="loadMoreAnalytics()">Charger plus</button></div>
   </div>
   <div class="sec-box" style="margin-bottom:12px">
@@ -1072,7 +1072,18 @@ function selectCampTpl(id,tplId){const c=S.camps.find(x=>x.id===id);if(!c)return
 function prevCampTpl(id){const c=S.camps.find(x=>x.id===id);if(!c||!c.templateId)return;const tpl=S.tpls.find(t=>t.id==c.templateId);if(!tpl)return;const subj=$('prev-subj'),body=$('prev-body');if(subj)subj.textContent=applyVars(c.subject||tpl.subject||'(aucun objet)',EX);if(body)body.innerHTML=applyVars(tpl.html||tpl.body||'',EX);showModal('modal-prev');}
 function refreshQuotaBanner(){const banner=$('quota-global-banner');if(!banner)return;const running=S.camps.filter(c=>c.type!=='sms'&&c.status==='running');const paused=S.camps.filter(c=>c.type!=='sms'&&c.status==='paused');if(!running.length&&!paused.length){banner.classList.remove('show');return;}banner.classList.add('show');let lines=[];running.forEach(camp=>{const pending=camp.emailList.filter(e=>e.status==='pending').length;const total=camp.emailList.length;const sent=camp.sent||0;lines.push(`⚡ <strong style="color:var(--yel)">${esc(camp.name)}</strong> — <strong style="color:var(--grn)">${pending.toLocaleString()} emails restants</strong> sur ${total.toLocaleString()} au total`);});paused.forEach(camp=>{const pending=camp.emailList.filter(e=>e.status==='pending').length;const total=camp.emailList.length;lines.push(`⏸ <strong style="color:var(--text2)">${esc(camp.name)}</strong> — En pause · <strong style="color:var(--text2)">${pending.toLocaleString()} restants</strong> sur ${total.toLocaleString()}`);});banner.className='quota-banner show warn';banner.style.background='var(--bg3)';banner.style.border='1px solid rgba(255,230,0,.35)';banner.style.borderLeft='3px solid var(--yel)';banner.style.color='var(--yel)';banner.style.flexDirection='column';banner.style.gap='4px';banner.style.alignItems='flex-start';banner.innerHTML=lines.join('<br>');}
 // ── EMAIL LIST OPS ──
-function buildEListHTML(c){if(!c.emailList.length)return'<div style="padding:12px;text-align:center;color:var(--text3);font-size:10px">Aucune adresse — ajoutez ci-dessous</div>';const MAX=200;const shown=c.emailList.slice(0,MAX);let html=shown.map((e,i)=>`<div class="eli"><span class="eli-n">${i+1}</span><span class="eli-e">${e.email}</span><span class="eli-st ${e.status||'pending'}">${e.status==='sent'?'✓ ENV':e.status==='opened'?'👁 LU':e.status==='error'?'✕ ERR':'⏳'}</span><button class="eli-del" onclick="removeEmail(${c.id},${i})">×</button></div>`).join('');if(c.emailList.length>MAX)html+=`<div style="padding:8px;text-align:center;font-size:10px;color:var(--text3)">... et ${(c.emailList.length-MAX).toLocaleString()} de plus</div>`;return html;}
+function buildEListHTML(c){
+  if(!c.emailList.length)return'<div style="padding:12px;text-align:center;color:var(--text3);font-size:10px">Aucune adresse — ajoutez ci-dessous</div>';
+  const MAX=200;const shown=c.emailList.slice(0,MAX);
+  let html=shown.map((e,i)=>{
+    const oc=(e.openCount||_campOpenEvents(c,e.email,e).length||0);
+    const cc=(e.clickCount||_campClickEvents(c,e.email,e).length||0);
+    const activity=(oc||cc)?`<span style="font-family:var(--mono);font-size:8px;color:var(--text2);white-space:nowrap">${oc?'👁'+oc+'× ':''}${cc?'🔗'+cc+'×':''}</span>`:'';
+    return `<div class="eli"><span class="eli-n">${i+1}</span><span class="eli-e">${e.email}</span>${activity}<span class="eli-st ${e.status||'pending'}">${e.status==='sent'?'✓ ENV':e.status==='opened'?'👁 LU':e.status==='error'?'✕ ERR':e.status==='unsubscribed'?'🚫 STOP':'⏳'}</span><button class="eli-del" onclick="removeEmail(${c.id},${i})">×</button></div>`;
+  }).join('');
+  if(c.emailList.length>MAX)html+=`<div style="padding:8px;text-align:center;font-size:10px;color:var(--text3)">... et ${(c.emailList.length-MAX).toLocaleString()} de plus</div>`;
+  return html;
+}
 function refreshEList(c){const b=$('elsc-'+c.id),ct=$('elcnt-'+c.id);if(b)b.innerHTML=buildEListHTML(c);if(ct)ct.textContent=c.emailList.length>0?c.emailList.length.toLocaleString()+' adresse(s)':'Aucune adresse';const as=$('as-'+c.id);if(as)as.innerHTML=buildAS(c);}
 function addBulkToList(id){const c=S.camps.find(x=>x.id===id);if(!c)return;const ta=$('bulk-ta-'+id);if(!ta||!ta.value.trim()){toast('Zone de collage vide','warn');return;}const isSMS=c.type==='sms';const items=ta.value.split(/[\n,;\t]+/).map(x=>x.trim()).filter(x=>x.length>2);const existingSet=new Set(c.emailList.map(x=>x.email));const toAdd=[];let dupes=0,invalid=0;items.forEach(item=>{if(isSMS){const clean=cleanPhone(item);if(!clean.match(/^(\+|00)?[0-9]{8,15}$/)){invalid++;return;}if(existingSet.has(clean)){dupes++;return;}existingSet.add(clean);toAdd.push({email:clean,status:'pending'});}else{const email=item.replace(/^[^a-zA-Z0-9.]+|[^a-zA-Z0-9]+$/g,'');if(!isEmail(email)){invalid++;return;}if(existingSet.has(email)){dupes++;return;}existingSet.add(email);toAdd.push({email:email,status:'pending'});}});ta.value='';const cntEl=$('bulk-cnt-'+id);if(cntEl)cntEl.textContent='';if(!toAdd.length){toast('Aucun élément valide'+(dupes?' · '+dupes+' doublons':''),'warn');return;}toast('Import de '+toAdd.length.toLocaleString()+'...','info');const CHUNK=5000;let idx=0;function insertChunk(){var end=Math.min(idx+CHUNK,toAdd.length);for(var i=idx;i<end;i++)c.emailList.push(toAdd[i]);idx=end;if(idx<toAdd.length)setTimeout(insertChunk,0);else{saveCamps();refreshEList(c);toast('✓ '+toAdd.length.toLocaleString()+' ajouté(s)'+(dupes?' · '+dupes+' doublons':'')+(invalid?' · '+invalid+' invalides':''),'success');}}insertChunk();}
 function clearBulk(id){const ta=$('bulk-ta-'+id);if(ta)ta.value='';const c=$('bulk-cnt-'+id);if(c)c.textContent='';}
@@ -1087,14 +1098,23 @@ function importEFile(file,id){if(!file)return;const r=new FileReader();r.onload=
 function importExcelToEList(file,campId){if(!file||!window.XLSX){toast('SheetJS non chargé','warn');return;}const c=S.camps.find(x=>x.id===campId);if(!c)return;const reader=new FileReader();reader.onload=e=>{try{const wb=XLSX.read(e.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});let added=0;rows.flat().forEach(cell=>{const val=String(cell).trim();if(isEmail(val)&&!c.emailList.find(x=>x.email===val)){c.emailList.push({email:val,status:'pending'});added++;}});saveCamps();refreshEList(c);toast(added+' emails depuis Excel','success');}catch(err){toast('Erreur Excel : '+err.message,'error');}};reader.readAsBinaryString(file);}
 // ── WORKER SYNC MERGE ──
 function mergeWorkerCampaignTracking(wc,local){let changed=false;
-// Ouvertures
-if(wc.opens&&Array.isArray(wc.opens)){if(!local.trackingOpens)local.trackingOpens=[];wc.opens.forEach(o=>{if(!local.trackingOpens.find(x=>x.email===o.email)){local.trackingOpens.push(o);changed=true;}});}
-// Clics (le worker peut retourner clicks objet, clickedList ou clicksList)
+// Ouvertures : conserver CHAQUE événement (email + horodatage), pas seulement le premier.
+if(wc.opens&&Array.isArray(wc.opens)){
+  if(!local.trackingOpens)local.trackingOpens=[];
+  wc.opens.forEach(o=>{
+    const ex=local.trackingOpens.find(x=>x.email===o.email&&x.at===o.at);
+    if(!ex){local.trackingOpens.push(o);changed=true;}
+  });
+}
+// Clics : conserver chaque clic exact (email + URL + horodatage).
 if(wc.clicks&&typeof wc.clicks==='object'&&!Array.isArray(wc.clicks)){local.trackingClicks=wc.clicks;changed=true;}
 if(wc.clickedList&&Array.isArray(wc.clickedList)){local.clickedList=wc.clickedList;changed=true;}
 if(wc.clicksList&&Array.isArray(wc.clicksList)){
   if(!local.trackingClicksList)local.trackingClicksList=[];
-  wc.clicksList.forEach(cl=>{const ex=local.trackingClicksList.find(x=>x.email===cl.email&&x.url===cl.url&&x.at===cl.at);if(!ex){local.trackingClicksList.push(cl);changed=true;}});
+  wc.clicksList.forEach(cl=>{
+    const ex=local.trackingClicksList.find(x=>x.email===cl.email&&x.url===cl.url&&x.at===cl.at);
+    if(!ex){local.trackingClicksList.push(cl);changed=true;}
+  });
 }
 return changed;}
 // ── DASHBOARD ──
@@ -1113,46 +1133,149 @@ function setSMSFilter(f,btn){_sfMode=f;document.querySelectorAll('[id^="sf-"]').
 function sortAnalytics(f){if(_analyticsSort.f===f)_analyticsSort.asc=!_analyticsSort.asc;else{_analyticsSort.f=f;_analyticsSort.asc=false;}_analyticsPage=0;renderAnalytics();}
 function loadMoreAnalytics(){_analyticsPage++;renderAnalytics(true);}
 function loadMoreSMS(){_smsPage++;renderSMSAnalytics(true);}
+function _uniqOpenEvents(arr){
+  const seen=new Set(),out=[];
+  (arr||[]).forEach(v=>{
+    const at=typeof v==='string'?v:v?.at;
+    if(!at||seen.has(at))return;
+    seen.add(at);out.push(at);
+  });
+  return out.sort((a,b)=>new Date(a)-new Date(b));
+}
+function _uniqClickEvents(arr){
+  const seen=new Set(),out=[];
+  (arr||[]).forEach(v=>{
+    if(!v)return;
+    const at=v.at||v.date||null,url=v.url||'';
+    const k=url+'|'+at;
+    if(!at||seen.has(k))return;
+    seen.add(k);out.push({url,at});
+  });
+  return out.sort((a,b)=>new Date(a.at)-new Date(b.at));
+}
+function _campOpenEvents(c,email,e){
+  const a=[];
+  if(e?.openEvents)a.push(...e.openEvents);
+  if(e?.openedAt)a.push(e.openedAt);
+  (c?.trackingOpens||[]).forEach(o=>{if(o&&o.email===email)a.push(o.at||o);});
+  return _uniqOpenEvents(a);
+}
+function _campClickEvents(c,email,e){
+  const a=[];
+  if(e?.clicks)a.push(...e.clicks);
+  (c?.trackingClicksList||[]).forEach(o=>{if(o&&o.email===email)a.push(o);});
+  if(Array.isArray(c?.trackingClicks))c.trackingClicks.forEach(o=>{if(o&&o.email===email)a.push(o);});
+  return _uniqClickEvents(a);
+}
+function _fmtTrackingTime(s){
+  if(!s)return '—';
+  try{return new Date(s).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+  catch(_){return fDt(s);}
+}
+function showEmailTrackingDetail(log){
+  if(!log)return;
+  const opens=_uniqOpenEvents(log.openEvents||[]);
+  const clicks=_uniqClickEvents(log.clicks||[]);
+  const old=document.getElementById('pgi-tracking-detail-overlay');if(old)old.remove();
+  const ov=document.createElement('div');
+  ov.id='pgi-tracking-detail-overlay';ov.className='overlay';ov.style.cssText='z-index:100000;display:flex;align-items:center;justify-content:center;padding:16px;';
+  const openRows=opens.length?opens.map((at,i)=>`<div style="padding:6px 0;border-bottom:1px solid var(--b1);font-family:var(--mono);font-size:10px"><strong style="color:var(--purl)">#${i+1}</strong> ${esc(_fmtTrackingTime(at))}</div>`).join(''):'<div style="color:var(--text3);font-size:11px">Aucune ouverture détectée.</div>';
+  const clickRows=clicks.length?clicks.map((cl,i)=>`<div style="padding:6px 0;border-bottom:1px solid var(--b1);font-size:10px"><div><strong style="color:var(--cyan)">#${i+1}</strong> <span style="font-family:var(--mono)">${esc(_fmtTrackingTime(cl.at))}</span></div><div style="color:var(--text2);word-break:break-all;margin-top:2px">${esc(cl.url||'Lien')}</div></div>`).join(''):'<div style="color:var(--text3);font-size:11px">Aucun clic détecté.</div>';
+  ov.innerHTML=`<div class="modal" style="max-width:560px;width:96%;max-height:82%;overflow:auto" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+      <div><div style="font-size:12px;font-weight:800;color:var(--purl)">DÉTAIL TRACKING</div><div style="font-family:var(--mono);font-size:10px;color:var(--text2);margin-top:3px">${esc(log.email||'?')}</div><div style="font-size:9px;color:var(--text3)">${esc(log.campaign||'')}</div></div>
+      <button type="button" id="pgi-tracking-detail-close" class="btn-s" style="padding:6px 10px">Fermer</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div style="background:var(--bg3);border:1px solid var(--b1);border-radius:8px;padding:10px"><div style="font-size:8px;color:var(--text3);text-transform:uppercase">Lectures détectées</div><div style="font-family:var(--mono);font-size:24px;color:var(--purl);font-weight:700">${opens.length}</div></div>
+      <div style="background:var(--bg3);border:1px solid var(--b1);border-radius:8px;padding:10px"><div style="font-size:8px;color:var(--text3);text-transform:uppercase">Clics détectés</div><div style="font-family:var(--mono);font-size:24px;color:var(--cyan);font-weight:700">${clicks.length}</div></div>
+    </div>
+    <div style="font-size:10px;font-weight:800;color:var(--purl);margin:10px 0 5px">HISTORIQUE DES LECTURES</div>${openRows}
+    <div style="font-size:10px;font-weight:800;color:var(--cyan);margin:14px 0 5px">HISTORIQUE DES CLICS</div>${clickRows}
+    <div style="font-size:9px;color:var(--text3);line-height:1.5;margin-top:12px">Une “lecture” correspond à un chargement du pixel de suivi détecté. Certains services de messagerie peuvent précharger ou mettre en cache les images ; les clics sont donc un signal plus fiable.</div>
+  </div>`;
+  ov.addEventListener('click',()=>ov.remove());
+  document.body.appendChild(ov);
+  const close=ov.querySelector('#pgi-tracking-detail-close');if(close)close.addEventListener('click',()=>ov.remove());
+}
 function getAllEmailLogs(){
-  // Source 1 : S.analytics (logs persistants venant du worker)
-  const analyticsLogs=(S.analytics||[]).filter(x=>x.type==='email'&&x.status!=='pending_send');
+  // Source 1 : analytics persistants.
+  const analyticsLogs=(S.analytics||[]).filter(x=>x.type==='email'&&x.status!=='pending_send').map(a=>({
+    ...a,
+    openEvents:_uniqOpenEvents(a.openEvents||(a.openedAt?[a.openedAt]:[])),
+    clicks:_uniqClickEvents(a.clicks||[])
+  }));
 
-  // Source 2 : emailList des campagnes — fusion (pas déduplication simple)
-  // On met à jour les entrées analytics existantes avec les données fraîches de emailList
-  // (opened, clicks, unsubscribed) qui sont mis à jour par syncFromWorker
+  // Source 2 : état détaillé des campagnes, source la plus fraîche pour multi-ouvertures/clics.
   const merged=[...analyticsLogs];
   const keyIndex={};
-  merged.forEach((a,i)=>{ keyIndex[(a.email||'')+'|'+(a.campaign||'')]=i; });
+  merged.forEach((a,i)=>{keyIndex[(a.email||'')+'|'+(a.campaign||'')]=i;});
 
   (S.camps||[]).forEach(c=>{
     if(c.type==='sms'||!c.emailList)return;
     c.emailList.forEach(e=>{
       if(e.status!=='sent'&&e.status!=='opened'&&e.status!=='error'&&e.status!=='unsubscribed')return;
       const key=(e.email||'')+'|'+(c.name||'');
+      const openEvents=_campOpenEvents(c,e.email,e);
+      const clickEvents=_campClickEvents(c,e.email,e);
       if(key in keyIndex){
-        // Entrée existante : mettre à jour avec les données fraîches de emailList
         const existing=merged[keyIndex[key]];
-        if(e.status==='opened'||!!e.opened){existing.opened=true;if(e.openedAt)existing.openedAt=e.openedAt;}
+        if(e.status==='opened'||!!e.opened||openEvents.length){
+          existing.opened=true;
+          existing.openEvents=_uniqOpenEvents([...(existing.openEvents||[]),...openEvents]);
+          existing.openCount=existing.openEvents.length;
+          existing.openedAt=existing.openedAt||existing.openEvents[0]||e.openedAt||null;
+          existing.lastOpenedAt=existing.openEvents[existing.openEvents.length-1]||e.lastOpenedAt||e.openedAt||null;
+        }
         if(!!e.unsubscribed)existing.unsubscribed=true;
-        if(e.clicks&&e.clicks.length>0)existing.clicks=e.clicks;
+        existing.clicks=_uniqClickEvents([...(existing.clicks||[]),...clickEvents]);
+        existing.clickCount=existing.clicks.length;
+        existing.lastClickedAt=existing.clicks.length?existing.clicks[existing.clicks.length-1].at:(existing.lastClickedAt||null);
+        if(e.status==='error')existing.status='error';
       }else{
-        // Nouvelle entrée : ajouter depuis emailList
         keyIndex[key]=merged.length;
-        merged.push({type:'email',email:e.email,campaign:c.name,date:e.sentAt||c.launchedAt||c.created||new Date().toISOString(),status:e.status==='error'?'error':'sent',opened:e.status==='opened'||!!e.opened,openedAt:e.openedAt||null,unsubscribed:!!e.unsubscribed,clicks:e.clicks||[]});
+        merged.push({
+          type:'email',email:e.email,campaign:c.name,
+          date:e.sentAt||c.launchedAt||c.created||new Date().toISOString(),
+          status:e.status==='error'?'error':'sent',
+          opened:openEvents.length>0||e.status==='opened'||!!e.opened,
+          openedAt:openEvents[0]||e.openedAt||null,
+          lastOpenedAt:openEvents.length?openEvents[openEvents.length-1]:(e.lastOpenedAt||e.openedAt||null),
+          openCount:openEvents.length,
+          openEvents,
+          unsubscribed:!!e.unsubscribed,
+          clicks:clickEvents,
+          clickCount:clickEvents.length,
+          lastClickedAt:clickEvents.length?clickEvents[clickEvents.length-1].at:null
+        });
       }
     });
-    // recentlyChanged : même logique
+
     (c.recentlyChanged||[]).forEach(rc=>{
       if(rc.status!=='sent'&&rc.status!=='opened')return;
       const key=(rc.email||'')+'|'+(c.name||'');
-      if(key in keyIndex){
-        const existing=merged[keyIndex[key]];
-        if(rc.status==='opened'||!!rc.opened){existing.opened=true;if(rc.openedAt)existing.openedAt=rc.openedAt;}
-      }else{
-        keyIndex[key]=merged.length;
-        merged.push({type:'email',email:rc.email,campaign:c.name,date:rc.sentAt||rc.openedAt||new Date().toISOString(),status:'sent',opened:rc.status==='opened'||!!rc.opened,openedAt:rc.openedAt||null,unsubscribed:false,clicks:[]});
-      }
+      if(key in keyIndex)return;
+      const openEvents=_campOpenEvents(c,rc.email,rc);
+      keyIndex[key]=merged.length;
+      merged.push({
+        type:'email',email:rc.email,campaign:c.name,
+        date:rc.sentAt||rc.openedAt||new Date().toISOString(),status:'sent',
+        opened:openEvents.length>0||rc.status==='opened'||!!rc.opened,
+        openedAt:openEvents[0]||rc.openedAt||null,
+        lastOpenedAt:openEvents.length?openEvents[openEvents.length-1]:(rc.openedAt||null),
+        openCount:openEvents.length,openEvents,
+        unsubscribed:false,clicks:[],clickCount:0
+      });
     });
+  });
+
+  merged.forEach(x=>{
+    x.openEvents=_uniqOpenEvents(x.openEvents||(x.openedAt?[x.openedAt]:[]));
+    x.openCount=x.openEvents.length;
+    x.clicks=_uniqClickEvents(x.clicks||[]);
+    x.clickCount=x.clicks.length;
+    if(x.openEvents.length){x.opened=true;x.openedAt=x.openedAt||x.openEvents[0];x.lastOpenedAt=x.openEvents[x.openEvents.length-1];}
+    if(x.clicks.length)x.lastClickedAt=x.clicks[x.clicks.length-1].at;
   });
 
   return merged.sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -1196,11 +1319,49 @@ function renderAllCamps(){
   }).join('');
 }
 function renderPeriodStats(){const logs=getAllEmailLogs().filter(x=>inRange(x.date));const sentLogs=logs.filter(x=>x.status!=='error');const smsLogs=(S.analytics||[]).filter(x=>x.type==='sms'&&inRange(x.date));const sent=sentLogs.length,opened=sentLogs.filter(x=>x.opened).length;const clicks=sentLogs.reduce((s,x)=>s+((x.clicks||[]).length),0);const smsSent=smsLogs.length,unsub=sentLogs.filter(x=>x.unsubscribed).length;const ps=$('ps-sent');if(ps)ps.textContent=sent.toLocaleString();const po=$('ps-open');if(po)po.textContent=sent>0?Math.round(opened/sent*100)+'%':'0%';const pc=$('ps-clicks');if(pc)pc.textContent=clicks.toLocaleString();const pp=$('ps-sms');if(pp)pp.textContent=smsSent.toLocaleString();const pu=$('ps-unsub');if(pu)pu.textContent=unsub.toLocaleString();const eb=$('email-stats-bar');if(eb){const noRead=sent-opened;eb.innerHTML=`<span class="stat-mini sent">✓ ${sent} envoyés</span><span class="stat-mini open">👁 ${opened} ouverts</span><span class="stat-mini noread">⊘ ${noRead} non lus</span>${clicks?`<span class="stat-mini open">🔗 ${clicks} clics</span>`:''}`; }}
-function renderAnalytics(append=false){const tbody=$('analytics-body');if(!tbody)return;let logs=getAllEmailLogs();if(_df.mode!=='all')logs=logs.filter(x=>inRange(x.date));if(_efMode==='sent')logs=logs.filter(x=>!x.opened&&!x.unsubscribed&&x.status!=='error');else if(_efMode==='opened')logs=logs.filter(x=>x.opened);else if(_efMode==='noread')logs=logs.filter(x=>!x.opened&&!x.unsubscribed&&x.status!=='error');else if(_efMode==='error')logs=logs.filter(x=>x.status==='error');else if(_efMode==='unsub')logs=logs.filter(x=>x.unsubscribed);logs.sort((a,b)=>{const va=_analyticsSort.f==='email'?a.email:a.date;const vb=_analyticsSort.f==='email'?b.email:b.date;return _analyticsSort.asc?(va<vb?-1:1):(va>vb?-1:1);});const cnt=$('email-count-lbl');if(cnt)cnt.textContent=logs.length.toLocaleString()+' email(s)';const start=0,end=(_analyticsPage+1)*PAGE_SZ;const slice=logs.slice(start,end);const more=$('analytics-more');if(more)more.style.display=logs.length>end?'block':'none';if(!slice.length){tbody.innerHTML='<tr><td colspan="7"><div class="empty" style="padding:16px"><p>Aucun envoi sur cette période</p></div></td></tr>';return;}const rows=slice.map(x=>`<tr><td class="em">${esc(x.email||'?')}</td><td style="font-size:10px;color:var(--text2)">${esc(x.campaign||'—')}</td><td style="font-family:var(--mono);font-size:9px;color:var(--text3)">${fDt(x.date)}</td><td><span class="tg ${x.status==='error'?'tg-err':'tg-sent'}">${x.status==='error'?'✕ ERR':'✓ ENV'}</span></td><td>${x.status==='error'?`<span class="tg tg-err">—</span>`:x.opened?`<span class="tg tg-open">👁 LU</span><span style="font-size:8px;color:var(--text3);margin-left:3px">${fDt(x.openedAt)}</span>`:`<span class="tg tg-unrd">⊘ NON LU</span>`}</td><td style="font-family:var(--mono);font-size:10px;color:${(x.clicks||[]).length?'var(--cyan)':'var(--text3)'}">${(x.clicks||[]).length}</td><td>${x.unsubscribed?'<span class="tg tg-unsb">🚫</span>':''}</td></tr>`).join('');if(append)tbody.innerHTML+=rows;else tbody.innerHTML=rows;}
+function renderAnalytics(append=false){
+  const tbody=$('analytics-body');if(!tbody)return;
+  let logs=getAllEmailLogs();
+  if(_df.mode!=='all')logs=logs.filter(x=>inRange(x.date));
+  if(_efMode==='sent')logs=logs.filter(x=>!x.opened&&!x.unsubscribed&&x.status!=='error');
+  else if(_efMode==='opened')logs=logs.filter(x=>x.opened);
+  else if(_efMode==='noread')logs=logs.filter(x=>!x.opened&&!x.unsubscribed&&x.status!=='error');
+  else if(_efMode==='error')logs=logs.filter(x=>x.status==='error');
+  else if(_efMode==='unsub')logs=logs.filter(x=>x.unsubscribed);
+  logs.sort((a,b)=>{const va=_analyticsSort.f==='email'?a.email:a.date;const vb=_analyticsSort.f==='email'?b.email:b.date;return _analyticsSort.asc?(va<vb?-1:1):(va>vb?-1:1);});
+  const cnt=$('email-count-lbl');if(cnt)cnt.textContent=logs.length.toLocaleString()+' email(s)';
+  const end=(_analyticsPage+1)*PAGE_SZ,slice=logs.slice(0,end);
+  const more=$('analytics-more');if(more)more.style.display=logs.length>end?'block':'none';
+  if(!slice.length){tbody.innerHTML='<tr><td colspan="8"><div class="empty" style="padding:16px"><p>Aucun envoi sur cette période</p></div></td></tr>';return;}
+
+  const rows=slice.map((x,i)=>{
+    const oc=(x.openEvents||[]).length;
+    const cc=(x.clicks||[]).length;
+    const lastOpen=oc?x.openEvents[oc-1]:x.openedAt;
+    const lastClick=cc?x.clicks[cc-1].at:null;
+    return `<tr>
+      <td class="em">${esc(x.email||'?')}</td>
+      <td style="font-size:10px;color:var(--text2)">${esc(x.campaign||'—')}</td>
+      <td style="font-family:var(--mono);font-size:9px;color:var(--text3)">${fDt(x.date)}</td>
+      <td><span class="tg ${x.status==='error'?'tg-err':'tg-sent'}">${x.status==='error'?'✕ ERR':'✓ ENV'}</span></td>
+      <td>${x.status==='error'?'<span class="tg tg-err">—</span>':oc?`<span class="tg tg-open">👁 ${oc}×</span><div style="font-size:8px;color:var(--text3);margin-top:2px">dernier ${fDt(lastOpen)}</div>`:'<span class="tg tg-unrd">⊘ NON LU</span>'}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:${cc?'var(--cyan)':'var(--text3)'}">${cc?`🔗 ${cc}×<div style="font-size:8px;color:var(--text3);margin-top:2px">dernier ${fDt(lastClick)}</div>`:'0'}</td>
+      <td>${x.unsubscribed?'<span class="tg tg-unsb">🚫</span>':''}</td>
+      <td><button type="button" class="btn-sm" data-track-detail="${i}" style="padding:4px 7px;font-size:8px">Voir</button></td>
+    </tr>`;
+  }).join('');
+  tbody.innerHTML=rows;
+  tbody.querySelectorAll('[data-track-detail]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const i=parseInt(btn.getAttribute('data-track-detail'),10);
+      if(Number.isFinite(i)&&slice[i])showEmailTrackingDetail(slice[i]);
+    });
+  });
+}
 function renderSMSAnalytics(append=false){const tbody=$('sms-analytics-body');if(!tbody)return;let logs=(S.analytics||[]).filter(x=>x.type==='sms');if(_df.mode!=='all')logs=logs.filter(x=>inRange(x.date));if(_sfMode==='sent')logs=logs.filter(x=>!x.read&&!x.stop&&x.status!=='error');else if(_sfMode==='read')logs=logs.filter(x=>x.read);else if(_sfMode==='noread')logs=logs.filter(x=>!x.read&&!x.stop);else if(_sfMode==='stop')logs=logs.filter(x=>x.stop);else if(_sfMode==='error')logs=logs.filter(x=>x.status==='error');const cnt=$('sms-count-lbl');if(cnt)cnt.textContent=logs.length.toLocaleString()+' SMS';const end=(_smsPage+1)*PAGE_SZ,slice=logs.slice(0,end);const more=$('sms-analytics-more');if(more)more.style.display=logs.length>end?'block':'none';if(!slice.length){tbody.innerHTML='<tr><td colspan="6"><div class="empty" style="padding:16px"><p>Aucun SMS</p></div></td></tr>';return;}const rows=slice.map(x=>`<tr><td class="mono">${esc(x.phone||x.email||'?')}</td><td style="font-size:10px;color:var(--text2)">${esc(x.campaign||'—')}</td><td style="font-family:var(--mono);font-size:9px;color:var(--text3)">${fDt(x.date)}</td><td><span class="stat-mini sms-ok">✓ Envoyé</span></td><td>${x.read?'<span class="stat-mini sms-read">👁 Lu</span>':''}</td><td>${x.stop?'<span class="stat-mini sms-stop">🚫 STOP</span>':''}</td></tr>`).join('');if(append)tbody.innerHTML+=rows;else tbody.innerHTML=rows;}
 function renderUnsubByCamp(){const el=$('unsub-per-camp-list'),badge=$('badge-unsub-total');if(!el)return;const bycamp={};(S.analytics||[]).forEach(a=>{if(a.unsubscribed&&a.campaign){if(!bycamp[a.campaign])bycamp[a.campaign]=[];bycamp[a.campaign].push(a.email);}});S.camps.forEach(c=>{(c.emailList||[]).forEach(e=>{if(e.unsubscribed){if(!bycamp[c.name])bycamp[c.name]=[];if(!bycamp[c.name].includes(e.email))bycamp[c.name].push(e.email);}});});const total=Object.values(bycamp).reduce((s,arr)=>s+arr.length,0);if(badge)badge.textContent=total;if(!total){el.innerHTML='<div class="empty" style="padding:20px"><p>Aucun désabonné</p></div>';return;}el.innerHTML=Object.entries(bycamp).map(([camp,emails])=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--b1);cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='flex'?'none':'flex'"><span style="flex:1;font-weight:700;font-size:12px;">${esc(camp)}</span><span style="background:rgba(255,34,68,.1);color:var(--red);font-size:9px;padding:2px 7px;border-radius:10px;font-weight:700">${emails.length}</span></div><div style="display:none;flex-wrap:wrap;gap:5px;padding:6px 0;">${emails.map(e=>`<span style="font-size:9px;font-family:var(--mono);color:var(--purl);background:var(--pur-bg);border:1px solid var(--pur-b);padding:2px 7px;border-radius:4px;cursor:pointer;" title="Cliquer pour copier" onclick="navigator.clipboard.writeText('${esc(e)}').then(()=>toast('Email copié','success'))">${esc(e)}</span>`).join('')}</div>`).join('');}
 function renderQuotaBox(){const box=$('dash-quota-box');if(!box)return;const running=S.camps.filter(c=>c.status==='running'&&c.type!=='sms');if(!running.length){box.style.display='none';return;}box.style.display='block';const q=getGlobalQuota();const text=$('dash-quota-text'),bar=$('dash-quota-bar'),detail=$('dash-quota-detail');const pct=Math.min(100,q.percent);if(text)text.textContent=`${running.length} campagne(s) active(s) — ${q.committed.toLocaleString()} engagés / ${q.limit.toLocaleString()} max/j (${pct}%)`;if(bar){bar.style.width=pct+'%';bar.style.background=pct>=100?'var(--red)':pct>=80?'var(--yel)':'var(--grn)';}if(detail)detail.textContent=`Utilisés aujourd'hui : ${q.used.toLocaleString()} · Disponibles : ${q.available.toLocaleString()} · Provider : ${(QUOTAS[S.prov]||QUOTAS.custom).lbl}`;}
-function updateStats(){const all=getAllEmailLogs();const sentLogs=all.filter(x=>x.status!=='error');const campsSent=S.camps.filter(c=>c.type!=='sms').reduce((s,c)=>s+(c.sent||0),0);const campsOpened=S.camps.filter(c=>c.type!=='sms').reduce((s,c)=>s+(c.opened||0),0);const campsUnsub=S.camps.filter(c=>c.type!=='sms').reduce((s,c)=>s+(c.unsubscribed||0),0);const campsClics=S.camps.filter(c=>c.type!=='sms').reduce((s,c)=>s+(c.clicks||0),0);const totalSent=Math.max(sentLogs.length,campsSent);const totalOpened=Math.max(sentLogs.filter(x=>x.opened).length,campsOpened);const totalUnsub=Math.max(all.filter(x=>x.unsubscribed).length,campsUnsub);const totalClics=Math.max(sentLogs.reduce((s,x)=>s+((x.clicks||[]).length),0),campsClics);const totalCliquésU=sentLogs.filter(x=>(x.clicks||[]).length>0).length;const smsList=(S.analytics||[]).filter(x=>x.type==='sms');const campsSMS=S.camps.filter(c=>c.type==='sms').reduce((s,c)=>s+(c.sent||0),0);const totalSMS=Math.max(smsList.length,campsSMS);const totalSMSRead=smsList.filter(x=>x.read).length;const openRate=totalSent>0?Math.round(totalOpened/totalSent*100):0;const noRead=Math.max(0,totalSent-totalOpened);const kves=$('kv-es');if(kves)kves.textContent=totalSent.toLocaleString();const todayStr=new Date().toDateString();const sentToday=S.camps.filter(c=>c.type!=='sms').reduce((s,camp)=>s+((camp.dailyDate===todayStr)?(camp.dailySent||0):0),0);const kses=$('ks-es');if(kses)kses.textContent=sentToday.toLocaleString()+' aujourd\'hui';const kvop=$('kv-op');if(kvop)kvop.textContent=openRate+'%';const kvno=$('kv-no');if(kvno)kvno.textContent=noRead.toLocaleString();const kvcl=$('kv-cl');if(kvcl)kvcl.textContent=totalClics.toLocaleString();const kvun=$('kv-un');if(kvun)kvun.textContent=totalUnsub.toLocaleString();const kvsm=$('kv-sm');if(kvsm)kvsm.textContent=totalSMS.toLocaleString();const ksop=$('ks-op');if(ksop)ksop.textContent=totalOpened.toLocaleString()+' ouverts';const kscl=$('ks-cl');if(kscl)kscl.textContent=totalCliquésU+' email'+(totalCliquésU>1?'s':'')+' cliqué'+(totalCliquésU>1?'s':'');const kssm=$('ks-sm');if(kssm)kssm.textContent=totalSMSRead.toLocaleString()+' lus';const sge=$('sg-e');if(sge)sge.textContent=totalSent.toLocaleString();const sgo=$('sg-o');if(sgo)sgo.textContent=totalOpened.toLocaleString();const sgs=$('sg-s');if(sgs)sgs.textContent=totalSMS.toLocaleString();const sgk=$('sg-k');if(sgk)sgk.textContent=S.camps.length;const sgc=$('sg-c');if(sgc)sgc.textContent=S.contacts.length.toLocaleString();const sgt=$('sg-t');if(sgt)sgt.textContent=S.tpls.length;}
+function updateStats(){const all=getAllEmailLogs();const sentLogs=all.filter(x=>x.status!=='error');const campsSent=S.camps.filter(c=>c.type!=='sms').reduce((s,c)=>s+(c.sent||0),0);const campsOpened=S.camps.filter(c=>c.type!=='sms').reduce((s,c)=>s+(c.opened||0),0);const campsUnsub=S.camps.filter(c=>c.type!=='sms').reduce((s,c)=>s+(c.unsubscribed||0),0);const campsClics=S.camps.filter(c=>c.type!=='sms').reduce((s,c)=>s+(c.clicks||0),0);const totalSent=Math.max(sentLogs.length,campsSent);const totalOpened=Math.max(sentLogs.filter(x=>x.opened).length,campsOpened);const totalUnsub=Math.max(all.filter(x=>x.unsubscribed).length,campsUnsub);const totalClics=Math.max(sentLogs.reduce((s,x)=>s+((x.clicks||[]).length),0),campsClics);const totalCliquésU=sentLogs.filter(x=>(x.clicks||[]).length>0).length;const smsList=(S.analytics||[]).filter(x=>x.type==='sms');const campsSMS=S.camps.filter(c=>c.type==='sms').reduce((s,c)=>s+(c.sent||0),0);const totalSMS=Math.max(smsList.length,campsSMS);const totalSMSRead=smsList.filter(x=>x.read).length;const openRate=totalSent>0?Math.round(totalOpened/totalSent*100):0;const noRead=Math.max(0,totalSent-totalOpened);const kves=$('kv-es');if(kves)kves.textContent=totalSent.toLocaleString();const todayStr=new Date().toDateString();const sentToday=S.camps.filter(c=>c.type!=='sms').reduce((s,camp)=>s+((camp.dailyDate===todayStr)?(camp.dailySent||0):0),0);const kses=$('ks-es');if(kses)kses.textContent=sentToday.toLocaleString()+' aujourd\'hui';const kvop=$('kv-op');if(kvop)kvop.textContent=openRate+'%';const kvno=$('kv-no');if(kvno)kvno.textContent=noRead.toLocaleString();const kvcl=$('kv-cl');if(kvcl)kvcl.textContent=totalClics.toLocaleString();const kvun=$('kv-un');if(kvun)kvun.textContent=totalUnsub.toLocaleString();const kvsm=$('kv-sm');if(kvsm)kvsm.textContent=totalSMS.toLocaleString();const totalOpenEvents=sentLogs.reduce((s,x)=>s+((x.openEvents||[]).length),0);const ksop=$('ks-op');if(ksop)ksop.textContent=totalOpened.toLocaleString()+' uniques · '+totalOpenEvents.toLocaleString()+' lectures détectées';const kscl=$('ks-cl');if(kscl)kscl.textContent=totalCliquésU+' email'+(totalCliquésU>1?'s':'')+' cliqué'+(totalCliquésU>1?'s':'');const kssm=$('ks-sm');if(kssm)kssm.textContent=totalSMSRead.toLocaleString()+' lus';const sge=$('sg-e');if(sge)sge.textContent=totalSent.toLocaleString();const sgo=$('sg-o');if(sgo)sgo.textContent=totalOpened.toLocaleString();const sgs=$('sg-s');if(sgs)sgs.textContent=totalSMS.toLocaleString();const sgk=$('sg-k');if(sgk)sgk.textContent=S.camps.length;const sgc=$('sg-c');if(sgc)sgc.textContent=S.contacts.length.toLocaleString();const sgt=$('sg-t');if(sgt)sgt.textContent=S.tpls.length;}
 async function resetDashboard(){if(!await pgiConfirm('Réinitialiser les stats locales seulement ?','🗑'))return;S.analytics=[];lsS(SK.analytics,S.analytics);S.camps.forEach(c=>{c.sent=0;c.opened=0;c.errors=0;c.clicks=0;c.unsubscribed=0;c.dailySent=0;c.recentlyChanged=[];});persistCamps();renderDashboard();updateStats();toast('Stats locales réinitialisées','info');}
 async function resetDashboardAndWorker(){if(!await pgiConfirm('Réinitialiser les stats locales ET Worker ?\nCette action est irréversible !','⚠️'))return;S.analytics=[];lsS(SK.analytics,S.analytics);S.camps.forEach(c=>{c.sent=0;c.opened=0;c.errors=0;c.clicks=0;c.unsubscribed=0;c.dailySent=0;c.recentlyChanged=[];if(c.status==='running')c.status='paused';});persistCamps();renderDashboard();updateStats();if(S.wurl){try{await fetch(S.wurl+'/reset-stats',{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({confirm:true})});}catch(e){console.warn('Worker reset:',e.message);}}const rb=$('btn-resume-sync');if(rb)rb.style.display='inline-flex';toast('Tout réinitialisé','success');}
 async function resumeSyncAfterReset(){const rb=$('btn-resume-sync');if(rb)rb.style.display='none';S.camps.filter(c=>c.status==='paused').forEach(c=>c.status='running');persistCamps();startAutoSync();toast('Sync relancée','success');}
@@ -1357,9 +1518,24 @@ async function reconcileOrphanCampaigns(){
 async function syncFromWorker(){if(!S.wurl||_isSyncing)return;_isSyncing=true;
 try{
 const campRes=await fetch(S.wurl+'/sync/campaigns');
-if(campRes.ok){const data=await campRes.json();if(data.campaigns&&Array.isArray(data.campaigns)){var updated=0;data.campaigns.forEach(wc=>{var local=S.camps.find(c=>c.id==wc.id);if(!local||local.status==='draft')return;if(wc.sent>=(local.sent||0)){local.sent=wc.sent;updated++;}if(wc.opened>(local.opened||0)){local.opened=wc.opened;updated++;}if(wc.errors>(local.errors||0)){local.errors=wc.errors;updated++;}if(wc.unsubscribed!==undefined)local.unsubscribed=wc.unsubscribed;if(wc.clicks>(local.clicks||0)){local.clicks=wc.clicks;updated++;}if(mergeWorkerCampaignTracking(wc,local))updated++;if(wc.pending!==undefined){local.workerPending=wc.pending;updated++;}if(wc.dailySent!==undefined){local.dailySent=wc.dailySent;local.dailyDate=new Date().toDateString();updated++;}if(wc.contacts&&Array.isArray(wc.contacts)){if(!local.recentlyChanged)local.recentlyChanged=[];let contactsChanged=false;wc.contacts.forEach(wContact=>{if(wContact.status==='sent'||wContact.status==='opened'){const ex=local.recentlyChanged.find(r=>r.email===wContact.email);if(!ex)local.recentlyChanged.push(wContact);}const lC=local.emailList&&local.emailList.find(e=>e.email===wContact.email);if(lC&&wContact.status&&wContact.status!==lC.status){lC.status=wContact.status;if(wContact.status==='opened'&&wContact.openedAt)lC.openedAt=wContact.openedAt;if(wContact.clicks&&wContact.clicks.length)lC.clicks=wContact.clicks;contactsChanged=true;}
+if(campRes.ok){const data=await campRes.json();if(data.campaigns&&Array.isArray(data.campaigns)){var updated=0;data.campaigns.forEach(wc=>{var local=S.camps.find(c=>c.id==wc.id);if(!local||local.status==='draft')return;if(wc.sent>=(local.sent||0)){local.sent=wc.sent;updated++;}if(wc.opened>(local.opened||0)){local.opened=wc.opened;updated++;}if(wc.errors>(local.errors||0)){local.errors=wc.errors;updated++;}if(wc.unsubscribed!==undefined)local.unsubscribed=wc.unsubscribed;if(wc.clicks>(local.clicks||0)){local.clicks=wc.clicks;updated++;}if(mergeWorkerCampaignTracking(wc,local))updated++;if(wc.pending!==undefined){local.workerPending=wc.pending;updated++;}if(wc.dailySent!==undefined){local.dailySent=wc.dailySent;local.dailyDate=new Date().toDateString();updated++;}if(wc.contacts&&Array.isArray(wc.contacts)){if(!local.recentlyChanged)local.recentlyChanged=[];let contactsChanged=false;wc.contacts.forEach(wContact=>{if(wContact.status==='sent'||wContact.status==='opened'){const ex=local.recentlyChanged.find(r=>r.email===wContact.email);if(!ex)local.recentlyChanged.push(wContact);}const lC=local.emailList&&local.emailList.find(e=>e.email===wContact.email);if(lC){
+if(wContact.status&&wContact.status!==lC.status){lC.status=wContact.status;contactsChanged=true;}
+if(wContact.openedAt&&wContact.openedAt!==lC.openedAt){lC.openedAt=wContact.openedAt;contactsChanged=true;}
+if(wContact.lastOpenedAt&&wContact.lastOpenedAt!==lC.lastOpenedAt){lC.lastOpenedAt=wContact.lastOpenedAt;contactsChanged=true;}
+if(wContact.openCount!==undefined&&wContact.openCount!==lC.openCount){lC.openCount=wContact.openCount;contactsChanged=true;}
+if(Array.isArray(wContact.openEvents)){const mergedOpen=_uniqOpenEvents([...(lC.openEvents||[]),...wContact.openEvents]);if(mergedOpen.length!==(lC.openEvents||[]).length){lC.openEvents=mergedOpen;contactsChanged=true;}}
+if(wContact.clickCount!==undefined&&wContact.clickCount!==lC.clickCount){lC.clickCount=wContact.clickCount;contactsChanged=true;}
+if(Array.isArray(wContact.clicks)){const mergedClicks=_uniqClickEvents([...(lC.clicks||[]),...wContact.clicks]);if(mergedClicks.length!==(lC.clicks||[]).length){lC.clicks=mergedClicks;contactsChanged=true;}}
+if(wContact.unsubscribed!==undefined&&wContact.unsubscribed!==lC.unsubscribed){lC.unsubscribed=wContact.unsubscribed;contactsChanged=true;}
+}
 // Synchroniser S.analytics pour que getAllEmailLogs soit cohérent
-if(lC){const aEntry=S.analytics.find(a=>a.type==='email'&&a.email===lC.email&&a.campaign===local.name);if(aEntry){if((wContact.status==='opened'||lC.status==='opened')&&!aEntry.opened){aEntry.opened=true;aEntry.openedAt=wContact.openedAt||lC.openedAt||new Date().toISOString();contactsChanged=true;}if(wContact.unsubscribed&&!aEntry.unsubscribed){aEntry.unsubscribed=true;contactsChanged=true;}if(wContact.clicks&&wContact.clicks.length){aEntry.clicks=wContact.clicks;contactsChanged=true;}}}
+if(lC){const aEntry=S.analytics.find(a=>a.type==='email'&&a.email===lC.email&&a.campaign===local.name);if(aEntry){
+const opens=_uniqOpenEvents([...(aEntry.openEvents||[]),...(lC.openEvents||[]),...(wContact.openEvents||[]),...(wContact.openedAt?[wContact.openedAt]:[])]);
+if(opens.length){aEntry.opened=true;aEntry.openEvents=opens;aEntry.openCount=opens.length;aEntry.openedAt=aEntry.openedAt||opens[0];aEntry.lastOpenedAt=opens[opens.length-1];contactsChanged=true;}
+if(wContact.unsubscribed&&!aEntry.unsubscribed){aEntry.unsubscribed=true;contactsChanged=true;}
+const clicks=_uniqClickEvents([...(aEntry.clicks||[]),...(lC.clicks||[]),...(wContact.clicks||[])]);
+if(clicks.length){aEntry.clicks=clicks;aEntry.clickCount=clicks.length;aEntry.lastClickedAt=clicks[clicks.length-1].at;contactsChanged=true;}
+}}
 });if(contactsChanged){updated++;lsS(SK.analytics,S.analytics);}}const prevStatus=local.status;if(wc.status&&wc.status!==local.status){local.status=wc.status;updated++;if(wc.status==='oauth_error')toast('⚠ OAuth error — campagne «'+(local.name||'')+'»','error');if(wc.status==='completed')toast('✅ Campagne «'+(local.name||'')+'» terminée !','success');}if(local.status!==prevStatus){if(S.activeCamp===local.id)setTimeout(()=>openCamp(local.id,local.type),50);}});if(updated>0){persistCamps();renderCampList('email');renderCampList('sms');renderDashboard();updateStats();refreshQuotaBanner();_refreshOpenCampMetrics();}}}
 // ÉCONOMIE : analytics complet au maximum toutes les 30 min, au lieu de chaque minute.
 const _nowSyncMs=Date.now();
