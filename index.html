@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#1a1c22">
 <meta name="color-scheme" content="dark">
 <style>html{background:#1a1c22!important;}</style>
-<title>PGI Send Station v40.6</title>
+<title>PGI Send Station v40.7</title>
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&family=Exo+2:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
@@ -814,7 +814,7 @@ function updateWorkerUI(){const chip=$('wchip'),lbl=$('wlbl'),dot=$('wdot'),st=$
 async function testWorker(){if(!S.wurl){toast('URL Worker manquante','warn');return;}toast('Test en cours...','info');try{const r=await fetch(S.wurl+'/ping');const d=await r.json();if(d.ok){const cronOk=d.cron&&d.cron.healthy===true;if(cronOk){$('wchip').className='wchip ok';if($('wdot'))$('wdot').classList.remove('p');if($('wlbl'))$('wlbl').textContent='Worker + Cron actifs';toast('Worker et Cron opérationnels','success');}else{$('wchip').className='wchip warn';if($('wdot'))$('wdot').classList.add('p');if($('wlbl'))$('wlbl').textContent='Worker actif · CRON ARRÊTÉ';const age=d.cron&&d.cron.ageMinutes!=null?' · dernier passage il y a '+d.cron.ageMinutes+' min':'';toast('⚠ Worker accessible mais Cron Trigger inactif'+age,'warn');}if(d.lastRun&&$('sw-last'))$('sw-last').textContent=fDt(d.lastRun);}else{$('wchip').className='wchip warn';toast('Worker — réponse incorrecte','warn');}}catch{$('wchip').className='wchip err';if($('wdot'))$('wdot').classList.add('p');if($('wlbl'))$('wlbl').textContent='Worker inactif';toast('Worker inaccessible','error');}}
 async function syncW(ep,data){if(!S.wurl)return;try{await fetch(S.wurl+ep,{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify(data)});}catch(e){console.warn('Worker sync:',e.message);}}
 // ── CAMPAIGNS ──
-function newCamp(type){const c={id:Date.now(),type,name:type==='sms'?'Nouvelle campagne SMS':'Nouvelle campagne email',status:'draft',templateId:null,subject:'',smsText:'',emailList:[],rateEffectivePerMin:10,rateSecEnabled:false,rateSec:1,rateMinEnabled:false,rateMin:10,rateHEnabled:false,rateH:600,rateDEnabled:false,rateDay:300,dailyLimit:9999,durationH:-1,durationInfinite:true,startDate:'',endDate:'',sendOrder:'inorder',endOfList:'loop',pausePosition:0,schedEnabled:false,days:[1,2,3,4,5,6,7],daySchedules:{day1:{from:'09:00',to:'18:00'},day2:{from:'09:00',to:'18:00'},day3:{from:'09:00',to:'18:00'},day4:{from:'09:00',to:'18:00'},day5:{from:'09:00',to:'18:00'},day6:{from:'10:00',to:'16:00'},day7:{from:'10:00',to:'16:00'}},sent:0,opened:0,errors:0,unsubscribed:0,clicks:0,campProvider:'',campFromEmail:'',attachments:[],created:new Date().toISOString()};S.camps.push(c);saveCamps();renderCampList(type);openCamp(c.id,type);}
+function newCamp(type){const c={id:Date.now(),type,name:type==='sms'?'Nouvelle campagne SMS':'Nouvelle campagne email',status:'draft',templateId:null,subject:'',smsText:'',emailList:[],rateEffectivePerMin:10,rateSecEnabled:false,rateSec:1,rateMinEnabled:false,rateMin:10,rateHEnabled:false,rateH:600,rateDEnabled:false,rateDay:300,dailyLimit:9999,durationH:-1,durationInfinite:true,startDate:'',endDate:'',sendOrder:'inorder',endOfList:'stop',pausePosition:0,schedEnabled:false,days:[1,2,3,4,5,6,7],daySchedules:{day1:{from:'09:00',to:'18:00'},day2:{from:'09:00',to:'18:00'},day3:{from:'09:00',to:'18:00'},day4:{from:'09:00',to:'18:00'},day5:{from:'09:00',to:'18:00'},day6:{from:'10:00',to:'16:00'},day7:{from:'10:00',to:'16:00'}},sent:0,opened:0,errors:0,unsubscribed:0,clicks:0,campProvider:'',campFromEmail:'',attachments:[],created:new Date().toISOString()};S.camps.push(c);saveCamps();renderCampList(type);openCamp(c.id,type);}
 function persistCamps(){const toStore=S.camps.map(c=>{if(!c.attachments||!c.attachments.length)return c;const ns=c.attachments.some(a=>!!a.data);if(!ns)return c;const c2=Object.assign({},c);c2.attachments=c.attachments.map(a=>a.data?{name:a.name,contentType:a.contentType,size:a.size,key:a.key||null}:a);return c2;});lsS(SK.camps,toStore);}
 var _saveCampsTimer=null;
 function saveCamps(){persistCamps();if(_saveCampsTimer)clearTimeout(_saveCampsTimer);_saveCampsTimer=setTimeout(()=>{_saveCampsTimer=null;},15000);renderDashboard();updateStats();}
@@ -829,7 +829,7 @@ return`<div class="cr ${aid===c.id?'sel':''}" onclick="openCamp(${c.id},'${type}
 (showGreen?'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--grn);box-shadow:0 0 8px var(--grn);margin-right:6px;flex-shrink:0;"></span>':'')+
 `${esc(c.name)}</div>`+
 `<div class="cr-meta"><span class="stbadge ${stCls(c.status)}">${stLbl(c.status)}</span><span class="cr-cnt">${c.emailList.length>0?c.sent+'/'+c.emailList.length:'Aucun contact'} · ${c.durationInfinite?'∞':c.durationH+'h'}</span></div></div>`;}).join('');}
-function openCamp(id,type){if(type==='sms')S.activeSMS=id;else S.activeCamp=id;renderCampList(type);const c=S.camps.find(x=>x.id===id);if(!c)return;const det=$(type==='sms'?'detail-sms':'detail-email');if(!det)return;
+function openCamp(id,type){if(type==='sms')S.activeSMS=id;else S.activeCamp=id;renderCampList(type);const c=S.camps.find(x=>x.id===id);if(!c)return;if(c.endOfList==='loop')c.endOfList='resume';if(!c.endOfList)c.endOfList='stop';if(!c.sendOrder)c.sendOrder='inorder';const det=$(type==='sms'?'detail-sms':'detail-email');if(!det)return;
 // FIX : ne reset les stats que si c'est un vrai brouillon (jamais lancé)
 // Les statuts done/completed/stopped gardent leurs stats pour l'historique
 const _isDraft=c.status==='draft'&&(c.sent||0)===0;
@@ -922,7 +922,19 @@ function updDaySchedule(campId,dayNum,field,val){campId=parseInt(campId)||campId
 function setSchedMode(campId,enabled){campId=parseInt(campId)||campId;const c=S.camps.find(x=>x.id==campId);if(!c)return;c.schedEnabled=enabled;const onBtn=$('btn-sched-on-'+campId),offBtn=$('btn-sched-off-'+campId);const days=$('sched-days-'+campId),expl=$('sched-explain-'+campId);if(onBtn){onBtn.style.borderColor=enabled?'var(--ora)':'var(--b2)';onBtn.style.background=enabled?'rgba(255,122,0,.1)':'none';onBtn.style.color=enabled?'var(--ora)':'var(--text2)';}if(offBtn){offBtn.style.borderColor=!enabled?'var(--cyan)':'var(--b2)';offBtn.style.background=!enabled?'rgba(0,232,255,.1)':'none';offBtn.style.color=!enabled?'var(--cyan)':'var(--text2)';}if(days)days.style.display=enabled?'block':'none';if(expl){expl.style.background=!enabled?'rgba(0,232,255,.05)':'rgba(255,122,0,.05)';expl.style.borderColor=!enabled?'rgba(0,232,255,.15)':'rgba(255,122,0,.15)';expl.innerHTML=!enabled?'⚡ <strong style="color:var(--cyan);">Mode continu</strong>':'📅 <strong style="color:var(--ora);">Mode planifié</strong>';}saveCamps();const as=$('as-'+campId);if(as)as.innerHTML=buildAS(c);}
 function updC(id,field,val){const c=S.camps.find(x=>x.id===id);if(!c)return;c[field]=val;saveCamps();const as=$('as-'+id);if(as)as.innerHTML=buildAS(c);}
 function setDur(id,v,btn){const c=S.camps.find(x=>x.id===id);if(!c)return;btn.closest('.dur-row').querySelectorAll('.dc').forEach(b=>b.classList.remove('sel'));btn.classList.add('sel');if(v===-1){c.durationInfinite=true;c.durationH=-1;}else{c.durationInfinite=false;c.durationH=v;}saveCamps();const as=$('as-'+id);if(as)as.innerHTML=buildAS(c);}
-function setMC(id,field,val,btn,col){updC(id,field,val);btn.closest('.mcards').querySelectorAll('.mc').forEach(b=>{b.style.color='';b.style.borderColor='';b.style.boxShadow='';});btn.style.color=col;btn.style.borderColor=col;btn.style.boxShadow=`0 0 10px ${col}40`;}
+function setMC(id,field,val,btn,col){
+  const c=S.camps.find(x=>x.id===id);if(!c)return;
+  if(field==='endOfList'&&val==='loop')val='resume';
+  updC(id,field,val);
+  btn.closest('.mcards').querySelectorAll('.mc').forEach(b=>{b.style.color='';b.style.borderColor='';b.style.boxShadow='';});
+  btn.style.color=col;btn.style.borderColor=col;btn.style.boxShadow=`0 0 10px ${col}40`;
+  if(c.status==='running'&&S.wurl){
+    const body={id:c.id};body[field]=val;
+    fetch(S.wurl+'/campaign/update-options',{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify(body)})
+      .then(r=>r.json()).then(d=>{if(!d.ok)toast('⚠ Mode non synchronisé : '+(d.error||'erreur Worker'),'warn');})
+      .catch(()=>toast('⚠ Mode sauvegardé localement, Worker non synchronisé','warn'));
+  }
+}
 function togAB(hd){hd.closest('.ab').classList.toggle('open');}
 // ── FIX v39.9 : launchCamp — payload {campaign:{...}} + tpls ──
 async function launchCamp(id){
@@ -1502,7 +1514,8 @@ async function reconcileOrphanCampaigns(){
         if(!camp.attachments)camp.attachments=[];
         if(camp.durationInfinite===undefined)camp.durationInfinite=true;
         if(!camp.sendOrder)camp.sendOrder='inorder';
-        if(!camp.endOfList)camp.endOfList='loop';
+        if(camp.endOfList==='loop')camp.endOfList='resume';
+        if(!camp.endOfList)camp.endOfList='stop';
         if(!camp.days)camp.days=[1,2,3,4,5,6,7];
         S.camps.push(camp);
         recovered.push(camp.name||('Campagne #'+camp.id));
