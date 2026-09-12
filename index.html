@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#1a1c22">
 <meta name="color-scheme" content="dark">
 <style>html{background:#1a1c22!important;}</style>
-<title>PGI Send Station v40.7</title>
+<title>PGI Send Station v40.8</title>
 <link rel="icon" href="https://i.imgur.com/GmyGlKk.webp" type="image/webp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&family=Exo+2:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
@@ -378,6 +378,18 @@ html,body,#app,.view,.detail-area,.qs-view{overscroll-behavior:none!important;ov
       <div style="background:var(--bg3);border-radius:7px;padding:10px;text-align:center"><div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--red)" id="ps-unsub">0</div><div style="font-size:9px;color:var(--text3);margin-top:3px">DESABONNES</div></div>
     </div>
     <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap"><div id="email-stats-bar" style="display:flex;gap:5px;flex-wrap:wrap;flex:1"></div><div id="sms-stats-bar" style="display:flex;gap:5px;flex-wrap:wrap;flex:1"></div></div>
+    <div id="click-report-box" style="margin-top:12px;padding:12px;background:var(--bg3);border:1px solid var(--b2);border-radius:9px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px;">
+        <div style="font-size:9px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase;color:var(--cyan);">Rapport cliqueurs classés</div>
+        <div style="font-size:9px;color:var(--text3);">1 clic, 2 clics, 3 clics, 4 clics… adresses prêtes à copier-coller</div>
+      </div>
+      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;">
+        <select class="fsel" id="click-report-camp" style="flex:1;min-width:210px;max-width:420px;padding:7px 28px 7px 10px;font-size:10px;"><option value="">Choisir une campagne email</option></select>
+        <button class="btn-sm" style="padding:7px 11px;" onclick="downloadClickReport('current')">Télécharger — période en cours</button>
+        <button class="btn-sm grn" style="padding:7px 11px;" onclick="downloadClickReport('total')">Télécharger — depuis le début</button>
+      </div>
+      <div id="click-report-help" style="font-size:9px;color:var(--text3);line-height:1.6;margin-top:7px;">Le rapport TXT regroupe les adresses par nombre exact de clics. La période en cours reprend le filtre de dates affiché ci-dessus.</div>
+    </div>
   </div>
   <div class="sec-box" style="margin-bottom:12px">
     <div class="sec-ttl" style="color:var(--yel)">Campagnes actives<span id="badge-actives" style="margin-left:6px;background:rgba(255,230,0,.12);border:1px solid rgba(255,230,0,.25);color:var(--yel);font-size:9px;padding:1px 7px;border-radius:10px;font-weight:700">0</span><span style="margin-left:auto;font-size:10px;color:var(--text3);font-weight:400" id="lbl-next">&#8212;</span></div>
@@ -1140,6 +1152,135 @@ var _lastAnalyticsSync=0,_lastOrphanSync=0,_syncTimer=null;
 function setDateFilter(mode,btn){document.querySelectorAll('#date-quick-btns .date-qbtn').forEach(b=>b.classList.remove('sel'));if(btn)btn.classList.add('sel');const now=new Date(),today=now.toISOString().slice(0,10);_df.mode=mode;if(mode==='today'){_df.from=today;_df.to=today;}else if(mode==='yesterday'){const y=new Date(now-86400000).toISOString().slice(0,10);_df.from=y;_df.to=y;}else if(mode==='7d'){_df.from=new Date(now-6*86400000).toISOString().slice(0,10);_df.to=today;}else if(mode==='30d'){_df.from=new Date(now-29*86400000).toISOString().slice(0,10);_df.to=today;}else{_df.from=null;_df.to=null;}const fi=$('date-from'),ti=$('date-to');if(fi)fi.value=_df.from||'';if(ti)ti.value=_df.to||'';_analyticsPage=0;_smsPage=0;renderDashboard();}
 function applyCustomDate(){_df.mode='custom';_df.from=$('date-from')?.value||null;_df.to=$('date-to')?.value||null;document.querySelectorAll('#date-quick-btns .date-qbtn').forEach(b=>b.classList.remove('sel'));_analyticsPage=0;_smsPage=0;renderDashboard();}
 function inRange(dateStr){if(!dateStr)return false;const d=dateStr.slice(0,10);if(_df.from&&d<_df.from)return false;if(_df.to&&d>_df.to)return false;return true;}
+function _clickReportPeriodLabel(){
+  if(_df.mode==='today')return "Aujourd'hui";
+  if(_df.mode==='yesterday')return 'Hier';
+  if(_df.mode==='7d')return '7 derniers jours';
+  if(_df.mode==='30d')return '30 derniers jours';
+  if(_df.mode==='all')return "Tout l'historique";
+  if(_df.from||_df.to)return 'Du '+(_df.from||'début')+' au '+(_df.to||'maintenant');
+  return 'Période affichée';
+}
+function _safeFilePart(v){return String(v||'campagne').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80)||'campagne';}
+function renderClickReportCampaignSelect(){
+  const sel=$('click-report-camp');if(!sel)return;
+  const prev=sel.value;
+  const camps=(S.camps||[]).filter(c=>c.type!=='sms'&&c.status!=='draft');
+  sel.innerHTML='<option value="">Choisir une campagne email</option>'+camps.map(c=>`<option value="${esc(String(c.id))}">${esc(c.name||('Campagne #'+c.id))}</option>`).join('');
+  if(prev&&camps.some(c=>String(c.id)===String(prev)))sel.value=prev;
+  else{
+    const active=(S.activeCamp&&camps.find(c=>String(c.id)===String(S.activeCamp)))||camps.find(c=>c.status==='running')||camps[0];
+    if(active)sel.value=String(active.id);
+  }
+}
+async function _getFreshCampaignForReport(id){
+  let local=(S.camps||[]).find(c=>String(c.id)===String(id))||null;
+  if(S.wurl&&id){
+    try{
+      const r=await fetch(S.wurl+'/campaign/full?id='+encodeURIComponent(id),{cache:'no-store'});
+      if(r.ok){const d=await r.json();if(d&&d.ok&&d.campaign)return d.campaign;}
+    }catch(_){/* rapport local en secours */}
+  }
+  return local;
+}
+function _eventsForReport(c,e,scope){
+  let ev=_campClickEvents(c,e.email,e);
+  if(scope==='current')ev=ev.filter(x=>inRange(x.at));
+  return ev;
+}
+function _buildClickReportText(c,scope){
+  const rows=[];
+  const byEmail=new Map();
+
+  // Index unique des anciens journaux globaux : O(n), jamais un rescannage par contact.
+  // Le rapport reste ainsi fluide même avec ~10 000 destinataires et plusieurs milliers de clics.
+  const globalByEmail=new Map();
+  const globalRaw=[];
+  if(Array.isArray(c.trackingClicks))globalRaw.push(...c.trackingClicks);
+  if(Array.isArray(c.trackingClicksList))globalRaw.push(...c.trackingClicksList);
+  globalRaw.forEach(cl=>{
+    if(!cl?.email||!cl?.at)return;
+    const key=String(cl.email).trim().toLowerCase();
+    if(!globalByEmail.has(key))globalByEmail.set(key,[]);
+    globalByEmail.get(key).push({url:cl.url||'',at:cl.at});
+  });
+  for(const [key,arr] of globalByEmail)globalByEmail.set(key,_uniqClickEvents(arr));
+
+  (c.emailList||[]).forEach(e=>{
+    if(!e||!e.email)return;
+    const key=String(e.email).trim().toLowerCase();
+    let events=_uniqClickEvents([...(e.clicks||[]),...(globalByEmail.get(key)||[])]);
+    if(scope==='current')events=events.filter(x=>inRange(x.at));
+    let count=events.length;
+    // Historique total : préserver les compteurs issus d'anciennes versions même si tous
+    // les horodatages détaillés n'étaient pas encore stockés à l'époque.
+    if(scope==='total')count=Math.max(count,Number(e.clickCount)||0);
+    if(count<=0)return;
+    const ex=byEmail.get(key);
+    if(!ex||count>ex.count)byEmail.set(key,{email:String(e.email).trim(),count,events});
+    globalByEmail.delete(key);
+  });
+
+  // Anciennes données qui existeraient uniquement dans le journal global.
+  for(const [key,allEvents] of globalByEmail){
+    const events=scope==='current'?allEvents.filter(x=>inRange(x.at)):allEvents;
+    if(!events.length)continue;
+    const raw=globalRaw.find(x=>x&&String(x.email||'').trim().toLowerCase()===key);
+    byEmail.set(key,{email:String(raw?.email||key).trim(),count:events.length,events});
+  }
+
+  const groups=new Map();
+  [...byEmail.values()].forEach(r=>{if(!groups.has(r.count))groups.set(r.count,[]);groups.get(r.count).push(r);});
+  const counts=[...groups.keys()].sort((a,b)=>a-b);
+  const totalPeople=byEmail.size;
+  const totalClicks=[...byEmail.values()].reduce((n,r)=>n+r.count,0);
+  const period=scope==='total'?('Depuis le début de la campagne'+(c.launchedAt?' ('+_fmtTrackingTime(c.launchedAt)+')':'')):_clickReportPeriodLabel();
+  rows.push('PGI SEND STATION — RAPPORT CLIQUEURS');
+  rows.push('Campagne : '+(c.name||c.id));
+  rows.push('Période : '+period);
+  rows.push('Généré le : '+new Date().toLocaleString('fr-FR'));
+  rows.push('Cliqueurs : '+totalPeople+' adresse(s)');
+  rows.push('Clics comptabilisés : '+totalClicks);
+  rows.push('');
+  rows.push('Les listes ci-dessous contiennent UNIQUEMENT les adresses email, une par ligne, pour faciliter le copier-coller.');
+  rows.push('');
+  if(!counts.length){rows.push('AUCUN CLIQUEUR SUR CETTE PÉRIODE');return rows.join('\r\n');}
+  counts.forEach(n=>{
+    const arr=groups.get(n).slice().sort((a,b)=>a.email.localeCompare(b.email,'fr',{sensitivity:'base'}));
+    rows.push('============================================================');
+    rows.push(n+' CLIC'+(n>1?'S':'')+' — '+arr.length+' ADRESSE'+(arr.length>1?'S':''));
+    rows.push('============================================================');
+    arr.forEach(r=>rows.push(r.email));
+    rows.push('');
+  });
+  rows.push('============================================================');
+  rows.push('DÉTAIL HORODATÉ DES CLICS');
+  rows.push('============================================================');
+  counts.forEach(n=>{
+    groups.get(n).slice().sort((a,b)=>a.email.localeCompare(b.email,'fr',{sensitivity:'base'})).forEach(r=>{
+      rows.push('');rows.push(r.email+' — '+r.count+' clic'+(r.count>1?'s':''));
+      if(r.events.length){r.events.forEach((ev,i)=>rows.push('  '+(i+1)+'. '+_fmtTrackingTime(ev.at)+(ev.url?' — '+ev.url:'')));}
+      else rows.push('  Détail horaire indisponible pour d’anciens clics, compteur total conservé.');
+    });
+  });
+  return rows.join('\r\n');
+}
+async function downloadClickReport(scope){
+  const sel=$('click-report-camp');const id=sel?.value;
+  if(!id){toast('Choisissez une campagne email','warn');return;}
+  const btnScope=scope==='total'?'historique total':'période en cours';
+  toast('Préparation du rapport '+btnScope+'...','info');
+  const c=await _getFreshCampaignForReport(id);
+  if(!c){toast('Campagne introuvable','error');return;}
+  const txt=_buildClickReportText(c,scope);
+  const bom='\ufeff';
+  const blob=new Blob([bom+txt],{type:'text/plain;charset=utf-8'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  const suffix=scope==='total'?'depuis-debut':'periode-'+(_df.from||'debut')+'-'+(_df.to||'maintenant');
+  a.href=url;a.download='PGI-cliqueurs-'+_safeFilePart(c.name||c.id)+'-'+_safeFilePart(suffix)+'.txt';
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('Rapport cliqueurs téléchargé','success');
+}
 function setEmailFilter(f,btn){_efMode=f;document.querySelectorAll('[id^="ef-"]').forEach(b=>b.classList.remove('sel'));if(btn)btn.classList.add('sel');_analyticsPage=0;renderAnalytics();}
 function setSMSFilter(f,btn){_sfMode=f;document.querySelectorAll('[id^="sf-"]').forEach(b=>b.classList.remove('sel'));if(btn)btn.classList.add('sel');_smsPage=0;renderSMSAnalytics();}
 function sortAnalytics(f){if(_analyticsSort.f===f)_analyticsSort.asc=!_analyticsSort.asc;else{_analyticsSort.f=f;_analyticsSort.asc=false;}_analyticsPage=0;renderAnalytics();}
@@ -1292,7 +1433,7 @@ function getAllEmailLogs(){
 
   return merged.sort((a,b)=>new Date(b.date)-new Date(a.date));
 }
-function renderDashboard(){if(S.currentView!=='dashboard')return;renderActiveCamps();renderAllCamps();renderAnalytics();renderSMSAnalytics();renderPeriodStats();renderUnsubByCamp();const totalContactsAll=S.contacts.length+S.lists.filter(l=>!l.system&&l.emails?.length).reduce((s,l)=>s+(l.emails?.length||0),0);const cq=$('cq-total');if(cq)cq.textContent=totalContactsAll.toLocaleString();const lq=$('lists-quick');if(lq){lq.innerHTML=S.lists.filter(l=>!l.system).map(l=>`<div style="padding:5px 10px;border-radius:5px;border:1px solid var(--b2);background:var(--bg3);font-size:10px;font-weight:700;color:${l.color||'var(--purl)'};">${l.name} · ${S.contacts.filter(x=>x.listIds?.includes(l.id)).length}</div>`).join('');}renderQuotaBox();}
+function renderDashboard(){if(S.currentView!=='dashboard')return;renderClickReportCampaignSelect();renderActiveCamps();renderAllCamps();renderAnalytics();renderSMSAnalytics();renderPeriodStats();renderUnsubByCamp();const totalContactsAll=S.contacts.length+S.lists.filter(l=>!l.system&&l.emails?.length).reduce((s,l)=>s+(l.emails?.length||0),0);const cq=$('cq-total');if(cq)cq.textContent=totalContactsAll.toLocaleString();const lq=$('lists-quick');if(lq){lq.innerHTML=S.lists.filter(l=>!l.system).map(l=>`<div style="padding:5px 10px;border-radius:5px;border:1px solid var(--b2);background:var(--bg3);font-size:10px;font-weight:700;color:${l.color||'var(--purl)'};">${l.name} · ${S.contacts.filter(x=>x.listIds?.includes(l.id)).length}</div>`).join('');}renderQuotaBox();}
 function renderActiveCamps(){const tbody=$('active-camps-body');if(!tbody)return;const badge=$('badge-actives');const active=S.camps.filter(c=>c.status==='running');if(badge)badge.textContent=active.length;if(!active.length){tbody.innerHTML='<tr><td colspan="10"><div class="empty" style="padding:20px"><p>Aucune campagne en cours</p></div></td></tr>';return;}const todayStr=new Date().toDateString();tbody.innerHTML=active.map(c=>{const total=c.emailList.length||1;const pct=Math.round(((c.sent||0)/total)*100);const sentToday=(c.dailyDate===todayStr)?(c.dailySent||0):0;const rpm=c.rateEffectivePerMin||10;let cadence;if(rpm>=60)cadence=Math.round(rpm/60)+'/h';else if(rpm>=1)cadence=Math.round(rpm)+'/min';else{const sec=60/rpm;cadence=sec<90?Math.round(sec)+'s/envoi':sec<3600?Math.round(sec/60)+' min/envoi':(sec/3600).toFixed(1)+'h/envoi';}const fp=c.emailList.findIndex(e=>e.status==='pending');const pos=fp===-1?c.emailList.length:fp+1;return`<tr><td style="font-weight:700;color:var(--text)">${esc(c.name)}</td><td><span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:${c.type==='sms'?'rgba(255,45,120,.1)':'rgba(0,232,255,.1)'};color:${c.type==='sms'?'var(--pnk)':'var(--cyan)'};">${c.type.toUpperCase()}</span></td><td class="mono">${(c.sent||0).toLocaleString()}</td><td class="mono">${pos.toLocaleString()}/${total.toLocaleString()}</td><td><div style="display:flex;align-items:center;gap:6px;"><div style="width:80px;height:3px;background:var(--bg4);border-radius:2px;"><div style="height:100%;background:var(--grn);border-radius:2px;width:${pct}%;"></div></div><span style="font-size:9px;font-family:var(--mono);color:var(--text3)">${pct}%</span></div></td><td style="font-family:var(--mono);font-size:10px;color:var(--yel)">${cadence}</td><td class="mono">${(c.opened||0).toLocaleString()}</td><td class="mono" style="color:${(c.errors||0)>0?'var(--red)':'var(--text3)'}">${(c.errors||0)}</td><td style="font-size:10px;color:var(--text3)">${c.durationInfinite?'∞':c.durationH+'h'}</td><td><button class="btn-sm yel" onclick="pauseCamp(${c.id})">⏸</button></td></tr>`;}).join('');const lbl=$('lbl-next');if(lbl){const minRpm=Math.min(...active.map(c=>c.rateEffectivePerMin||10));const nextMin=1/minRpm;lbl.textContent=nextMin<2?'~'+Math.round(nextMin*60)+'s/email':nextMin<60?'~'+Math.round(nextMin)+'min/email':'~'+(nextMin/60).toFixed(1)+'h/email';}}
 function renderAllCamps(){
   const tbody=$('all-camps-body');if(!tbody)return;
@@ -1467,7 +1608,7 @@ function renderQSAttachments(){const el=$('qs-attachments-list'),cnt=$('qs-att-c
 async function sendQuickEmail(){const to=($('qs-email-to')?.value||'').split(/[\n,;]+/).map(x=>x.trim()).filter(isEmail);if(!to.length){toast('Aucun destinataire valide','warn');return;}const subj=$('qs-email-subj')?.value.trim();if(!subj){toast('Sujet manquant','warn');return;}const r=$('qs-email-rich');if(!r||!r.innerHTML.trim()){toast('Message vide','warn');return;}toast('Envoi en cours...','info');const smtpCfg=S.smtpConfig&&Object.keys(S.smtpConfig).length?S.smtpConfig:null;await syncW('/quick-send',{type:'email',to,subject:subj,html:r.innerHTML,from:S.ce||S.email,fromName:S.cn||'',provider:S.prov,smtpConfig:smtpCfg,attachments:S._qsAttachments});toast('✓ Envoi déclenché via le Worker','success');}
 async function sendQuickSMS(){const to=($('qs-sms-to')?.value||'').split(/[\n,;]+/).map(x=>x.trim()).filter(x=>x.length>5);if(!to.length){toast('Aucun numéro','warn');return;}const body=$('qs-sms-body')?.value.trim();if(!body){toast('Message vide','warn');return;}toast('Envoi SMS en cours...','info');await syncW('/quick-send',{type:'sms',to,message:body,provider:S.smsProv,apiKey:S.smsKey,apiSecret:S.smsSecret,from:S.smsFrom});toast('✓ SMS déclenché via le Worker','success');}
 // ── EXPORT/IMPORT ──
-function exportData(){const data={camps:S.camps.map(c=>Object.assign({},c,{emailList:c.emailList})),contacts:S.contacts,tpls:S.tpls,lists:S.lists,analytics:S.analytics,smtpConfig:S.smtpConfig,exported:new Date().toISOString(),version:'39.9'};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='pgi-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url);toast('Export téléchargé','success');}
+function exportData(){const data={camps:S.camps.map(c=>Object.assign({},c,{emailList:c.emailList})),contacts:S.contacts,tpls:S.tpls,lists:S.lists,analytics:S.analytics,smtpConfig:S.smtpConfig,exported:new Date().toISOString(),version:'40.8'};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='pgi-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url);toast('Export téléchargé','success');}
 async function resetData(){if(!await pgiConfirm('SUPPRIMER TOUTES les données ?\n(Campagnes, contacts, templates, analytics)','⚠️'))return;Object.values(SK).forEach(k=>{try{localStorage.removeItem(k);}catch(_){}});location.reload();}
 // ── SETTINGS SMTP UI ──
 function onSmtpProviderChange(val){const p=SMTP_PROVIDERS[val]||SMTP_PROVIDERS.custom;S.prov=val;lsS(SK.prov,val);['smtp-oauth-block','smtp-direct-block','smtp-api-block','smtp-mailchannels-block'].forEach(id=>{const el=$(id);if(el)el.style.display='none';});if(p.type==='oauth'){const b=$('smtp-oauth-block');if(b)b.style.display='block';}else if(p.type==='smtp'){const b=$('smtp-direct-block');if(b)b.style.display='block';if(p.host&&$('smtp-host')&&!$('smtp-host').value)$('smtp-host').value=p.host;if(p.port&&$('smtp-port'))$('smtp-port').value=p.port;if(p.tls&&$('smtp-tls'))$('smtp-tls').value=p.tls;const info=$('smtp-host-info');if(info&&p.info){info.innerHTML='<strong style="color:var(--cyan)">'+p.lbl+' :</strong> '+p.info;info.style.display='block';}}else if(p.type==='api'){const b=$('smtp-api-block');if(b)b.style.display='block';const info=$('smtp-api-info');if(info&&p.info){info.innerHTML='<strong style="color:var(--purl)">'+p.lbl+' :</strong> '+p.info;info.style.display='block';}const apiLbl=$('smtp-api-key-lbl');if(apiLbl)apiLbl.textContent=p.key==='resend'?'Clé API Resend (re_xxxx)':'Clé API';}else if(p.type==='mailchannels'){const b=$('smtp-mailchannels-block');if(b)b.style.display='block';}if(S.smtpConfig&&S.smtpConfig.provider===val){if($('smtp-host')&&S.smtpConfig.host)$('smtp-host').value=S.smtpConfig.host;if($('smtp-port')&&S.smtpConfig.port)$('smtp-port').value=S.smtpConfig.port;if($('smtp-user')&&S.smtpConfig.user)$('smtp-user').value=S.smtpConfig.user;if($('smtp-from-name')&&S.smtpConfig.fromName)$('smtp-from-name').value=S.smtpConfig.fromName;if($('smtp-api-from')&&S.smtpConfig.fromEmail)$('smtp-api-from').value=S.smtpConfig.fromEmail;if($('smtp-api-from-name')&&S.smtpConfig.fromName)$('smtp-api-from-name').value=S.smtpConfig.fromName;if($('smtp-mc-from')&&S.smtpConfig.fromEmail)$('smtp-mc-from').value=S.smtpConfig.fromEmail;if($('smtp-mc-from-name')&&S.smtpConfig.fromName)$('smtp-mc-from-name').value=S.smtpConfig.fromName;}}
