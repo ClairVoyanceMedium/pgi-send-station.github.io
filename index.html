@@ -1373,7 +1373,7 @@ function getAllEmailLogs(){
       const clickEvents=_campClickEvents(c,e.email,e);
       if(key in keyIndex){
         const existing=merged[keyIndex[key]];
-        // v40.9 : réparer aussi les anciennes lignes créées avec la mauvaise date.
+        // v40.10 : réparer aussi les anciennes lignes créées avec la mauvaise date.
         if(e.sentAt&&existing.date!==e.sentAt)existing.date=e.sentAt;
         if(e.errorMsg!==undefined)existing.errorMsg=e.errorMsg;
         if(e.status==='opened'||!!e.opened||openEvents.length){
@@ -1611,7 +1611,7 @@ function renderQSAttachments(){const el=$('qs-attachments-list'),cnt=$('qs-att-c
 async function sendQuickEmail(){const to=($('qs-email-to')?.value||'').split(/[\n,;]+/).map(x=>x.trim()).filter(isEmail);if(!to.length){toast('Aucun destinataire valide','warn');return;}const subj=$('qs-email-subj')?.value.trim();if(!subj){toast('Sujet manquant','warn');return;}const r=$('qs-email-rich');if(!r||!r.innerHTML.trim()){toast('Message vide','warn');return;}toast('Envoi en cours...','info');const smtpCfg=S.smtpConfig&&Object.keys(S.smtpConfig).length?S.smtpConfig:null;await syncW('/quick-send',{type:'email',to,subject:subj,html:r.innerHTML,from:S.ce||S.email,fromName:S.cn||'',provider:S.prov,smtpConfig:smtpCfg,attachments:S._qsAttachments});toast('✓ Envoi déclenché via le Worker','success');}
 async function sendQuickSMS(){const to=($('qs-sms-to')?.value||'').split(/[\n,;]+/).map(x=>x.trim()).filter(x=>x.length>5);if(!to.length){toast('Aucun numéro','warn');return;}const body=$('qs-sms-body')?.value.trim();if(!body){toast('Message vide','warn');return;}toast('Envoi SMS en cours...','info');await syncW('/quick-send',{type:'sms',to,message:body,provider:S.smsProv,apiKey:S.smsKey,apiSecret:S.smsSecret,from:S.smsFrom});toast('✓ SMS déclenché via le Worker','success');}
 // ── EXPORT/IMPORT ──
-function exportData(){const data={camps:S.camps.map(c=>Object.assign({},c,{emailList:c.emailList})),contacts:S.contacts,tpls:S.tpls,lists:S.lists,analytics:S.analytics,smtpConfig:S.smtpConfig,exported:new Date().toISOString(),version:'40.9'};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='pgi-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url);toast('Export téléchargé','success');}
+function exportData(){const data={camps:S.camps.map(c=>Object.assign({},c,{emailList:c.emailList})),contacts:S.contacts,tpls:S.tpls,lists:S.lists,analytics:S.analytics,smtpConfig:S.smtpConfig,exported:new Date().toISOString(),version:'40.10'};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='pgi-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url);toast('Export téléchargé','success');}
 async function resetData(){if(!await pgiConfirm('SUPPRIMER TOUTES les données ?\n(Campagnes, contacts, templates, analytics)','⚠️'))return;Object.values(SK).forEach(k=>{try{localStorage.removeItem(k);}catch(_){}});location.reload();}
 // ── SETTINGS SMTP UI ──
 function onSmtpProviderChange(val){const p=SMTP_PROVIDERS[val]||SMTP_PROVIDERS.custom;S.prov=val;lsS(SK.prov,val);['smtp-oauth-block','smtp-direct-block','smtp-api-block','smtp-mailchannels-block'].forEach(id=>{const el=$(id);if(el)el.style.display='none';});if(p.type==='oauth'){const b=$('smtp-oauth-block');if(b)b.style.display='block';}else if(p.type==='smtp'){const b=$('smtp-direct-block');if(b)b.style.display='block';if(p.host&&$('smtp-host')&&!$('smtp-host').value)$('smtp-host').value=p.host;if(p.port&&$('smtp-port'))$('smtp-port').value=p.port;if(p.tls&&$('smtp-tls'))$('smtp-tls').value=p.tls;const info=$('smtp-host-info');if(info&&p.info){info.innerHTML='<strong style="color:var(--cyan)">'+p.lbl+' :</strong> '+p.info;info.style.display='block';}}else if(p.type==='api'){const b=$('smtp-api-block');if(b)b.style.display='block';const info=$('smtp-api-info');if(info&&p.info){info.innerHTML='<strong style="color:var(--purl)">'+p.lbl+' :</strong> '+p.info;info.style.display='block';}const apiLbl=$('smtp-api-key-lbl');if(apiLbl)apiLbl.textContent=p.key==='resend'?'Clé API Resend (re_xxxx)':'Clé API';}else if(p.type==='mailchannels'){const b=$('smtp-mailchannels-block');if(b)b.style.display='block';}if(S.smtpConfig&&S.smtpConfig.provider===val){if($('smtp-host')&&S.smtpConfig.host)$('smtp-host').value=S.smtpConfig.host;if($('smtp-port')&&S.smtpConfig.port)$('smtp-port').value=S.smtpConfig.port;if($('smtp-user')&&S.smtpConfig.user)$('smtp-user').value=S.smtpConfig.user;if($('smtp-from-name')&&S.smtpConfig.fromName)$('smtp-from-name').value=S.smtpConfig.fromName;if($('smtp-api-from')&&S.smtpConfig.fromEmail)$('smtp-api-from').value=S.smtpConfig.fromEmail;if($('smtp-api-from-name')&&S.smtpConfig.fromName)$('smtp-api-from-name').value=S.smtpConfig.fromName;if($('smtp-mc-from')&&S.smtpConfig.fromEmail)$('smtp-mc-from').value=S.smtpConfig.fromEmail;if($('smtp-mc-from-name')&&S.smtpConfig.fromName)$('smtp-mc-from-name').value=S.smtpConfig.fromName;}}
@@ -1632,6 +1632,75 @@ function initSettingsUI(){const sel=$('smtp-provider-sel');if(sel&&S.prov){sel.v
 // ── WORKER SYNC ──
 var _syncInterval=null,_isSyncing=false;
 function _refreshOpenCampMetrics(){const campId=S.activeCamp||S.activeSMS;if(!campId)return;const c=S.camps.find(x=>x.id===campId);if(!c)return;const total=c.emailList?c.emailList.length:(c.workerTotal||0);const _isLive=c.status==='running'||c.status==='paused'||c.status==='oauth_error';const sent=_isLive?(c.sent||0):0;const opened=_isLive?(c.opened||0):0;const err=_isLive?(c.errors||0):0;const pct=(_isLive&&total)?Math.round((sent/total)*100):0;const clics=c.clicks||0;const cliques=Math.min(clics,sent||clics);const els={'prc-sent-':sent.toLocaleString(),'prc-open-':opened.toLocaleString(),'prc-pct-':pct+'%','prc-contacts-':total.toLocaleString()};Object.keys(els).forEach(prefix=>{const el=document.getElementById(prefix+campId);if(el)el.textContent=els[prefix];});const errEl=document.getElementById('prc-err-'+campId);if(errEl)errEl.textContent=err>0?err+' err':'';const pbarEl=document.getElementById('pbar-'+campId);if(pbarEl)pbarEl.style.width=pct+'%';const ce=document.getElementById('prc-clics-'+campId);if(ce)ce.textContent=clics;const cs=document.getElementById('prc-clics-sub-'+campId);if(cs)cs.textContent=cliques+' email'+(cliques>1?'s':'')+' cliqué'+(cliques>1?'s':'');const asEl=document.getElementById('as-'+campId);if(asEl&&typeof buildAS==='function')asEl.innerHTML=buildAS(c);}
+// v40.10 — synchronisation historique légère, indépendante des grosses listes de contacts.
+async function pgiFetchTimeout(url,opts={},timeoutMs=12000){
+  const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),timeoutMs);
+  try{return await fetch(url,{...opts,signal:ctrl.signal});}finally{clearTimeout(t);}
+}
+function mergeHistoryDelta(events){
+  if(!Array.isArray(events)||!events.length)return 0;
+  let changed=0;
+  for(const ev of events){
+    const camp=S.camps.find(c=>String(c.id)===String(ev.campaignId));if(!camp||!ev.email)continue;
+    const contact=Array.isArray(camp.emailList)?camp.emailList.find(e=>e.email===ev.email):null;
+    if(contact){
+      if(ev.sentAt&&contact.sentAt!==ev.sentAt){contact.sentAt=ev.sentAt;changed++;}
+      if(ev.status==='error'){
+        if(contact.status!=='opened'&&contact.status!=='unsubscribed'&&contact.status!=='error'){contact.status='error';changed++;}
+        if(ev.errorMsg&&contact.errorMsg!==ev.errorMsg){contact.errorMsg=ev.errorMsg;changed++;}
+      }else if(!['opened','unsubscribed'].includes(contact.status)&&contact.status!=='sent'){
+        contact.status='sent';changed++;
+      }
+    }
+    let a=S.analytics.find(x=>x.type==='email'&&x.email===ev.email&&x.campaign===camp.name);
+    if(!a){
+      a={type:'email',email:ev.email,campaign:camp.name,date:ev.sentAt||new Date().toISOString(),status:ev.status==='error'?'error':'sent',opened:false,openedAt:null,openEvents:[],openCount:0,unsubscribed:false,clicks:[],clickCount:0,errorMsg:ev.errorMsg||null};
+      S.analytics.push(a);changed++;
+    }else{
+      // Ne jamais laisser une ancienne copie analytics remettre l'historique en arrière.
+      if(ev.sentAt&&(!a.date||Date.parse(ev.sentAt)>Date.parse(a.date))){a.date=ev.sentAt;changed++;}
+      if(ev.status==='error'&&a.status!=='error'){a.status='error';changed++;}
+      if(ev.status!=='error'&&a.status==='error'){a.status='sent';changed++;}
+      if(ev.errorMsg&&a.errorMsg!==ev.errorMsg){a.errorMsg=ev.errorMsg;changed++;}
+    }
+  }
+  if(changed){
+    if(S.analytics.length>50000)S.analytics=S.analytics.slice(-50000);
+    try{lsS(SK.analytics,S.analytics);}catch(_){}
+    persistCamps();renderDashboard();updateStats();
+  }
+  return changed;
+}
+async function syncHistoryDelta(){
+  if(!S.wurl)return 0;
+  const r=await pgiFetchTimeout(S.wurl+'/sync/history-delta',{},10000);
+  if(!r.ok)throw new Error('history-delta HTTP '+r.status);
+  const d=await r.json();if(!d.ok)throw new Error(d.error||'history-delta');
+  return mergeHistoryDelta(d.events||[]);
+}
+function mergeWorkerAnalyticsSafe(remote){
+  if(!Array.isArray(remote))return false;
+  let changed=false;
+  for(const w of remote){
+    const keyType=w.type||'email';
+    let l=S.analytics.find(a=>(a.type||'email')===keyType&&(a.email||a.phone)===(w.email||w.phone)&&a.campaign===w.campaign);
+    if(!l){S.analytics.push(w);changed=true;continue;}
+    // Date : conserver la plus récente afin qu'une copie serveur en retard ne fasse jamais reculer l'historique.
+    if(w.date&&(!l.date||Date.parse(w.date)>Date.parse(l.date))){l.date=w.date;changed=true;}
+    if(w.opened&&!l.opened){l.opened=true;changed=true;}
+    if(w.openedAt&&(!l.openedAt||Date.parse(w.openedAt)<Date.parse(l.openedAt))){l.openedAt=w.openedAt;changed=true;}
+    if(w.lastOpenedAt&&(!l.lastOpenedAt||Date.parse(w.lastOpenedAt)>Date.parse(l.lastOpenedAt))){l.lastOpenedAt=w.lastOpenedAt;changed=true;}
+    const opens=_uniqOpenEvents([...(l.openEvents||[]),...(w.openEvents||[])]);if(opens.length!==(l.openEvents||[]).length){l.openEvents=opens;l.openCount=opens.length;changed=true;}
+    const clicks=_uniqClickEvents([...(l.clicks||[]),...(w.clicks||[])]);if(clicks.length!==(l.clicks||[]).length){l.clicks=clicks;l.clickCount=clicks.length;changed=true;}
+    if(w.unsubscribed&&!l.unsubscribed){l.unsubscribed=true;changed=true;}
+    if(w.errorMsg&&!l.errorMsg){l.errorMsg=w.errorMsg;changed=true;}
+    // Ne pas rétrograder un envoi confirmé récent avec un snapshot analytics plus ancien.
+    if(l.status==='error'&&w.status==='sent'){l.status='sent';changed=true;}
+  }
+  if(changed){if(S.analytics.length>50000)S.analytics=S.analytics.slice(-50000);try{lsS(SK.analytics,S.analytics);}catch(_){}}
+  return changed;
+}
+
 // Détecte les campagnes qui tournent côté Worker mais sont absentes localement
 // (ex: supprimées par erreur de l'app, ou ancien appareil) et les fait réapparaître
 // automatiquement, en se basant sur l'objet complet stocké en KV.
@@ -1644,7 +1713,7 @@ async function reconcileOrphanCampaigns(){
     if(!data.ok||!Array.isArray(data.campaigns))return;
     const localIds=new Set(S.camps.map(c=>String(c.id)));
     const missing=data.campaigns.filter(wc=>!localIds.has(String(wc.id))&&wc.status!=='draft');
-    // v40.9 : une campagne peut avoir quitté active_campaigns entre deux sync.
+    // v40.10 : une campagne peut avoir quitté active_campaigns entre deux sync.
     // Si ses compteurs Worker sont plus récents, on recharge UNE fois son objet complet
     // pour récupérer les derniers sentAt réels. Lecture seule, aucune écriture Cloudflare.
     const stale=data.campaigns.filter(wc=>{
@@ -1699,10 +1768,12 @@ async function reconcileOrphanCampaigns(){
 }
 async function syncFromWorker(){if(!S.wurl||_isSyncing)return;_isSyncing=true;
 try{
-const campRes=await fetch(S.wurl+'/sync/campaigns');
+// Toujours synchroniser d'abord le mini-journal réel : même si une sync lourde échoue ensuite, l'historique avance.
+try{await syncHistoryDelta();}catch(e){console.warn('history-delta:',e.message);}
+const campRes=await pgiFetchTimeout(S.wurl+'/sync/campaigns?compact=1',{},12000);
 if(campRes.ok){const data=await campRes.json();if(data.campaigns&&Array.isArray(data.campaigns)){var updated=0;data.campaigns.forEach(wc=>{var local=S.camps.find(c=>c.id==wc.id);if(!local||local.status==='draft')return;if(wc.sent>=(local.sent||0)){local.sent=wc.sent;updated++;}if(wc.opened>(local.opened||0)){local.opened=wc.opened;updated++;}if(wc.errors>(local.errors||0)){local.errors=wc.errors;updated++;}if(wc.unsubscribed!==undefined)local.unsubscribed=wc.unsubscribed;if(wc.clicks>(local.clicks||0)){local.clicks=wc.clicks;updated++;}if(mergeWorkerCampaignTracking(wc,local))updated++;if(wc.pending!==undefined){local.workerPending=wc.pending;updated++;}if(wc.dailySent!==undefined){local.dailySent=wc.dailySent;local.dailyDate=new Date().toDateString();updated++;}if(wc.contacts&&Array.isArray(wc.contacts)){if(!local.recentlyChanged)local.recentlyChanged=[];let contactsChanged=false;wc.contacts.forEach(wContact=>{if(wContact.status==='sent'||wContact.status==='opened'){const ex=local.recentlyChanged.find(r=>r.email===wContact.email);if(!ex)local.recentlyChanged.push(wContact);}const lC=local.emailList&&local.emailList.find(e=>e.email===wContact.email);if(lC){
 if(wContact.status&&wContact.status!==lC.status){lC.status=wContact.status;contactsChanged=true;}
-// v40.9 : l'historique doit suivre l'heure RÉELLE confirmée par le Worker.
+// v40.10 : l'historique doit suivre l'heure RÉELLE confirmée par le Worker.
 if(wContact.sentAt&&wContact.sentAt!==lC.sentAt){lC.sentAt=wContact.sentAt;contactsChanged=true;}
 if(wContact.errorMsg!==undefined&&wContact.errorMsg!==lC.errorMsg){lC.errorMsg=wContact.errorMsg;contactsChanged=true;}
 if(wContact.openedAt&&wContact.openedAt!==lC.openedAt){lC.openedAt=wContact.openedAt;contactsChanged=true;}
@@ -1716,7 +1787,7 @@ if(wContact.unsubscribed!==undefined&&wContact.unsubscribed!==lC.unsubscribed){l
 // Synchroniser S.analytics pour que getAllEmailLogs soit cohérent
 if(lC){
 let aEntry=S.analytics.find(a=>a.type==='email'&&a.email===lC.email&&a.campaign===local.name);
-// v40.9 : créer immédiatement la ligne d'historique depuis la confirmation Worker,
+// v40.10 : créer immédiatement la ligne d'historique depuis la confirmation Worker,
 // avec sentAt réel. Plus de fallback sur la date de lancement de campagne.
 if(!aEntry&&['sent','opened','error','unsubscribed'].includes(wContact.status)){
   aEntry={type:'email',email:lC.email,campaign:local.name,date:wContact.sentAt||lC.sentAt||new Date().toISOString(),status:wContact.status==='error'?'error':'sent',opened:false,openedAt:null,openEvents:[],openCount:0,unsubscribed:!!wContact.unsubscribed,clicks:[],clickCount:0,errorMsg:wContact.errorMsg||lC.errorMsg||null};
@@ -1738,8 +1809,8 @@ if(clicks.length){aEntry.clicks=clicks;aEntry.clickCount=clicks.length;aEntry.la
 // ÉCONOMIE : analytics complet au maximum toutes les 30 min, au lieu de chaque minute.
 const _nowSyncMs=Date.now();
 if(!_lastAnalyticsSync||(_nowSyncMs-_lastAnalyticsSync)>=30*60*1000){
-const analRes=await fetch(S.wurl+'/sync/analytics');
-if(analRes.ok){_lastAnalyticsSync=_nowSyncMs;const data2=await analRes.json();if(data2.analytics&&Array.isArray(data2.analytics)&&data2.analytics.length>0){var changed=false;if(data2.compact){data2.analytics.forEach(wc=>{var local=S.camps.find(c=>c.id==wc.id);if(!local&&wc.campaign)local=S.camps.find(c=>c.name===wc.campaign);if(!local||local.status==='draft')return;if(wc.sent>(local.sent||0)){local.sent=wc.sent;changed=true;}if(wc.opened>(local.opened||0)){local.opened=wc.opened;changed=true;}if(wc.clicks>(local.clicks||0)){local.clicks=wc.clicks;changed=true;}local.unsubscribed=wc.unsubscribed||0;});}else{S.analytics=data2.analytics;lsS(SK.analytics,S.analytics);changed=true;}if(changed){persistCamps();renderDashboard();updateStats();}}}
+const analRes=await pgiFetchTimeout(S.wurl+'/sync/analytics',{},20000);
+if(analRes.ok){_lastAnalyticsSync=_nowSyncMs;const data2=await analRes.json();if(data2.analytics&&Array.isArray(data2.analytics)&&data2.analytics.length>0){var changed=false;if(data2.compact){data2.analytics.forEach(wc=>{var local=S.camps.find(c=>c.id==wc.id);if(!local&&wc.campaign)local=S.camps.find(c=>c.name===wc.campaign);if(!local||local.status==='draft')return;if(wc.sent>(local.sent||0)){local.sent=wc.sent;changed=true;}if(wc.opened>(local.opened||0)){local.opened=wc.opened;changed=true;}if(wc.clicks>(local.clicks||0)){local.clicks=wc.clicks;changed=true;}local.unsubscribed=wc.unsubscribed||0;});}else{if(mergeWorkerAnalyticsSafe(data2.analytics))changed=true;}if(changed){persistCamps();renderDashboard();updateStats();}}}
 }
 var injected=0;var eKeys=new Set(S.analytics.map(a=>(a.email||'')+'|'+(a.campaign||'')));S.camps.filter(c=>c.type!=='sms').forEach(c=>{(c.recentlyChanged||[]).forEach(rc=>{if(!['sent','opened','error','unsubscribed'].includes(rc.status))return;const key=(rc.email||'')+'|'+(c.name||'');if(eKeys.has(key))return;eKeys.add(key);S.analytics.push({type:'email',email:rc.email,campaign:c.name,date:rc.sentAt||rc.openedAt||new Date().toISOString(),status:rc.status==='error'?'error':'sent',opened:rc.status==='opened'||!!rc.opened,openedAt:rc.openedAt||null,unsubscribed:!!rc.unsubscribed,clicks:rc.clicks||[],errorMsg:rc.errorMsg||null});injected++;});(c.emailList||[]).forEach(e=>{if(!['sent','opened','error','unsubscribed'].includes(e.status))return;const key=(e.email||'')+'|'+(c.name||'');if(eKeys.has(key))return;eKeys.add(key);S.analytics.push({type:'email',email:e.email,campaign:c.name,date:e.sentAt||c.launchedAt||c.created||new Date().toISOString(),status:e.status==='error'?'error':'sent',opened:e.status==='opened'||!!e.opened,openedAt:e.openedAt||null,unsubscribed:!!e.unsubscribed,clicks:e.clicks||[],errorMsg:e.errorMsg||null});injected++;});});
 if(injected>0){if(S.analytics.length>50000)S.analytics=S.analytics.slice(S.analytics.length-50000);try{lsS(SK.analytics,S.analytics);}catch(_){}renderDashboard();updateStats();}
@@ -1752,8 +1823,9 @@ function scheduleNextSync(){
   if(!S.wurl)return;
   const running=S.camps.some(c=>c.status==='running');
   const paused=S.camps.some(c=>c.status==='paused');
-  // ÉCONOMIE MAX : 10 min si envoi actif, 30 min si seulement en pause, zéro polling si rien ne tourne.
-  const delay=running?10*60*1000:paused?30*60*1000:0;
+  // v40.10 : 5 min en cours car la sync principale est désormais compacte et READ-ONLY.
+  // Cela aligne l'historique sur le Cron sans ajouter d'écriture KV. 30 min en pause, zéro si inactif.
+  const delay=running?5*60*1000:paused?30*60*1000:0;
   if(!delay)return;
   _syncTimer=setTimeout(async()=>{await syncFromWorker();scheduleNextSync();},delay);
 }
