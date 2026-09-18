@@ -1149,9 +1149,37 @@ var _analyticsPage=0,_smsPage=0;
 const PAGE_SZ=100;
 // v40.3 low-cost Cloudflare
 var _lastAnalyticsSync=0,_lastOrphanSync=0,_syncTimer=null;
-function setDateFilter(mode,btn){document.querySelectorAll('#date-quick-btns .date-qbtn').forEach(b=>b.classList.remove('sel'));if(btn)btn.classList.add('sel');const now=new Date(),today=now.toISOString().slice(0,10);_df.mode=mode;if(mode==='today'){_df.from=today;_df.to=today;}else if(mode==='yesterday'){const y=new Date(now-86400000).toISOString().slice(0,10);_df.from=y;_df.to=y;}else if(mode==='7d'){_df.from=new Date(now-6*86400000).toISOString().slice(0,10);_df.to=today;}else if(mode==='30d'){_df.from=new Date(now-29*86400000).toISOString().slice(0,10);_df.to=today;}else{_df.from=null;_df.to=null;}const fi=$('date-from'),ti=$('date-to');if(fi)fi.value=_df.from||'';if(ti)ti.value=_df.to||'';_analyticsPage=0;_smsPage=0;renderDashboard();}
+// v40.11 — HISTORIQUE EN HEURE LOCALE : ne jamais utiliser la date UTC pour les filtres visuels.
+// À Paris en heure d'été, 00:00–01:59 locales appartiennent encore à la veille UTC ; l'ancien
+// toISOString().slice(0,10) pouvait donc figer "Aujourd'hui" à 01:55/02:00 si la page restait ouverte.
+function _localDateKey(value){
+  const d=value instanceof Date?new Date(value.getTime()):new Date(value);
+  if(!Number.isFinite(d.getTime()))return '';
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function _localDayOffsetKey(offset){
+  const d=new Date();
+  // Midi local évite les ambiguïtés de changement d'heure DST lors des +/- jours.
+  d.setHours(12,0,0,0);d.setDate(d.getDate()+offset);
+  return _localDateKey(d);
+}
+function _refreshQuickDateBounds(){
+  // Recalcul dynamique : si l'application reste ouverte pendant le changement de jour,
+  // le filtre avance automatiquement sans nécessiter de rechargement.
+  if(_df.mode==='today'){_df.from=_localDayOffsetKey(0);_df.to=_df.from;}
+  else if(_df.mode==='yesterday'){_df.from=_localDayOffsetKey(-1);_df.to=_df.from;}
+  else if(_df.mode==='7d'){_df.from=_localDayOffsetKey(-6);_df.to=_localDayOffsetKey(0);}
+  else if(_df.mode==='30d'){_df.from=_localDayOffsetKey(-29);_df.to=_localDayOffsetKey(0);}
+  const fi=$('date-from'),ti=$('date-to');if(fi)fi.value=_df.from||'';if(ti)ti.value=_df.to||'';
+}
+function setDateFilter(mode,btn){document.querySelectorAll('#date-quick-btns .date-qbtn').forEach(b=>b.classList.remove('sel'));if(btn)btn.classList.add('sel');_df.mode=mode;if(mode==='all'){_df.from=null;_df.to=null;}else if(mode!=='custom'){_refreshQuickDateBounds();}const fi=$('date-from'),ti=$('date-to');if(fi)fi.value=_df.from||'';if(ti)ti.value=_df.to||'';_analyticsPage=0;_smsPage=0;renderDashboard();}
 function applyCustomDate(){_df.mode='custom';_df.from=$('date-from')?.value||null;_df.to=$('date-to')?.value||null;document.querySelectorAll('#date-quick-btns .date-qbtn').forEach(b=>b.classList.remove('sel'));_analyticsPage=0;_smsPage=0;renderDashboard();}
-function inRange(dateStr){if(!dateStr)return false;const d=dateStr.slice(0,10);if(_df.from&&d<_df.from)return false;if(_df.to&&d>_df.to)return false;return true;}
+function inRange(dateStr){
+  if(!dateStr)return false;
+  if(_df.mode!=='custom'&&_df.mode!=='all')_refreshQuickDateBounds();
+  const d=_localDateKey(dateStr);if(!d)return false;
+  if(_df.from&&d<_df.from)return false;if(_df.to&&d>_df.to)return false;return true;
+}
 function _clickReportPeriodLabel(){
   if(_df.mode==='today')return "Aujourd'hui";
   if(_df.mode==='yesterday')return 'Hier';
@@ -1373,7 +1401,7 @@ function getAllEmailLogs(){
       const clickEvents=_campClickEvents(c,e.email,e);
       if(key in keyIndex){
         const existing=merged[keyIndex[key]];
-        // v40.10 : réparer aussi les anciennes lignes créées avec la mauvaise date.
+        // v40.11 : réparer aussi les anciennes lignes créées avec la mauvaise date.
         if(e.sentAt&&existing.date!==e.sentAt)existing.date=e.sentAt;
         if(e.errorMsg!==undefined)existing.errorMsg=e.errorMsg;
         if(e.status==='opened'||!!e.opened||openEvents.length){
@@ -1611,7 +1639,7 @@ function renderQSAttachments(){const el=$('qs-attachments-list'),cnt=$('qs-att-c
 async function sendQuickEmail(){const to=($('qs-email-to')?.value||'').split(/[\n,;]+/).map(x=>x.trim()).filter(isEmail);if(!to.length){toast('Aucun destinataire valide','warn');return;}const subj=$('qs-email-subj')?.value.trim();if(!subj){toast('Sujet manquant','warn');return;}const r=$('qs-email-rich');if(!r||!r.innerHTML.trim()){toast('Message vide','warn');return;}toast('Envoi en cours...','info');const smtpCfg=S.smtpConfig&&Object.keys(S.smtpConfig).length?S.smtpConfig:null;await syncW('/quick-send',{type:'email',to,subject:subj,html:r.innerHTML,from:S.ce||S.email,fromName:S.cn||'',provider:S.prov,smtpConfig:smtpCfg,attachments:S._qsAttachments});toast('✓ Envoi déclenché via le Worker','success');}
 async function sendQuickSMS(){const to=($('qs-sms-to')?.value||'').split(/[\n,;]+/).map(x=>x.trim()).filter(x=>x.length>5);if(!to.length){toast('Aucun numéro','warn');return;}const body=$('qs-sms-body')?.value.trim();if(!body){toast('Message vide','warn');return;}toast('Envoi SMS en cours...','info');await syncW('/quick-send',{type:'sms',to,message:body,provider:S.smsProv,apiKey:S.smsKey,apiSecret:S.smsSecret,from:S.smsFrom});toast('✓ SMS déclenché via le Worker','success');}
 // ── EXPORT/IMPORT ──
-function exportData(){const data={camps:S.camps.map(c=>Object.assign({},c,{emailList:c.emailList})),contacts:S.contacts,tpls:S.tpls,lists:S.lists,analytics:S.analytics,smtpConfig:S.smtpConfig,exported:new Date().toISOString(),version:'40.10'};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='pgi-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url);toast('Export téléchargé','success');}
+function exportData(){const data={camps:S.camps.map(c=>Object.assign({},c,{emailList:c.emailList})),contacts:S.contacts,tpls:S.tpls,lists:S.lists,analytics:S.analytics,smtpConfig:S.smtpConfig,exported:new Date().toISOString(),version:'40.11'};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='pgi-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url);toast('Export téléchargé','success');}
 async function resetData(){if(!await pgiConfirm('SUPPRIMER TOUTES les données ?\n(Campagnes, contacts, templates, analytics)','⚠️'))return;Object.values(SK).forEach(k=>{try{localStorage.removeItem(k);}catch(_){}});location.reload();}
 // ── SETTINGS SMTP UI ──
 function onSmtpProviderChange(val){const p=SMTP_PROVIDERS[val]||SMTP_PROVIDERS.custom;S.prov=val;lsS(SK.prov,val);['smtp-oauth-block','smtp-direct-block','smtp-api-block','smtp-mailchannels-block'].forEach(id=>{const el=$(id);if(el)el.style.display='none';});if(p.type==='oauth'){const b=$('smtp-oauth-block');if(b)b.style.display='block';}else if(p.type==='smtp'){const b=$('smtp-direct-block');if(b)b.style.display='block';if(p.host&&$('smtp-host')&&!$('smtp-host').value)$('smtp-host').value=p.host;if(p.port&&$('smtp-port'))$('smtp-port').value=p.port;if(p.tls&&$('smtp-tls'))$('smtp-tls').value=p.tls;const info=$('smtp-host-info');if(info&&p.info){info.innerHTML='<strong style="color:var(--cyan)">'+p.lbl+' :</strong> '+p.info;info.style.display='block';}}else if(p.type==='api'){const b=$('smtp-api-block');if(b)b.style.display='block';const info=$('smtp-api-info');if(info&&p.info){info.innerHTML='<strong style="color:var(--purl)">'+p.lbl+' :</strong> '+p.info;info.style.display='block';}const apiLbl=$('smtp-api-key-lbl');if(apiLbl)apiLbl.textContent=p.key==='resend'?'Clé API Resend (re_xxxx)':'Clé API';}else if(p.type==='mailchannels'){const b=$('smtp-mailchannels-block');if(b)b.style.display='block';}if(S.smtpConfig&&S.smtpConfig.provider===val){if($('smtp-host')&&S.smtpConfig.host)$('smtp-host').value=S.smtpConfig.host;if($('smtp-port')&&S.smtpConfig.port)$('smtp-port').value=S.smtpConfig.port;if($('smtp-user')&&S.smtpConfig.user)$('smtp-user').value=S.smtpConfig.user;if($('smtp-from-name')&&S.smtpConfig.fromName)$('smtp-from-name').value=S.smtpConfig.fromName;if($('smtp-api-from')&&S.smtpConfig.fromEmail)$('smtp-api-from').value=S.smtpConfig.fromEmail;if($('smtp-api-from-name')&&S.smtpConfig.fromName)$('smtp-api-from-name').value=S.smtpConfig.fromName;if($('smtp-mc-from')&&S.smtpConfig.fromEmail)$('smtp-mc-from').value=S.smtpConfig.fromEmail;if($('smtp-mc-from-name')&&S.smtpConfig.fromName)$('smtp-mc-from-name').value=S.smtpConfig.fromName;}}
@@ -1632,7 +1660,7 @@ function initSettingsUI(){const sel=$('smtp-provider-sel');if(sel&&S.prov){sel.v
 // ── WORKER SYNC ──
 var _syncInterval=null,_isSyncing=false;
 function _refreshOpenCampMetrics(){const campId=S.activeCamp||S.activeSMS;if(!campId)return;const c=S.camps.find(x=>x.id===campId);if(!c)return;const total=c.emailList?c.emailList.length:(c.workerTotal||0);const _isLive=c.status==='running'||c.status==='paused'||c.status==='oauth_error';const sent=_isLive?(c.sent||0):0;const opened=_isLive?(c.opened||0):0;const err=_isLive?(c.errors||0):0;const pct=(_isLive&&total)?Math.round((sent/total)*100):0;const clics=c.clicks||0;const cliques=Math.min(clics,sent||clics);const els={'prc-sent-':sent.toLocaleString(),'prc-open-':opened.toLocaleString(),'prc-pct-':pct+'%','prc-contacts-':total.toLocaleString()};Object.keys(els).forEach(prefix=>{const el=document.getElementById(prefix+campId);if(el)el.textContent=els[prefix];});const errEl=document.getElementById('prc-err-'+campId);if(errEl)errEl.textContent=err>0?err+' err':'';const pbarEl=document.getElementById('pbar-'+campId);if(pbarEl)pbarEl.style.width=pct+'%';const ce=document.getElementById('prc-clics-'+campId);if(ce)ce.textContent=clics;const cs=document.getElementById('prc-clics-sub-'+campId);if(cs)cs.textContent=cliques+' email'+(cliques>1?'s':'')+' cliqué'+(cliques>1?'s':'');const asEl=document.getElementById('as-'+campId);if(asEl&&typeof buildAS==='function')asEl.innerHTML=buildAS(c);}
-// v40.10 — synchronisation historique légère, indépendante des grosses listes de contacts.
+// v40.11 — synchronisation historique légère, indépendante des grosses listes de contacts.
 async function pgiFetchTimeout(url,opts={},timeoutMs=12000){
   const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),timeoutMs);
   try{return await fetch(url,{...opts,signal:ctrl.signal});}finally{clearTimeout(t);}
@@ -1713,7 +1741,7 @@ async function reconcileOrphanCampaigns(){
     if(!data.ok||!Array.isArray(data.campaigns))return;
     const localIds=new Set(S.camps.map(c=>String(c.id)));
     const missing=data.campaigns.filter(wc=>!localIds.has(String(wc.id))&&wc.status!=='draft');
-    // v40.10 : une campagne peut avoir quitté active_campaigns entre deux sync.
+    // v40.11 : une campagne peut avoir quitté active_campaigns entre deux sync.
     // Si ses compteurs Worker sont plus récents, on recharge UNE fois son objet complet
     // pour récupérer les derniers sentAt réels. Lecture seule, aucune écriture Cloudflare.
     const stale=data.campaigns.filter(wc=>{
@@ -1773,7 +1801,7 @@ try{await syncHistoryDelta();}catch(e){console.warn('history-delta:',e.message);
 const campRes=await pgiFetchTimeout(S.wurl+'/sync/campaigns?compact=1',{},12000);
 if(campRes.ok){const data=await campRes.json();if(data.campaigns&&Array.isArray(data.campaigns)){var updated=0;data.campaigns.forEach(wc=>{var local=S.camps.find(c=>c.id==wc.id);if(!local||local.status==='draft')return;if(wc.sent>=(local.sent||0)){local.sent=wc.sent;updated++;}if(wc.opened>(local.opened||0)){local.opened=wc.opened;updated++;}if(wc.errors>(local.errors||0)){local.errors=wc.errors;updated++;}if(wc.unsubscribed!==undefined)local.unsubscribed=wc.unsubscribed;if(wc.clicks>(local.clicks||0)){local.clicks=wc.clicks;updated++;}if(mergeWorkerCampaignTracking(wc,local))updated++;if(wc.pending!==undefined){local.workerPending=wc.pending;updated++;}if(wc.dailySent!==undefined){local.dailySent=wc.dailySent;local.dailyDate=new Date().toDateString();updated++;}if(wc.contacts&&Array.isArray(wc.contacts)){if(!local.recentlyChanged)local.recentlyChanged=[];let contactsChanged=false;wc.contacts.forEach(wContact=>{if(wContact.status==='sent'||wContact.status==='opened'){const ex=local.recentlyChanged.find(r=>r.email===wContact.email);if(!ex)local.recentlyChanged.push(wContact);}const lC=local.emailList&&local.emailList.find(e=>e.email===wContact.email);if(lC){
 if(wContact.status&&wContact.status!==lC.status){lC.status=wContact.status;contactsChanged=true;}
-// v40.10 : l'historique doit suivre l'heure RÉELLE confirmée par le Worker.
+// v40.11 : l'historique doit suivre l'heure RÉELLE confirmée par le Worker.
 if(wContact.sentAt&&wContact.sentAt!==lC.sentAt){lC.sentAt=wContact.sentAt;contactsChanged=true;}
 if(wContact.errorMsg!==undefined&&wContact.errorMsg!==lC.errorMsg){lC.errorMsg=wContact.errorMsg;contactsChanged=true;}
 if(wContact.openedAt&&wContact.openedAt!==lC.openedAt){lC.openedAt=wContact.openedAt;contactsChanged=true;}
@@ -1787,7 +1815,7 @@ if(wContact.unsubscribed!==undefined&&wContact.unsubscribed!==lC.unsubscribed){l
 // Synchroniser S.analytics pour que getAllEmailLogs soit cohérent
 if(lC){
 let aEntry=S.analytics.find(a=>a.type==='email'&&a.email===lC.email&&a.campaign===local.name);
-// v40.10 : créer immédiatement la ligne d'historique depuis la confirmation Worker,
+// v40.11 : créer immédiatement la ligne d'historique depuis la confirmation Worker,
 // avec sentAt réel. Plus de fallback sur la date de lancement de campagne.
 if(!aEntry&&['sent','opened','error','unsubscribed'].includes(wContact.status)){
   aEntry={type:'email',email:lC.email,campaign:local.name,date:wContact.sentAt||lC.sentAt||new Date().toISOString(),status:wContact.status==='error'?'error':'sent',opened:false,openedAt:null,openEvents:[],openCount:0,unsubscribed:!!wContact.unsubscribed,clicks:[],clickCount:0,errorMsg:wContact.errorMsg||lC.errorMsg||null};
@@ -1823,7 +1851,7 @@ function scheduleNextSync(){
   if(!S.wurl)return;
   const running=S.camps.some(c=>c.status==='running');
   const paused=S.camps.some(c=>c.status==='paused');
-  // v40.10 : 5 min en cours car la sync principale est désormais compacte et READ-ONLY.
+  // v40.11 : 5 min en cours car la sync principale est désormais compacte et READ-ONLY.
   // Cela aligne l'historique sur le Cron sans ajouter d'écriture KV. 30 min en pause, zéro si inactif.
   const delay=running?5*60*1000:paused?30*60*1000:0;
   if(!delay)return;
